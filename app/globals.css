@@ -1,0 +1,40 @@
+@import '@fontsource-variable/archivo/standard.css';
+@import '@fontsource/doto/900.css';
+@import "tailwindcss";
+
+:root {
+  --navy: #080b14;
+  --panel: #11151f;
+  --panel-raised: #151a25;
+  --input: #191e2a;
+  --line: #2a3040;
+  --gold: #ffc43d;
+  --gold-soft: #f6bc32;
+  --ink: #f2f0e9;
+  --muted: #a7a9b3;
+  --muted-soft: #7f8491;
+  --nav-active: #2a273d;
+}
+@theme inline {
+  --color-navy: var(--navy);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-input: var(--input);
+  --color-nav-active: var(--nav-active);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+}
+body { background: var(--navy); color: var(--ink); font-family: 'Archivo Variable', Arial, sans-serif; }
+h1, h2, h3 { font-family: 'Archivo Variable', Arial, sans-serif; font-stretch: 72%; font-weight: 800; text-transform: uppercase; line-height: 1.08; }
+.glass { background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 28px rgba(0,0,0,.10); }
+.deck-label { color: var(--gold); font-size: .7rem; font-weight: 800; letter-spacing: .19em; text-transform: uppercase; }
+.deck-number { font-family: Doto, monospace; font-weight: 900; color: var(--gold); }
+.metric-number { font-family: Doto, monospace; font-weight: 900; font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+input, select, textarea { color: var(--ink); font-family: 'Archivo Variable', Arial, sans-serif; }
+input:not([type='hidden']), select, textarea { background-color: var(--input); border-color: var(--line); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+input::placeholder { color: var(--muted); }

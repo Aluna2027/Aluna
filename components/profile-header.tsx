@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import { safeUrl } from '@/lib/profiles';
+export function ProfileHeader({ name, kind, location, website, imageUrl, editHref, unverified=false }: {name:string;kind:string;location?:string|null;website?:string|null;imageUrl?:string|null;editHref?:string;unverified?:boolean}) {
+ const href=safeUrl(website); const image=safeUrl(imageUrl);
+ return <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><div className="flex items-start gap-5">{image&&<div role="img" aria-label={`${name} profile image`} className="h-16 w-16 shrink-0 rounded-xl border border-line bg-cover bg-center" style={{backgroundImage:`url(${JSON.stringify(image)})`}}/>}<div><p className="deck-label">ALUNA GLOBAL NETWORK · {kind}</p><h1 className="mt-5 text-4xl sm:text-5xl">{name}</h1>{unverified&&<p className="mt-2 text-xs text-muted">Organization details have not been verified by Aluna.</p>}</div></div><div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">{location&&<span>{location}</span>}{href&&<a className="text-gold hover:underline" href={href} target="_blank" rel="noopener noreferrer">Website ↗</a>}{editHref&&<Link className="ml-auto rounded-lg border border-gold px-4 py-2 text-gold hover:bg-gold/10" href={editHref}>Edit profile</Link>}</div></header>;
+}

@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import { requestPasswordReset } from '../login/actions';
+export default async function ForgotPassword({searchParams}:{searchParams:Promise<{status?:string;error?:string}>}){
+ const {status,error}=await searchParams;
+ return <main className="grid min-h-screen place-items-center bg-navy p-5"><section className="glass w-full max-w-md rounded-2xl p-8"><Link href="/login" className="text-sm text-gold">← Log in</Link><p className="deck-label mt-8">ALUNA GLOBAL NETWORK</p><h1 className="mt-3 text-3xl">Reset your password</h1><p className="mt-3 text-muted">Enter your email address and we will send a password reset link.</p>{status==='sent'&&<p role="status" className="mt-5 text-sm text-ink">If an account exists for this address, an email is on its way.</p>}{error&&<p role="alert" className="mt-5 text-sm text-amber-300">Enter a valid email address.</p>}<form action={requestPasswordReset} className="mt-6 space-y-4"><label className="block text-sm">Email<input required type="email" name="email" autoComplete="email" className="mt-2 w-full rounded-xl border border-line bg-input p-3"/></label><button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Send reset link</button></form></section></main>;
+}

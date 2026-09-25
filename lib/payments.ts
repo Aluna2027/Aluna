@@ -1,0 +1,12 @@
+import 'server-only';
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+import { supabaseConfig } from '@/lib/supabase/config';
+export function stripeServer(){const key=process.env.STRIPE_SECRET_KEY;if(!key?.startsWith('sk_test_'))throw new Error('A Stripe test secret key is required for the demo.');return new Stripe(key);}
+export function paymentAdmin(){const key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!key)throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured.');return createClient(supabaseConfig().url,key,{auth:{persistSession:false,autoRefreshToken:false}});}
+export function siteOrigin(){const raw=process.env.ALUNA_SITE_URL;if(!raw)throw new Error('ALUNA_SITE_URL is not configured.');const url=new URL(raw);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('ALUNA_SITE_URL must be HTTPS.');return url.origin;}
+export function stripeId(value:string|{id:string}|null|undefined){return typeof value==='string'?value:value?.id??null;}
+export function amountMinor(choice:string,custom:string){if(['10','25','50','100'].includes(choice))return Number(choice)*100;if(choice!=='custom'||!/^\d{1,6}(\.\d{1,2})?$/.test(custom))throw new Error('Invalid amount');const [whole,cents='']=custom.split('.');const amount=Number(whole)*100+Number(cents.padEnd(2,'0'));if(!Number.isSafeInteger(amount)||amount<100||amount>10_000_000)throw new Error('Amount must be between 1 and 100,000');return amount;}
+export type CheckoutRecord={id:string;request_key:string;campaign_id:string;fundraiser_id:string|null;amount_minor:number;currency_code:string;frequency:'once'|'monthly';donation_kind:'standard'|'sponsorship';donor_kind:'individual'|'company';company_name:string|null;anonymous:boolean;referral_link_id:string|null;referral_source:string|null;stripe_session_id:string|null;stripe_session_url:string|null;status:string;created_at:string};
+export function reportPaymentError(error:unknown){console.error('Payment processing failed',error instanceof Error?error.name:'unknown');}
+export async function chargeReceipt(stripe:Stripe,intent:Stripe.PaymentIntent){const charge=intent.latest_charge;if(typeof charge==='string'){const found=await stripe.charges.retrieve(charge);return {chargeId:found.id,receiptUrl:found.receipt_url};}return charge?{chargeId:charge.id,receiptUrl:charge.receipt_url}:{chargeId:null,receiptUrl:null};}

@@ -1,0 +1,18 @@
+'use client';
+import { useState } from 'react';
+import Image from 'next/image';
+import QRCode from 'qrcode';
+type Source='whatsapp'|'facebook'|'instagram'|'linkedin'|'x'|'tiktok'|'telegram'|'email'|'qr'|'copy';
+const choices:{source:Source;label:string}[]=[{source:'whatsapp',label:'WhatsApp'},{source:'facebook',label:'Facebook'},{source:'instagram',label:'Instagram'},{source:'linkedin',label:'LinkedIn'},{source:'x',label:'X'},{source:'tiktok',label:'TikTok'},{source:'telegram',label:'Telegram'},{source:'email',label:'Email'},{source:'qr',label:'QR Code'},{source:'copy',label:'Copy Link'}];
+export function ReferralShare({token,path,title}:{token?:string;path?:string;title:string}){
+ const [open,setOpen]=useState(false),[qr,setQr]=useState(''),[status,setStatus]=useState('');
+ function url(source:Source){return new URL(token?`/r/${token}?source=${source}`:path||'/',window.location.origin).toString();}
+ async function copy(value:string){try{await navigator.clipboard.writeText(value);return true;}catch{window.prompt('Copy this referral link',value);return false;}}
+ async function share(source:Source){const link=url(source),encoded=encodeURIComponent(link),message=encodeURIComponent(`${title} — ${link}`);if(source==='qr'){setQr(await QRCode.toDataURL(link,{width:256,margin:2,color:{dark:'#0a0c14',light:'#ece9e1'}}));setStatus('Scan this QR code to open the fundraiser.');return;}
+  if(source==='copy'){setStatus(await copy(link)?'Referral link copied.':'Copy your referral link.');return;}
+  if(source==='instagram'||source==='tiktok'){if(navigator.share){try{await navigator.share({title,url:link});setStatus(`Choose ${source==='instagram'?'Instagram':'TikTok'} in your share menu.`);return;}catch{/* fall back to a copyable link */}}setStatus(await copy(link)?`Link copied. Paste it into ${source==='instagram'?'Instagram':'TikTok'}; these platforms do not provide a web share composer.`:`Copy this link for ${source==='instagram'?'Instagram':'TikTok'}.`);return;}
+  const destinations:Partial<Record<Source,string>>={whatsapp:`https://api.whatsapp.com/send?text=${message}`,facebook:`https://www.facebook.com/sharer/sharer.php?u=${encoded}`,linkedin:`https://www.linkedin.com/sharing/share-offsite/?url=${encoded}`,x:`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encoded}`,telegram:`https://t.me/share/url?url=${encoded}&text=${encodeURIComponent(title)}`,email:`mailto:?subject=${encodeURIComponent(title)}&body=${message}`};
+  const destination=destinations[source];if(destination){if(source==='email')window.location.href=destination;else window.open(destination,'_blank','noopener,noreferrer');}
+ }
+ return <div className="w-full"><button type="button" aria-expanded={open} onClick={()=>setOpen(!open)} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Share {token?'fundraiser':'campaign'}</button>{open&&<div className="mt-4 rounded-2xl border border-line bg-panel-raised p-4"><p className="mb-3 text-sm text-ink">{token?'Share with your referral link':'Share this campaign'}</p><div className="flex flex-wrap gap-2">{choices.map(({source,label})=><button key={source} type="button" onClick={()=>void share(source)} className="rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-gold">{label}</button>)}</div>{status&&<p role="status" className="mt-3 text-sm text-muted">{status}</p>}{qr&&<div className="mt-4 inline-block rounded-xl bg-[#ece9e1] p-3"><Image src={qr} width={256} height={256} unoptimized alt="QR code for this fundraising page"/></div>}</div>}</div>;
+}

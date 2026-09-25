@@ -1,0 +1,9 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { Card } from '@/components/ui';
+import { changeAccountEmail,changeAccountPassword } from './actions';
+export default async function Settings({searchParams}:{searchParams:Promise<{error?:string;status?:string}>}){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');const {error,status}=await searchParams;
+ return <div className="space-y-6"><header><p className="deck-label">ALUNA · ACCOUNT</p><h1 className="mt-2 text-4xl">Account settings</h1><Link className="mt-3 inline-block text-gold" href="/profile/edit">Edit public profile →</Link></header>{error&&<p role="alert" className="text-sm text-amber-300">Could not update {error}. Check your details and try again.</p>}{status&&<p role="status" className="text-sm text-gold">{status==='email'?'Check your email to confirm the change.':'Password updated.'}</p>}<div className="grid gap-5 md:grid-cols-2"><Card title="Email address"><p className="mb-4 text-sm">Current: {user.email}</p><form action={changeAccountEmail} className="space-y-4"><label className="block text-sm">New email<input type="email" name="email" required autoComplete="email" className="mt-2 w-full rounded-xl border border-line bg-input p-3"/></label><button className="rounded-xl bg-gold px-4 py-2 font-semibold text-navy">Change email</button></form></Card><Card title="Password"><form action={changeAccountPassword} className="space-y-4"><label className="block text-sm">New password<input type="password" name="password" required minLength={12} maxLength={128} autoComplete="new-password" className="mt-2 w-full rounded-xl border border-line bg-input p-3"/></label><button className="rounded-xl bg-gold px-4 py-2 font-semibold text-navy">Change password</button></form></Card></div></div>;
+}

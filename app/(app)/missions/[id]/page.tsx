@@ -1,0 +1,55 @@
+import { ContributionList } from '@/components/contribution-list';
+import { ProofList } from '@/components/proof-list';
+import { ImpactView } from '@/components/impact-view';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { actorDetails, ownedActors, relativeDate, type FeedPost } from '@/lib/social';
+import { getCity } from '@/lib/cities';
+import { type Mission, missionTabs, money, participationOptions } from '@/lib/missions';
+import { tabSlug } from '@/lib/profiles';
+import { Card, Placeholder } from '@/components/ui';
+import { ProfileTabs } from '@/components/profile-tabs';
+import { PostComposer } from '@/components/post-composer';
+import { FeedList } from '@/components/feed-list';
+import { MissionFundraising } from '@/components/mission-fundraising';
+import { joinMission, leaveMission } from '../actions';
+export default async function MissionPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string;before?:string;before_id?:string}>}) {
+ const {id}=await params;const {tab,status,error,before,before_id}=await searchParams;const client=await createClient();
+ const {data:row}=await client.from('missions').select('*,places(name,source_key),mesh_communities(name)').eq('id',id).maybeSingle();if(!row)notFound();
+ const mission=row as unknown as Mission & {places:{name:string;source_key:string}|null;mesh_communities:{name:string}|null};
+ const active=missionTabs.find(t=>tabSlug(t)===tab)??'Overview';const actors=await ownedActors();
+ const [{data:participants},{data:mine}]=await Promise.all([client.from('mission_participations').select('actor_id,participation_kind,joined_at').eq('mission_id',id).limit(200),actors.length?client.from('mission_participations').select('actor_id,participation_kind').eq('mission_id',id).in('actor_id',actors.map(a=>a.id)):Promise.resolve({data:[]})]);
+ const participantIds=[...new Set((participants??[]).map(p=>p.actor_id))];const detail=await actorDetails([...participantIds,mission.created_by_actor_id]);
+ const canEdit=actors.some(a=>a.id===mission.created_by_actor_id);const participantActors=actors.filter(a=>a.id===mission.created_by_actor_id||mine?.some(p=>p.actor_id===a.id));
+ const creator=detail.get(mission.created_by_actor_id);const city=mission.places?.source_key?getCity(mission.places.source_key):null;
+ const cursor=before&&!Number.isNaN(Date.parse(before))?before:null;
+ const {data:feed}=active==='Posts'?await client.rpc('mission_feed_page',{p_mission:id,p_before:cursor,p_before_id:before_id||null,p_limit:20}):{data:null};const posts=(feed??[]) as FeedPost[];
+ const {data:missionPosts}=active==='Comments'?await client.from('posts').select('id').eq('mission_id',id).order('created_at',{ascending:false}).limit(100):{data:null};
+ const postIds=(missionPosts??[]).map(p=>p.id);
+ const {data:comments}=active==='Comments'&&postIds.length?await client.from('comments').select('id,post_id,actor_id,body,created_at').in('post_id',postIds).order('created_at',{ascending:false}).limit(50):{data:null};
+ const commentActors=active==='Comments'?await actorDetails((comments??[]).map(c=>c.actor_id)):new Map();
+ const base=`/missions/${id}`;
+ return <div className="space-y-6"><Link href="/missions" className="text-sm text-gold">← Missions</Link>{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Mission saved.</p>}{error&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
+ <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><p className="deck-label">MISSION · {mission.places?.name||'CITY'}</p><h1 className="mt-4 text-4xl sm:text-5xl">{mission.title}</h1><p className="mt-3 text-muted">{mission.location_text}{city?` · ${city.country}`:''}</p><div className="mt-7 flex flex-wrap gap-3"><Link href={`${base}?tab=participants`} className="rounded-xl bg-gold px-4 py-2 font-semibold text-navy">Join Mission</Link><Link href={`${base}?tab=fundraising`} className="rounded-xl border border-line px-4 py-2 text-gold">Start Fundraising</Link><Link href={`${base}?tab=donate`} className="rounded-xl border border-line px-4 py-2 text-gold">Donate</Link>{canEdit&&<Link href={`${base}/edit`} className="rounded-xl border border-line px-4 py-2 text-muted">Edit</Link>}</div></header>
+ <ProfileTabs base={base} tabs={missionTabs} active={tabSlug(active)}/>
+ {active==='Overview'&&<div className="grid gap-5 md:grid-cols-2"><Card title="Overview"><p className="whitespace-pre-wrap">{mission.overview}</p></Card><Card title="Goal"><p className="whitespace-pre-wrap">{mission.goal}</p></Card><Card title="Where"><p>{mission.location_text}</p>{city&&<Link href={`/cities/${city.id}?tab=missions`} className="mt-3 block text-gold">{city.name}, {city.country} →</Link>}{mission.community_id&&<Link href={`/communities/${mission.community_id}?tab=missions`} className="mt-2 block text-gold">{mission.mesh_communities?.name} →</Link>}</Card><Card title="At a glance"><p>Timeline: {mission.starts_on||'Not set'} – {mission.ends_on||'Not set'}</p><p className="mt-2">Budget: {money(mission.budget_amount,mission.currency_code)}</p><p className="mt-2">Funding goal: {money(mission.funding_goal_amount,mission.currency_code)}</p></Card></div>}
+ {active==='Location'&&<Card title="Location"><p>{mission.location_text}</p>{city&&<Link href={`/cities/${city.id}`} className="mt-3 block text-gold">{city.name}, {city.country} →</Link>}{mission.community_id&&<Link href={`/communities/${mission.community_id}`} className="mt-2 block text-gold">Wi-Fi Mesh Community: {mission.mesh_communities?.name} →</Link>}</Card>}
+ {active==='Goal'&&<Card title="Goal"><p className="whitespace-pre-wrap">{mission.goal}</p></Card>}
+ {active==='Timeline'&&<Card title="Timeline"><p>Starts: {mission.starts_on||'Not set'}</p><p className="mt-2">Ends: {mission.ends_on||'Not set'}</p></Card>}
+ {active==='Team'&&<Card title="Team"><p className="mb-4">Mission creator: <Link href={creator?.href||'/missions'} className="text-gold">{creator?.name||'Member'}</Link></p><div className="space-y-2">{participants?.filter(p=>p.participation_kind==='join_team').map(p=><Link key={p.actor_id} href={detail.get(p.actor_id)?.href||'/missions'} className="block rounded-lg border border-line p-3 text-gold">{detail.get(p.actor_id)?.name||'Member'}</Link>)}{!participants?.some(p=>p.participation_kind==='join_team')&&<p>No team members yet.</p>}</div></Card>}
+ {active==='Roles'&&<Card title="Roles"><p className="whitespace-pre-wrap">{mission.roles_summary||'Specific team roles have not been described yet.'}</p><div className="mt-5 flex flex-wrap gap-2">{participationOptions.map(o=><span key={o.value} className="rounded-full border border-line px-3 py-1 text-xs">{o.label}</span>)}</div></Card>}
+ {active==='Budget'&&<Card title="Budget"><p className="text-2xl text-ink">{money(mission.budget_amount,mission.currency_code)}</p><p className="mt-3 text-sm">Budget is supplied by the mission creator; it is not a record of spending.</p></Card>}
+ {active==='Funding Goal'&&<Card title="Funding goal"><p className="text-2xl text-ink">{money(mission.funding_goal_amount,mission.currency_code)}</p><p className="mt-3 text-sm">Funding tracking will be added later.</p></Card>}
+ {active==='Participants'&&<Card title="Join Mission"><p className="mb-5">Choose how you want to participate. You may join in more than one way.</p>{actors.length>0&&<form action={joinMission} className="flex flex-wrap gap-3"><input type="hidden" name="mission_id" value={id}/><select name="actor_id" aria-label="Join as" className="rounded-lg border border-line bg-panel-raised p-2">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><select name="participation_kind" aria-label="Participation option" className="rounded-lg border border-line bg-panel-raised p-2">{participationOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select><button className="rounded-lg bg-gold px-4 py-2 text-navy">Join Mission</button></form>}<div className="mt-6 space-y-3">{participants?.map(p=>{const actor=detail.get(p.actor_id);const label=participationOptions.find(o=>o.value===p.participation_kind)?.label||p.participation_kind;return <div key={`${p.actor_id}-${p.participation_kind}`} className="flex flex-wrap justify-between gap-2 rounded-lg border border-line p-3"><Link href={actor?.href||'/missions'} className="text-gold">{actor?.name||'Member'} · {label}</Link>{actors.some(a=>a.id===p.actor_id)&&<form action={leaveMission}><input type="hidden" name="mission_id" value={id}/><input type="hidden" name="actor_id" value={p.actor_id}/><input type="hidden" name="participation_kind" value={p.participation_kind}/><button className="text-xs text-muted">Leave</button></form>}</div>})}{!participants?.length&&<p>No participants yet.</p>}</div></Card>}
+ {active==='Posts'&&<div className="mx-auto max-w-3xl space-y-5"><PostComposer actors={participantActors} returnTo={base} missionId={id}/><FeedList posts={posts} actors={participantActors} returnTo={base}/>{posts.length===20&&<Link href={`${base}?tab=posts&before=${encodeURIComponent(posts[19].created_at)}&before_id=${posts[19].id}`} className="text-gold">Older posts →</Link>}{!participantActors.length&&<p className="text-sm text-muted">Join this mission to post updates.</p>}</div>}
+ {active==='Comments'&&<Card title="Recent comments"><div className="space-y-3">{comments?.map(c=><Link key={c.id} href={`/posts/${c.post_id}`} className="block rounded-lg border border-line p-3 text-ink hover:border-gold"><span className="text-sm text-gold">{commentActors.get(c.actor_id)?.name||'Member'} · {relativeDate(c.created_at)}</span><p className="mt-2 line-clamp-3 whitespace-pre-wrap">{c.body}</p></Link>)}{!comments?.length&&<p>No comments on recent mission posts yet.</p>}</div></Card>}
+ {active==='Messages'&&<Card title="Messages"><p>Contact the mission creator privately.</p>{creator&&<Link href={`/messages?to=${creator.id}`} className="mt-4 inline-block text-gold">Message {creator.name} →</Link>}</Card>}
+ {active==='Contributions'&&<ContributionList missionId={id}/>}
+ {active==='Proofs'&&<ProofList missionId={id}/>}
+ {active==='Verification'&&<Card title="Verification"><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`${base}?tab=proofs`} className="mt-4 inline-block text-gold">View mission proofs →</Link></Card>}
+ {active==='Fundraising'&&<MissionFundraising missionId={id}/>}
+ {active==='Donate'&&<MissionFundraising missionId={id}/>}
+ {active==='Impact'&&<ImpactView scope={{missionId:id}}/>} 
+ </div>;
+}

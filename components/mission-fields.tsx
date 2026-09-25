@@ -1,0 +1,11 @@
+import type { Mission } from '@/lib/missions';
+export function MissionFields({mission}:{mission?:Mission}) {
+ const input='mt-2 w-full rounded-xl border border-line bg-panel-raised p-3';
+ return <><label className="block text-sm">Title<input name="title" required minLength={3} maxLength={180} defaultValue={mission?.title??''} className={input}/></label>
+ <label className="block text-sm">Overview<textarea name="overview" required minLength={10} maxLength={5000} rows={5} defaultValue={mission?.overview??''} className={input}/></label>
+ <label className="block text-sm">Physical location<input name="location" required minLength={2} maxLength={240} placeholder="Neighborhood or project site" defaultValue={mission?.location_text??''} className={input}/></label>
+ <label className="block text-sm">Goal<textarea name="goal" required minLength={3} maxLength={2000} rows={3} defaultValue={mission?.goal??''} className={input}/></label>
+ <label className="block text-sm">Team roles needed<textarea name="roles_summary" maxLength={2000} rows={3} defaultValue={mission?.roles_summary??''} className={input}/></label>
+ <div className="grid gap-4 sm:grid-cols-2"><label className="block text-sm">Start date<input name="starts_on" type="date" defaultValue={mission?.starts_on??''} className={input}/></label><label className="block text-sm">End date<input name="ends_on" type="date" defaultValue={mission?.ends_on??''} className={input}/></label></div>
+ <div className="grid gap-4 sm:grid-cols-3"><label className="block text-sm">Budget<input name="budget_amount" type="number" min={0} step="0.01" defaultValue={mission?.budget_amount??''} className={input}/></label><label className="block text-sm">Funding goal<input name="funding_goal_amount" type="number" min={0} step="0.01" defaultValue={mission?.funding_goal_amount??''} className={input}/></label><label className="block text-sm">Currency<select name="currency_code" defaultValue={mission?.currency_code??'EUR'} className={input}><option value="EUR">EUR</option><option value="USD">USD</option><option value="GBP">GBP</option></select></label></div></>;
+}

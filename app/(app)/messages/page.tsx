@@ -1,0 +1,18 @@
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
+import { sendMessage } from './actions';
+export default async function Messages({searchParams}:{searchParams:Promise<{to?:string;conversation?:string;error?:string}>}) {
+ const {to,conversation,error}=await searchParams;const actors=await ownedActors();const client=await createClient();const ids=actors.map(a=>a.id);
+ const {data:threads}=ids.length?await client.from('conversations').select('id,actor_a,actor_b,created_at').or(`actor_a.in.(${ids.join(',')}),actor_b.in.(${ids.join(',')})`).order('created_at',{ascending:false}).limit(50):{data:[]};
+ const selected=threads?.find(t=>t.id===conversation)??(conversation?(await client.from('conversations').select('id,actor_a,actor_b,created_at').eq('id',conversation).maybeSingle()).data:null);const otherId=selected?(ids.includes(selected.actor_a)?selected.actor_b:selected.actor_a):to;
+ const people=await actorDetails([...(threads??[]).flatMap(t=>[t.actor_a,t.actor_b]),...(otherId?[otherId]:[])]);
+ const {data:recent}=selected?await client.from('direct_messages').select('id,sender_actor_id,body,created_at').eq('conversation_id',selected.id).order('created_at',{ascending:false}).limit(100):{data:[]};
+ const sender=selected?actors.find(a=>a.id===selected.actor_a||a.id===selected.actor_b):actors[0];
+ const recipient=otherId?people.get(otherId):null;
+ return <div className="space-y-6"><div><p className="deck-label">PRIVATE CONVERSATIONS</p><h1 className="mt-2 text-4xl">Messages</h1><p className="mt-2 text-sm text-muted">Only conversation participants can read messages.</p></div>{error&&<p role="alert" className="text-amber-300">Could not send the message. Check the recipient and try again.</p>}
+ <div className="grid gap-5 lg:grid-cols-[260px_1fr]"><aside className="glass rounded-2xl p-4"><h2 className="mb-4 text-lg">Conversations</h2><div className="space-y-2">{threads?.map(t=>{const peer=people.get(ids.includes(t.actor_a)?t.actor_b:t.actor_a);return <Link key={t.id} href={`/messages?conversation=${t.id}`} className={`block rounded-lg p-3 text-sm ${selected?.id===t.id?'bg-panel-raised text-gold':'text-ink hover:bg-panel-raised'}`}>{peer?.name||'Member'}</Link>})}{!threads?.length&&<p className="text-sm text-muted">No conversations yet. Open a profile and choose Message.</p>}</div></aside>
+ <section className="glass min-h-80 rounded-2xl p-5"><h2 className="text-xl">{recipient?.name||'Select a conversation'}</h2>{selected&&<div className="mt-5 max-h-[500px] space-y-4 overflow-y-auto">{[...(recent??[])].reverse().map(m=><div key={m.id} className="rounded-xl bg-panel-raised p-3"><p className="text-xs text-gold">{people.get(m.sender_actor_id)?.name||actors.find(a=>a.id===m.sender_actor_id)?.name||'Member'} · {relativeDate(m.created_at)}</p><p className="mt-2 whitespace-pre-wrap break-words">{m.body}</p></div>)}</div>}
+ {recipient&&sender&&<form action={sendMessage} className="mt-6 space-y-3"><input type="hidden" name="recipient_actor_id" value={recipient.id}/>{selected&&<input type="hidden" name="conversation_id" value={selected.id}/>}<textarea name="body" required maxLength={4000} rows={3} placeholder="Write a private message…" className="w-full rounded-xl border border-line bg-panel-raised p-3 text-ink"/><div className="flex flex-wrap gap-3"><select name="sender_actor_id" defaultValue={sender.id} aria-label="Send as" className="rounded-lg border border-line bg-panel-raised p-2">{actors.filter(a=>a.id!==recipient.id).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><button className="rounded-lg bg-gold px-5 py-2 font-semibold text-navy">Send</button></div></form>}
+ </section></div></div>;
+}
