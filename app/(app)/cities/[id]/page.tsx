@@ -4,7 +4,6 @@ import { cityTabs, formatPopulation, getCity, populationCategory } from '@/lib/c
 import { createClient } from '@/lib/supabase/server';
 import { Card, Placeholder } from '@/components/ui';
 import { ImpactView } from '@/components/impact-view';
-export function generateStaticParams() {return [] as {id:string}[];}
 export default async function CityPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string}>}) {
  const {id}=await params;const {tab}=await searchParams;const city=getCity(id);if(!city)notFound();
  const active=cityTabs.find(t=>t.slug===tab)??cityTabs[0];
