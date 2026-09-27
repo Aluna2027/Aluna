@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { paymentAdmin, stripeId, stripeServer, chargeReceipt, reportPaymentError } from '@/lib/payments';
 export const runtime='nodejs';
-function uuid(value:string|null|undefined){return !!value&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);}
+function uuid(value:string|null|undefined){return !!value&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);}
 async function call(name:string,args:Record<string,unknown>){const admin=paymentAdmin();const {error}=await admin.rpc(name,args);if(error)throw new Error(`${name} failed: ${error.code}`);}
 async function checkout(event:Stripe.Event){const id=(event.data.object as Stripe.Checkout.Session).id;const stripe=stripeServer();const session=await stripe.checkout.sessions.retrieve(id,{expand:['payment_intent.latest_charge']});const checkoutId=session.metadata?.checkout_id;if(!uuid(checkoutId)||session.client_reference_id!==checkoutId)throw new Error('Checkout metadata mismatch');const admin=paymentAdmin();const {data:row,error}=await admin.from('donation_checkouts').select('id,amount_minor,currency_code,frequency').eq('id',checkoutId).single();if(error||!row)throw new Error('Checkout missing');if(session.amount_total!==row.amount_minor||session.currency?.toUpperCase()!==row.currency_code||session.mode!==(row.frequency==='monthly'?'subscription':'payment'))throw new Error('Checkout amount or mode mismatch');
  const common={p_event:event.id,p_type:event.type,p_checkout:row.id,p_session:session.id,p_customer:stripeId(session.customer),p_email:session.customer_details?.email??null,p_name:session.customer_details?.name??null};
