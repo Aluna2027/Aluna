@@ -36,7 +36,7 @@ const system=[
 export default function Home(){return <div className="aluna-landing">
   <section id="top" className="landing-hero landing-layer landing-dark">
     <header className="landing-header">
-      <Link href="#top" className="landing-logo" aria-label="Aluna home"><img src="/aluna-logo.webp" alt="ALUNA"/></Link>
+      <Link href="#top" className="landing-logo" aria-label="Aluna home"><img src="/aluna-logo.svg" alt="ALUNA"/></Link>
       <nav className="landing-nav" aria-label="Landing page navigation">
         <div>{navigation.slice(0,4).map(([label,href])=><Link key={label} href={href}>{label}</Link>)}</div>
         <div>{navigation.slice(4).map(([label,href])=><Link key={label} href={href}>{label}</Link>)}</div>
@@ -111,5 +111,5 @@ export default function Home(){return <div className="aluna-landing">
     <div className="landing-join"><div><p className="landing-kicker">JOIN ALUNA</p><h2>JOIN THE<br/>GLOBAL NETWORK.</h2><p>Be part of a fairer, more connected world. People, communities and organizations building real impact together.</p></div><div className="landing-join-actions"><Link href="/login?mode=signup" className="landing-account landing-account-join">JOIN ALUNA</Link><Link href="/login" className="landing-account landing-account-login">LOG IN</Link></div></div>
   </section>
 
-  <footer className="landing-footer landing-layer landing-dark"><Link href="#top" className="landing-footer-logo" aria-label="Back to top"><img src="/aluna-logo.webp" alt="ALUNA"/></Link><div className="landing-footer-meta"><span>A CONNECTED HUMAN FUTURE.</span><span>© 2027 ALUNA. ALL RIGHTS RESERVED.</span></div></footer>
+  <footer className="landing-footer landing-layer landing-dark"><Link href="#top" className="landing-footer-logo" aria-label="Back to top"><img src="/aluna-logo.svg" alt="ALUNA"/></Link><div className="landing-footer-meta"><span>A CONNECTED HUMAN FUTURE.</span><span>© 2027 ALUNA. ALL RIGHTS RESERVED.</span></div></footer>
 </div>}
