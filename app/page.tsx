@@ -52,7 +52,7 @@ export default function Home(){return <div className="aluna-landing">
         <h1>A CONNECTED<br/>WORLD BELONGS<br/>TO <span>ITS PEOPLE.</span></h1>
         <p className="landing-lead">Aluna builds community-owned Wi-Fi mesh networks that connect the unconnected — and turn access into opportunity, ownership and real impact.</p>
       </div>
-      <div className="landing-hero-visual" aria-hidden="true"><div className="landing-orbit landing-orbit-one"/><div className="landing-orbit landing-orbit-two"/><div className="landing-hero-portrait"/></div>
+      <div className="landing-hero-visual" aria-hidden="true"/>
     </div>
   </section>
 
