@@ -83,7 +83,7 @@ export default function Home(){return <div className="aluna-landing">
       <p className="landing-mission-line"><span>FROM CONNECTION</span><b>→</b><strong>TO EMPOWERMENT</strong></p>
       <p className="landing-mission-line"><span>FROM SPECTATORS</span><b>→</b><strong>TO FOUNDERS</strong></p>
     </div>
-    <p className="landing-mission-copy">People don't just use the internet, they own it. From communities to global impact, Aluna turns access into participation and ownership.</p>
+    <p className="landing-mission-copy">People don&apos;t just use the internet, they own it. From communities to global impact, Aluna turns access into participation and ownership.</p>
   </section>
 
   <section id="choose-your-path" className="landing-paths landing-layer landing-dark">
