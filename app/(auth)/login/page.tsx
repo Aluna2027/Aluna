@@ -38,6 +38,12 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <span className="mt-1 block">Check your inbox and spam folder. If you need another email, wait about a minute before trying again.</span>
       </div>}
 
+      {params.status === 'confirmation-link' && <div role="status" className="mt-5 rounded-xl bg-panel-raised p-3 text-sm">
+        <strong className="block text-gold">EMAIL CONFIRMATION</strong>
+        <span className="mt-1 block">Your confirmation link was processed.</span>
+        <span className="mt-1 block">If your email has been confirmed, sign in below to continue. If the link expired or was already used, request a new confirmation email.</span>
+      </div>}
+
       {params.status === 'password-updated' && <p role="status" className="mt-5 rounded-xl bg-panel-raised p-3 text-sm">Password updated. Please sign in again.</p>}
 
       <form action={signup?signUp:signIn} className="mt-8 space-y-4">
