@@ -10,9 +10,9 @@ function ext(file:File){return file.name.split('.').pop()?.toLowerCase().replace
 
 export async function completeOnboarding(form:FormData){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const name=String(form.get('name')??'').trim(),location=String(form.get('location')??'').trim(),bio=String(form.get('bio')??'').trim(),skills=words(form.get('skills')),interests=words(form.get('interests')),aluna_role=String(form.get('aluna_role')??'');
+ const display_name=String(form.get('display_name')??'').trim(),first_name=String(form.get('first_name')??'').trim(),last_name=String(form.get('last_name')??'').trim(),location=String(form.get('location')??'').trim(),bio=String(form.get('bio')??'').trim(),skills=words(form.get('skills')),interests=words(form.get('interests')),aluna_role=String(form.get('aluna_role')??'');
  const raw=form.get('avatar_file');const avatar=raw instanceof File&&raw.size>0?raw:null;
- if(!name||name.length>120||!roles.has(aluna_role)||location.length>160||bio.length>2000||skills.length>20||interests.length>20||[...skills,...interests].some(x=>x.length>80)||!!avatar&&(!imageTypes.has(avatar.type)||avatar.size>5*1024*1024))redirect('/onboarding?error=validation');
+ if(!display_name||display_name.length>120||!first_name||first_name.length>80||!last_name||last_name.length>80||!roles.has(aluna_role)||location.length>160||bio.length>2000||skills.length>20||interests.length>20||[...skills,...interests].some(x=>x.length>80)||!!avatar&&(!imageTypes.has(avatar.type)||avatar.size>5*1024*1024))redirect('/onboarding?error=validation');
 
  let avatarUrl='';
  if(avatar){
@@ -22,7 +22,7 @@ export async function completeOnboarding(form:FormData){
   avatarUrl=client.storage.from('profile-media').getPublicUrl(path).data.publicUrl;
  }
 
- const {error}=await client.rpc('complete_member_onboarding_v2',{p_name:name,p_avatar:avatarUrl,p_location:location,p_bio:bio,p_skills:skills,p_interests:interests,p_aluna_role:aluna_role});
+ const {error}=await client.rpc('complete_member_onboarding_v3',{p_display_name:display_name,p_first_name:first_name,p_last_name:last_name,p_avatar:avatarUrl,p_location:location,p_bio:bio,p_skills:skills,p_interests:interests,p_aluna_role:aluna_role});
  if(error)redirect('/onboarding?error=save');
  revalidatePath('/profile');
  redirect('/dashboard');
