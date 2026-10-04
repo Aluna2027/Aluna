@@ -6,13 +6,13 @@ import { Bell,Building2,ChevronDown,CircleUserRound,Globe2,LayoutDashboard,Mail,
 
 const primary=[
  {href:'/dashboard',label:'Overview',icon:LayoutDashboard},
- {href:'/world-map',label:'World map',icon:Globe2},
+ {href:'/feed',label:'Global feed',icon:Newspaper},
  {href:'/profile',label:'Profile',icon:CircleUserRound},
  {href:'/messages',label:'Messages',icon:Mail},
  {href:'/notifications',label:'Notifications',icon:Bell},
- {href:'/feed',label:'Global feed',icon:Newspaper},
  {href:'/following',label:'Following',icon:CircleUserRound},
  {href:'/organizations',label:'Organizations',icon:Building2},
+ {href:'/world-map',label:'World map',icon:Globe2},
 ];
 const secondary=[
  {href:'/communities',label:'Mesh communities',icon:RadioTower},
