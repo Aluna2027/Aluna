@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isOnboardingComplete } from '@/lib/onboarding';
 import { completeOnboarding } from './actions';
 
 const roleHelp='Builder means you help us implementing the WiFi-networks, Explorer means you explore the community where we implement our WiFi-networks, Rebel means you help users with their crowdfunding on social media and Creator means you document the trip on social media with video and photo footages.';
 
 export default async function Onboarding({searchParams}:{searchParams:Promise<{error?:string}>}){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();if(profile?.onboarded_at)redirect('/dashboard');
+ const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();if(isOnboardingComplete(profile))redirect('/dashboard');
  const {error}=await searchParams;
  return <main className="grid min-h-screen place-items-center bg-navy p-5"><section className="glass w-full max-w-2xl rounded-2xl p-7 sm:p-10"><p className="deck-label">ALUNA GLOBAL NETWORK · MEMBER</p><h1 className="mt-3 text-3xl">Complete your profile</h1><p className="mt-3 text-muted">A few details to help others connect with you. You can update them later.</p>{error&&<p role="alert" className="mt-4 text-sm text-amber-300">{error==='validation'?'Check your profile fields and upload a valid image up to 5 MB.':'Could not save your profile.'}</p>}<form action={completeOnboarding} encType="multipart/form-data" className="mt-7 grid gap-4 sm:grid-cols-2">
  <label className="block text-sm sm:col-span-2">Display name<input name="display_name" required maxLength={120} defaultValue={profile?.display_name??''} className="mt-2 w-full rounded-xl border border-line bg-input p-3"/></label>
