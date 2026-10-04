@@ -62,4 +62,5 @@ begin
 end $$;
 
 revoke all on function public.complete_member_onboarding_v3(text,text,text,text,text,text,text[],text[],public.aluna_member_role) from public;
+revoke execute on function public.complete_member_onboarding_v3(text,text,text,text,text,text,text[],text[],public.aluna_member_role) from anon;
 grant execute on function public.complete_member_onboarding_v3(text,text,text,text,text,text,text[],text[],public.aluna_member_role) to authenticated;
