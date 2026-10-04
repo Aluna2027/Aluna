@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Shell } from '@/components/shell';
+import { isOnboardingComplete } from '@/lib/onboarding';
 
 export default async function AppLayout({ children }: {children:React.ReactNode}) {
   const client = await createClient();
@@ -9,7 +10,7 @@ export default async function AppLayout({ children }: {children:React.ReactNode}
 
   const { data: profile } = await client
     .from('profiles')
-    .select('id,display_name,onboarded_at,aluna_role')
+    .select('id,display_name,first_name,last_name,onboarded_at,aluna_role')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -18,7 +19,7 @@ export default async function AppLayout({ children }: {children:React.ReactNode}
     redirect('/login?error=session');
   }
 
-  if (!profile.onboarded_at || !profile.aluna_role) redirect('/onboarding');
+  if (!isOnboardingComplete(profile)) redirect('/onboarding');
 
   return <Shell name={profile.display_name || user.email?.split('@')[0] || 'member'}>{children}</Shell>;
 }
