@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
 
   const isSignupFlow = flow === 'signup' || type === 'email' || type === 'signup';
   if (isSignupFlow) {
-    // Remove any stale browser session before establishing the confirmed account session.
     await client.auth.signOut({ scope:'local' });
   }
 
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest) {
           flow === 'recovery'
             ? '/reset-password'
             : flow === 'settings'
-              ? '/settings'
+              ? '/dashboard'
               : '/onboarding',
           request.url,
         ),
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     const { error } = await client.auth.verifyOtp({ token_hash: token, type: 'email' });
     if (!error) {
       const { data:{ user } } = await client.auth.getUser();
-      if (user) return NextResponse.redirect(new URL('/onboarding', request.url));
+      if (user) return NextResponse.redirect(new URL(flow === 'settings' ? '/dashboard' : '/onboarding', request.url));
     }
     return confirmationMessage(request);
   }
