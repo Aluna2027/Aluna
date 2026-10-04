@@ -24,6 +24,10 @@ export async function signUp(form: FormData) {
   }
 
   const client = await createClient();
+
+  // A signup must never inherit an already authenticated browser session.
+  await client.auth.signOut({ scope:'local' });
+
   const { error, data } = await client.auth.signUp({
     email,
     password,
