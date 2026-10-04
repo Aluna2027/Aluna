@@ -6,11 +6,12 @@ import { updateProfile } from '../actions';
 
 export default async function EditProfile({searchParams}:{searchParams:Promise<{error?:string}>}) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const {data:profile}=await client.from('profiles').select('display_name,bio,location_text,website,avatar_url,skills,interests').eq('id',user.id).single();
+ const {data:profile}=await client.from('profiles').select('display_name,bio,location_text,website,avatar_url,skills,interests,aluna_role').eq('id',user.id).single();
  const {error}=await searchParams;
  return <div className="space-y-5"><Link href="/profile" className="text-sm text-gold hover:underline">← Profile</Link><Card title="Edit your profile"><form action={updateProfile} encType="multipart/form-data" className="max-w-2xl space-y-5">
   {error&&<p role="alert" className="text-amber-300">{error==='validation'?'Check the fields and upload a valid image up to 5 MB.':'Could not save your profile.'}</p>}
   <label className="block text-sm">Display name<input name="display_name" required maxLength={120} defaultValue={profile?.display_name??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
+  <label className="block text-sm">Role<select name="aluna_role" required defaultValue={profile?.aluna_role??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"><option value="" disabled>Select your role</option><option value="builder">Builder</option><option value="explorer">Explorer</option><option value="rebel">Rebel</option><option value="creator">Creator</option></select></label>
   <label className="block text-sm">About<textarea name="bio" rows={5} maxLength={2000} defaultValue={profile?.bio??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
   <label className="block text-sm">Location<input name="location_text" maxLength={160} defaultValue={profile?.location_text??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
   <label className="block text-sm">Website<input name="website" type="url" maxLength={300} placeholder="https://example.org" defaultValue={profile?.website??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
