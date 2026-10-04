@@ -54,7 +54,7 @@ begin
      skills=coalesce(p_skills,'{}'),
      interests=coalesce(p_interests,'{}'),
      aluna_role=p_aluna_role,
-     onboarded_at=coalesce(onboarded_at,now()),
+     onboarded_at=now(),
      updated_at=now()
  where id=v_id;
 
