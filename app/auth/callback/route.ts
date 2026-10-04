@@ -12,9 +12,17 @@ export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get('type');
   const client = await createClient();
 
+  const isSignupFlow = flow === 'signup' || type === 'email' || type === 'signup';
+  if (isSignupFlow) {
+    // Remove any stale browser session before establishing the confirmed account session.
+    await client.auth.signOut({ scope:'local' });
+  }
+
   if (code) {
     const { error } = await client.auth.exchangeCodeForSession(code);
     if (!error) {
+      const { data:{ user } } = await client.auth.getUser();
+      if (!user) return confirmationMessage(request);
       return NextResponse.redirect(
         new URL(
           flow === 'recovery'
@@ -32,13 +40,19 @@ export async function GET(request: NextRequest) {
 
   if (token && type === 'email') {
     const { error } = await client.auth.verifyOtp({ token_hash: token, type: 'email' });
-    if (!error) return NextResponse.redirect(new URL('/onboarding', request.url));
+    if (!error) {
+      const { data:{ user } } = await client.auth.getUser();
+      if (user) return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
     return confirmationMessage(request);
   }
 
   if (token && type === 'signup') {
     const { error } = await client.auth.verifyOtp({ token_hash: token, type: 'signup' });
-    if (!error) return NextResponse.redirect(new URL('/onboarding', request.url));
+    if (!error) {
+      const { data:{ user } } = await client.auth.getUser();
+      if (user) return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
     return confirmationMessage(request);
   }
 
@@ -48,6 +62,8 @@ export async function GET(request: NextRequest) {
       type: flow === 'recovery' ? 'recovery' : 'signup',
     });
     if (!error) {
+      const { data:{ user } } = await client.auth.getUser();
+      if (!user) return flow === 'signup' ? confirmationMessage(request) : NextResponse.redirect(new URL('/login?error=invalid', request.url));
       return NextResponse.redirect(
         new URL(flow === 'recovery' ? '/reset-password' : '/onboarding', request.url),
       );
@@ -56,7 +72,7 @@ export async function GET(request: NextRequest) {
     if (flow === 'signup') return confirmationMessage(request);
   }
 
-  if (flow === 'signup' || type === 'email' || type === 'signup') {
+  if (isSignupFlow) {
     return confirmationMessage(request);
   }
 
