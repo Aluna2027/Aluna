@@ -1,7 +1,8 @@
 import type { Mission } from '@/lib/missions';
-export function MissionFields({mission}:{mission?:Mission}) {
+import { sdgs } from '@/lib/sdgs';
+export function MissionFields({mission,selectedSdgs=[]}:{mission?:Mission;selectedSdgs?:number[]}) {
  const input='mt-2 w-full rounded-xl border border-line bg-panel-raised p-3';
- return <><label className="block text-sm">Title<input name="title" required minLength={3} maxLength={180} defaultValue={mission?.title??''} className={input}/></label>
+ return <><label className="block text-sm">SDG number:<select name="sdg_numbers" multiple required defaultValue={selectedSdgs.map(String)} size={7} className={input}>{sdgs.map(s=><option key={s.number} value={s.number}>SDG {s.number}: {s.title}</option>)}</select><span className="mt-2 block text-xs text-muted">Select one or more SDGs. Use Ctrl/Cmd-click to select multiple.</span></label><label className="block text-sm">Title (start the title name with the main topic you want to raise funding for within the SDG(s))<input name="title" required minLength={3} maxLength={180} defaultValue={mission?.title??''} className={input}/></label>
  <label className="block text-sm">Overview<textarea name="overview" required minLength={10} maxLength={5000} rows={5} defaultValue={mission?.overview??''} className={input}/></label>
  <label className="block text-sm">Physical location<input name="location" required minLength={2} maxLength={240} placeholder="Neighborhood or project site" defaultValue={mission?.location_text??''} className={input}/></label>
  <label className="block text-sm">Goal<textarea name="goal" required minLength={3} maxLength={2000} rows={3} defaultValue={mission?.goal??''} className={input}/></label>
