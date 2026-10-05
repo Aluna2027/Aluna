@@ -10,7 +10,7 @@ export default async function NewMission({searchParams}:{searchParams:Promise<{c
  const {city,community,error}=await searchParams;const client=await createClient();const actors=await ownedActors();
  const {data:communities}=await client.from('mesh_communities').select('id,name,city_id,places(name,source_key)').order('name').limit(200);
  const sortedCities=[...cities].sort((a,b)=>a.name.localeCompare(b.name));
- return <div className="space-y-5"><Link href="/missions" className="text-sm text-gold">← Missions</Link><Card title="Create mission"><form action={createMission} className="max-w-2xl space-y-5">{error&&<p role="alert" className="text-amber-300">Could not create the mission. Check dates, amounts and whether the community belongs to the selected city.</p>}
+ return <div className="space-y-5"><Link href="/missions" className="text-sm text-gold">← SDG Missions</Link><Card title="Create SDG Mission"><form action={createMission} className="max-w-2xl space-y-5">{error&&<p role="alert" className="text-amber-300">Could not create the SDG Mission. Check dates, amounts and whether the community belongs to the selected city.</p>}
  <label className="block text-sm">City<select name="city" defaultValue={city??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"><option value="">Select a city</option>{sortedCities.map(c=><option key={c.id} value={c.id}>{c.name}, {c.country}</option>)}</select></label>
  <p className="text-sm text-white">Or type a city or village and select the country it is in.</p>
  <label className="block text-sm">City or village<input name="manual_place" maxLength={160} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
@@ -18,5 +18,5 @@ export default async function NewMission({searchParams}:{searchParams:Promise<{c
  <label className="block text-sm">Wi-Fi Mesh Community (optional)<select name="community_id" defaultValue={community??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"><option value="">No linked community</option>{communities?.map(c=>{const place=c.places as unknown as {name:string}|null;return <option key={c.id} value={c.id}>{c.name} · {place?.name}</option>})}</select></label>
  <MissionFields/>
  <label className="block text-sm">Create as<select name="actor_id" required className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3">{actors.map(a=><option key={a.id} value={a.id}>{a.name} · {a.kind}</option>)}</select></label>
- <button disabled={!actors.length} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy disabled:opacity-50">Create mission</button></form></Card></div>;
+ <button disabled={!actors.length} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy disabled:opacity-50">Create SDG Mission</button></form></Card></div>;
 }
