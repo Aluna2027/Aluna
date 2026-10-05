@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { participationOptions } from '@/lib/missions';
+import { countrySet } from '@/lib/countries';
 function amount(form:FormData,key:string){const raw=String(form.get(key)??'').trim();if(!raw)return null;const n=Number(raw);if(!/^\d+(\.\d{1,2})?$/.test(raw)||!Number.isFinite(n)||n>999_999_999_999.99)throw new Error('Invalid amount');return n;}
 function date(form:FormData,key:string){const v=String(form.get(key)??'').trim();if(!v)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||Number.isNaN(Date.parse(v)))throw new Error('Invalid date');return v;}
 function common(form:FormData){
@@ -15,9 +16,12 @@ function common(form:FormData){
 export async function createMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  let fields:ReturnType<typeof common>;try{fields=common(form);}catch{redirect('/missions/new?error=validation');}
- const {data:city}=await client.from('places').select('id').eq('source_key',String(form.get('city')??'')).maybeSingle();if(!city)redirect('/missions/new?error=city');
+ const citySource=String(form.get('city')??'').trim(),manualPlace=String(form.get('manual_place')??'').trim(),manualCountry=String(form.get('manual_country')??'').trim();
+ if((citySource&&manualPlace)||(citySource&&manualCountry)||(!citySource&&!manualPlace&&!manualCountry)||(!citySource&&(!manualPlace||!manualCountry))||manualPlace.length>160||(manualCountry&&!countrySet.has(manualCountry)))redirect('/missions/new?error=location');
+ const {data:city}=citySource?await client.from('places').select('id').eq('source_key',citySource).maybeSingle():{data:null};if(citySource&&!city)redirect('/missions/new?error=city');
  const community=String(form.get('community_id')??'')||null,actor=String(form.get('actor_id')??'');
- const {data:id,error}=await client.rpc('create_mission',{p_city:city.id,p_community:community,p_actor:actor,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
+ if(community&&!city)redirect('/missions/new?error=community');
+ const {data:id,error}=await client.rpc('create_mission_v2',{p_city:city?.id??null,p_manual_place:manualPlace||null,p_manual_country:manualCountry||null,p_community:community,p_actor:actor,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
  if(error||!id)redirect('/missions/new?error=save');revalidatePath('/missions');redirect(`/missions/${id}`);
 }
 export async function updateMission(form:FormData) {
