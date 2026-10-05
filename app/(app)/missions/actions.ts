@@ -6,6 +6,7 @@ import { participationOptions } from '@/lib/missions';
 import { countrySet } from '@/lib/countries';
 function amount(form:FormData,key:string){const raw=String(form.get(key)??'').trim();if(!raw)return null;const n=Number(raw);if(!/^\d+(\.\d{1,2})?$/.test(raw)||!Number.isFinite(n)||n>999_999_999_999.99)throw new Error('Invalid amount');return n;}
 function date(form:FormData,key:string){const v=String(form.get(key)??'').trim();if(!v)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||Number.isNaN(Date.parse(v)))throw new Error('Invalid date');return v;}
+function selectedSdgs(form:FormData){const values=form.getAll('sdg_numbers').map(v=>Number(String(v))).filter(Number.isInteger);const unique=[...new Set(values)];if(!unique.length||unique.some(n=>n<1||n>17))throw new Error('Invalid SDGs');return unique;}
 function common(form:FormData){
  const title=String(form.get('title')??'').trim(),overview=String(form.get('overview')??'').trim(),location=String(form.get('location')??'').trim(),goal=String(form.get('goal')??'').trim(),roles=String(form.get('roles_summary')??'').trim();
  const start=date(form,'starts_on'),end=date(form,'ends_on'),budget=amount(form,'budget_amount'),funding=amount(form,'funding_goal_amount');
@@ -15,21 +16,23 @@ function common(form:FormData){
 }
 export async function createMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- let fields:ReturnType<typeof common>;try{fields=common(form);}catch{redirect('/missions/new?error=validation');}
+ let fields:ReturnType<typeof common>;let sdgNumbers:number[];try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect('/missions/new?error=validation');}
  const citySource=String(form.get('city')??'').trim(),manualPlace=String(form.get('manual_place')??'').trim(),manualCountry=String(form.get('manual_country')??'').trim();
  if((citySource&&manualPlace)||(citySource&&manualCountry)||(!citySource&&!manualPlace&&!manualCountry)||(!citySource&&(!manualPlace||!manualCountry))||manualPlace.length>160||(manualCountry&&!countrySet.has(manualCountry)))redirect('/missions/new?error=location');
  const {data:city}=citySource?await client.from('places').select('id').eq('source_key',citySource).maybeSingle():{data:null};if(citySource&&!city)redirect('/missions/new?error=city');
  const community=String(form.get('community_id')??'')||null,actor=String(form.get('actor_id')??'');
  if(community&&!city)redirect('/missions/new?error=community');
- const {data:id,error}=await client.rpc('create_mission_v2',{p_city:city?.id??null,p_manual_place:manualPlace||null,p_manual_country:manualCountry||null,p_community:community,p_actor:actor,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
+ const {data:id,error}=await client.rpc('create_mission_v3',{p_city:city?.id??null,p_manual_place:manualPlace||null,p_manual_country:manualCountry||null,p_community:community,p_actor:actor,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
  if(error||!id)redirect('/missions/new?error=save');revalidatePath('/missions');redirect(`/missions/${id}`);
 }
 export async function updateMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
- let fields:ReturnType<typeof common>;try{fields=common(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
+ let fields:ReturnType<typeof common>;let sdgNumbers:number[];try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
  const {error}=await client.from('missions').update({title:fields.title,overview:fields.overview,location_text:fields.location,goal:fields.goal,roles_summary:fields.roles||null,starts_on:fields.start,ends_on:fields.end,budget_amount:fields.budget,funding_goal_amount:fields.funding,currency_code:fields.currency,updated_at:new Date().toISOString()}).eq('id',id);
- if(error)redirect(`/missions/${id}/edit?error=save`);revalidatePath('/missions');revalidatePath(`/missions/${id}`);redirect(`/missions/${id}?status=saved`);
+ if(error)redirect(`/missions/${id}/edit?error=save`);
+ const {error:sdgError}=await client.rpc('set_mission_sdgs',{p_mission:id,p_sdgs:sdgNumbers});if(sdgError)redirect(`/missions/${id}/edit?error=save`);
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);revalidatePath('/fundraising');redirect(`/missions/${id}?status=saved`);
 }
 export async function joinMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
