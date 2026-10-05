@@ -29,9 +29,8 @@ export async function updateMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
  let fields:ReturnType<typeof common>;let sdgNumbers:number[];try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
- const {error}=await client.from('missions').update({title:fields.title,overview:fields.overview,location_text:fields.location,goal:fields.goal,roles_summary:fields.roles||null,starts_on:fields.start,ends_on:fields.end,budget_amount:fields.budget,funding_goal_amount:fields.funding,currency_code:fields.currency,updated_at:new Date().toISOString()}).eq('id',id);
+ const {error}=await client.rpc('update_mission_v2',{p_mission:id,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
  if(error)redirect(`/missions/${id}/edit?error=save`);
- const {error:sdgError}=await client.rpc('set_mission_sdgs',{p_mission:id,p_sdgs:sdgNumbers});if(sdgError)redirect(`/missions/${id}/edit?error=save`);
  revalidatePath('/missions');revalidatePath(`/missions/${id}`);revalidatePath('/fundraising');redirect(`/missions/${id}?status=saved`);
 }
 export async function joinMission(form:FormData) {
