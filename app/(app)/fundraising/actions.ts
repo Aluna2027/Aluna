@@ -4,13 +4,15 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { ownedActors } from '@/lib/social';
 function uuid(value:string){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);}
 function content(form:FormData){const title=String(form.get('title')??'').trim(),story=String(form.get('story')??'').trim(),goal=String(form.get('goal')??'').trim();if(title.length<3||title.length>180||story.length<10||story.length>5000||!/^\d+(\.\d{1,2})?$/.test(goal)||Number(goal)<=0||Number(goal)>999_999_999_999.99)throw new Error('Invalid campaign');return {title,story,goal_amount:Number(goal)};}
 async function authenticated(){const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');return client;}
 export async function createCampaign(form:FormData){const client=await authenticated();let fields;try{fields=content(form);}catch{redirect('/fundraising/campaigns/new?error=validation');}
- const mission_id=String(form.get('mission_id')??'');if(!uuid(mission_id))redirect('/fundraising/campaigns/new?error=validation');
- const {data:mission}=await client.from('missions').select('currency_code,created_by_actor_id').eq('id',mission_id).maybeSingle();if(!mission)redirect('/fundraising/campaigns/new?error=mission');
- const {data,error}=await client.from('fundraising_campaigns').insert({...fields,mission_id,actor_id:mission.created_by_actor_id,currency_code:mission.currency_code}).select('id').single();if(error||!data)redirect('/fundraising/campaigns/new?error=save');revalidatePath('/fundraising');redirect(`/fundraising/campaigns/${data.id}`);
+ const mission_id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??'');if(!uuid(mission_id)||!uuid(actor_id))redirect('/fundraising/campaigns/new?error=validation');
+ const actors=await ownedActors();if(!actors.some(actor=>actor.id===actor_id))redirect('/fundraising/campaigns/new?error=owner');
+ const {data:mission}=await client.from('missions').select('currency_code').eq('id',mission_id).maybeSingle();if(!mission)redirect('/fundraising/campaigns/new?error=mission');
+ const {data,error}=await client.from('fundraising_campaigns').insert({...fields,mission_id,actor_id,currency_code:mission.currency_code}).select('id').single();if(error||!data)redirect('/fundraising/campaigns/new?error=save');revalidatePath('/fundraising');redirect(`/fundraising/campaigns/${data.id}`);
 }
 export async function editCampaign(form:FormData){const client=await authenticated();const id=String(form.get('id')??'');if(!uuid(id))redirect('/fundraising');let fields;try{fields=content(form);}catch{redirect(`/fundraising/campaigns/${id}/edit?error=validation`);}
  const {data,error}=await client.from('fundraising_campaigns').update({...fields,updated_at:new Date().toISOString()}).eq('id',id).select('id').maybeSingle();if(error||!data)redirect(`/fundraising/campaigns/${id}/edit?error=save`);revalidatePath(`/fundraising/campaigns/${id}`);redirect(`/fundraising/campaigns/${id}`);
