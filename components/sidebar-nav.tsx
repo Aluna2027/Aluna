@@ -16,7 +16,7 @@ const primary=[
 ];
 const secondary=[
  {href:'/communities',label:'Mesh communities',icon:RadioTower},
- {href:'/missions',label:'Missions',icon:Target},
+ {href:'/missions',label:'SDG Missions',icon:Target},
  {href:'/fundraising',label:'Fundraising',icon:HeartHandshake},
  {href:'/contributions',label:'Contributions',icon:HandHeart},
  {href:'/proofs',label:'Proofs',icon:BadgeCheck},
