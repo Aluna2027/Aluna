@@ -9,6 +9,8 @@ import { ReferralShare } from '@/components/referral-share';
 import { DonationForm } from '@/components/donation-form';
 import { createCampaignReferralLink, setCampaignReferralStatus } from '../../actions';
 
+type CampaignReferralReportRow={link_id:string;token:string;label:string;source_type:string;assigned_actor_id:string|null;assigned_name:string|null;is_active:boolean;clicks:number;checkouts:number;donor_count:number;donations_attributed:number;amount_raised:number;average_donation:number};
+
 const referralTypes=[
  ['influencer','Influencer'],['partner','Partner'],['team_member','Team member'],['university','University'],['ngo','NGO'],['company','Company'],['social','Social'],['qr','QR'],['newsletter','Newsletter'],['event','Event'],['other','Other'],
 ] as const;
@@ -23,13 +25,13 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
  ]);
  const summary=campaignTotal((totals??[]) as Total[]);const byFundraiser=new Map(((totals??[]) as Total[]).map(t=>[t.fundraiser_id,t]));
  const actors=await actorDetails([campaign.actor_id,...(fundraisers??[]).map(f=>f.actor_id)]);const mine=await ownedActors();const canEdit=mine.some(a=>a.id===campaign.actor_id);
- let referralRows:any[]=[];let assignable:{id:string;name:string;kind:string}[]=[];
+ let referralRows:CampaignReferralReportRow[]=[];let assignable:{id:string;name:string;kind:string}[]=[];
  if(canEdit){
   const [{data:report},{data:actorRows}]=await Promise.all([
    client.rpc('campaign_referral_report',{p_campaign:id}),
    client.from('actors').select('id,profile_id,organization_id').limit(200)
   ]);
-  referralRows=report??[];
+  referralRows=(report??[]) as CampaignReferralReportRow[];
   const details=await actorDetails((actorRows??[]).map(a=>a.id));
   assignable=[...details.values()].sort((a,b)=>a.name.localeCompare(b.name));
  }
