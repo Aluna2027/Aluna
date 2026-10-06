@@ -9,7 +9,7 @@ export default async function CityPage({params,searchParams}:{params:Promise<{id
  const active=cityTabs.find(t=>t.slug===tab)??cityTabs[0];
  const client=await createClient();
  const {data:place}=['wifi-mesh-communities','missions'].includes(active.slug)?await client.from('places').select('id').eq('source_key',id).maybeSingle():{data:null};
- const {data:missions}=place&&active.slug==='missions'?await client.from('missions').select('id,title,location_text').eq('city_id',place.id).order('created_at',{ascending:false}).limit(100):{data:null};
+ const {data:missions}=place&&active.slug==='missions'?await client.from('missions').select('id,title,location_text').eq('city_id',place.id).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:null};
  const {data:communities}=place?await client.from('mesh_communities').select('id,name,location_text,people_connected').eq('city_id',place.id).order('name').limit(100):{data:null};
  return <div className="space-y-6"><Link href="/world-map" className="text-sm font-medium text-gold hover:underline">← World map</Link>
   <header className="rounded-3xl bg-navy p-7 text-white sm:p-10"><p className="text-xs tracking-[.2em] text-gold-soft">CITY HUB · {city.region.toUpperCase()}</p><h1 className="mt-3 text-4xl font-semibold">{city.name}</h1><p className="mt-2 text-muted">{city.country} · {formatPopulation(city.population)} people · {populationCategory(city.population).label}</p></header>
