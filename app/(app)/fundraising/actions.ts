@@ -11,11 +11,11 @@ async function authenticated(){const client=await createClient();const {data:{us
 export async function createCampaign(form:FormData){const client=await authenticated();let fields;try{fields=content(form);}catch{redirect('/fundraising/campaigns/new?error=validation');}
  const mission_id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??'');if(!uuid(mission_id)||!uuid(actor_id))redirect('/fundraising/campaigns/new?error=validation');
  const actors=await ownedActors();if(!actors.some(actor=>actor.id===actor_id))redirect('/fundraising/campaigns/new?error=owner');
- const {data:mission}=await client.from('missions').select('currency_code').eq('id',mission_id).maybeSingle();if(!mission)redirect('/fundraising/campaigns/new?error=mission');
+ const {data:mission}=await client.from('missions').select('currency_code').eq('id',mission_id).is('removed_at',null).maybeSingle();if(!mission)redirect('/fundraising/campaigns/new?error=mission');
  const {data,error}=await client.from('fundraising_campaigns').insert({...fields,mission_id,actor_id,currency_code:mission.currency_code}).select('id').single();if(error||!data)redirect('/fundraising/campaigns/new?error=save');revalidatePath('/fundraising');redirect(`/fundraising/campaigns/${data.id}`);
 }
 export async function editCampaign(form:FormData){const client=await authenticated();const id=String(form.get('id')??'');if(!uuid(id))redirect('/fundraising');let fields;try{fields=content(form);}catch{redirect(`/fundraising/campaigns/${id}/edit?error=validation`);}
- const {data,error}=await client.from('fundraising_campaigns').update({...fields,updated_at:new Date().toISOString()}).eq('id',id).select('id').maybeSingle();if(error||!data)redirect(`/fundraising/campaigns/${id}/edit?error=save`);revalidatePath(`/fundraising/campaigns/${id}`);redirect(`/fundraising/campaigns/${id}`);
+ const {data,error}=await client.from('fundraising_campaigns').update({...fields,updated_at:new Date().toISOString()}).eq('id',id).is('removed_at',null).is('archived_at',null).select('id').maybeSingle();if(error||!data)redirect(`/fundraising/campaigns/${id}/edit?error=save`);revalidatePath(`/fundraising/campaigns/${id}`);redirect(`/fundraising/campaigns/${id}`);
 }
 export async function createFundraiser(form:FormData){const client=await authenticated();const campaign_id=String(form.get('campaign_id')??''),actor_id=String(form.get('actor_id')??''),kind=String(form.get('kind')??'');if(!uuid(campaign_id)||!uuid(actor_id)||!['personal','team'].includes(kind))redirect('/fundraising/new?error=validation');
  let fields;try{fields=content(form);}catch{redirect(`/fundraising/new?campaign=${campaign_id}&error=validation`);}
