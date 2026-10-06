@@ -34,14 +34,14 @@ export default async function NewCampaign({searchParams}:{searchParams:Promise<{
  const lockedMissionId=mission&&/^[0-9a-f-]{36}$/i.test(mission)?mission:null;
 
  const {data:selectedRow}=lockedMissionId
-  ?await client.from('missions').select('id,title,created_by_actor_id,currency_code,manual_place,manual_country,places(name,source_key),mission_sdgs(sdg_number)').eq('id',lockedMissionId).maybeSingle()
+  ?await client.from('missions').select('id,title,created_by_actor_id,currency_code,manual_place,manual_country,places(name,source_key),mission_sdgs(sdg_number)').eq('id',lockedMissionId).is('removed_at',null).maybeSingle()
   :{data:null};
 
  if(lockedMissionId&&!selectedRow)notFound();
 
  const selectedMission=selectedRow as unknown as MissionOption|null;
  const {data:ownedRows}=!lockedMissionId&&ids.length
-  ?await client.from('missions').select('id,title,created_by_actor_id,currency_code,manual_place,manual_country,places(name,source_key),mission_sdgs(sdg_number)').in('created_by_actor_id',ids).order('created_at',{ascending:false}).limit(100)
+  ?await client.from('missions').select('id,title,created_by_actor_id,currency_code,manual_place,manual_country,places(name,source_key),mission_sdgs(sdg_number)').in('created_by_actor_id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100)
   :{data:[]};
  const ownedMissions=(ownedRows??[]) as unknown as MissionOption[];
  const missionChoices=(selectedMission?[selectedMission]:ownedMissions).map(m=>({id:m.id,title:m.title,location:missionLocation(m),sdgs:(m.mission_sdgs??[]).map(row=>sdgLabel(Number(row.sdg_number)))}));
