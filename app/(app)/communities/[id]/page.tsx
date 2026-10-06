@@ -23,7 +23,7 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
  const details=active==='Members'?await actorDetails((members??[]).map(m=>m.actor_id)):new Map();
  const memberIds=new Set([...(members??[]),...(myMemberRows??[])].map(m=>m.actor_id));const myMembers=actors.filter(a=>memberIds.has(a.id));const canEdit=(myMemberRows??[]).some(m=>m.member_role==='steward');
  const cursor=before&&!Number.isNaN(Date.parse(before))?before:null;
- const {data:missions}=active==='Missions'?await client.from('missions').select('id,title,goal').eq('community_id',id).order('created_at',{ascending:false}).limit(100):{data:null};
+ const {data:missions}=active==='Missions'?await client.from('missions').select('id,title,goal').eq('community_id',id).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:null};
  const {data:feed}=active==='Feed'?await client.rpc('mesh_community_feed_page',{p_community:id,p_before:cursor,p_before_id:before_id||null,p_limit:20}):{data:null};
  const posts=(feed??[]) as FeedPost[];const place=community.places;const city=place?.source_key?getCity(place.source_key):null;
  return <div className="space-y-6"><Link href="/communities" className="text-sm text-gold">← Wi-Fi Mesh Communities</Link>
