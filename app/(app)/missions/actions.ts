@@ -46,3 +46,12 @@ export async function leaveMission(form:FormData) {
  const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor_id).eq('participation_kind',kind);
  if(error)redirect(`/missions/${id}?tab=participants&error=leave`);revalidatePath(`/missions/${id}`);redirect(`/missions/${id}?tab=participants`);
 }
+
+
+export async function removeMission(form:FormData) {
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
+ const {error}=await client.rpc('remove_mission',{p_mission:id});
+ if(error)redirect(`/missions/${id}?error=delete`);
+ revalidatePath('/missions');revalidatePath('/fundraising');redirect('/missions');
+}
