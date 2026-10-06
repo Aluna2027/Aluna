@@ -9,6 +9,11 @@ export function CampaignMissionSelector({missions,lockedMissionId}:{missions:Mis
  const [missionId,setMissionId]=useState(initial);
  const mission=missions.find(m=>m.id===missionId)??null;
  return <div className="space-y-5">
+  <div className="block text-sm">Place and Country
+   <div className="mt-2 min-h-[50px] rounded-xl border border-line bg-panel-raised p-3">
+    {mission?<p className="text-ink">{mission.location}</p>:<p className="text-muted">Select an SDG Mission to view its place and country.</p>}
+   </div>
+  </div>
   <div className="block text-sm">SDGs:
    <div className="mt-2 min-h-[50px] rounded-xl border border-line bg-panel-raised p-3">
     {mission?.sdgs.length?mission.sdgs.map(label=><p key={label} className="text-ink">{label}</p>):<p className="text-muted">Select an SDG Mission to view its SDGs.</p>}
