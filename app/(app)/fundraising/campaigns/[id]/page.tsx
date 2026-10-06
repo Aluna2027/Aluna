@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
 import { Progress, campaignTotal, type Total, type Campaign } from '@/lib/fundraising';
 import { money } from '@/lib/missions';
+import { getCity } from '@/lib/cities';
 import { Card } from '@/components/ui';
 import { ReferralShare } from '@/components/referral-share';
 import { DonationForm } from '@/components/donation-form';
@@ -17,8 +18,9 @@ const referralTypes=[
 
 export default async function CampaignPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{referral_status?:string;referral_error?:string}>}){
  const {id}=await params;const {referral_status,referral_error}=await searchParams;const client=await createClient();
- const {data}=await client.from('fundraising_campaigns').select('*,missions(title)').eq('id',id).maybeSingle();if(!data)notFound();
- const campaign=data as Campaign & {missions:{title:string}|null};
+ const {data}=await client.from('fundraising_campaigns').select('*,missions(title,manual_place,manual_country,places(name,source_key))').eq('id',id).maybeSingle();if(!data)notFound();
+ const campaign=data as Campaign & {missions:{title:string;manual_place:string|null;manual_country:string|null;places:{name:string;source_key:string}|null}|null};
+ const missionCity=campaign.missions?.places?.source_key?getCity(campaign.missions.places.source_key):null;const missionLocation=campaign.missions?.manual_place&&campaign.missions?.manual_country?`${campaign.missions.manual_place}, ${campaign.missions.manual_country}`:missionCity?`${missionCity.name}, ${missionCity.country}`:campaign.missions?.places?.name??null;
  const [{data:fundraisers},{data:totals}]=await Promise.all([
   client.from('fundraisers').select('id,slug,title,kind,actor_id,goal_amount').eq('campaign_id',id).order('created_at',{ascending:false}).limit(100),
   client.rpc('fundraising_totals',{p_campaign:id})
@@ -40,7 +42,7 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
   <Link href="/fundraising" className="text-sm text-gold">← Fundraising</Link>
   {referral_status&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Referral link {referral_status}.</p>}
   {referral_error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not update the referral link. Check the details and try again.</p>}
-  <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><p className="deck-label">MISSION CAMPAIGN</p><h1 className="mt-3 text-4xl">{campaign.title}</h1><p className="mt-3 text-muted"><Link href={`/missions/${campaign.mission_id}`} className="text-gold">{campaign.missions?.title} →</Link> · {actors.get(campaign.actor_id)?.name} · {relativeDate(campaign.created_at)}</p><div className="mt-7 max-w-xl"><Progress amount={summary.amount} count={summary.count} goal={Number(campaign.goal_amount)} currency={campaign.currency_code}/></div><div className="mt-6 flex flex-wrap items-center gap-4">{canEdit&&<Link href="/fundraising/performance" className="text-sm text-gold">Global fundraising performance →</Link>}{canEdit&&<Link href={`/fundraising/campaigns/${id}/edit`} className="text-sm text-gold">Edit campaign →</Link>}</div></header>
+  <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><p className="deck-label">MISSION CAMPAIGN</p><h1 className="mt-3 text-4xl">{campaign.title}</h1>{missionLocation&&<p className="mt-3 text-gold">{missionLocation}</p>}<p className="mt-3 text-muted"><Link href={`/missions/${campaign.mission_id}`} className="text-gold">{campaign.missions?.title} →</Link> · {actors.get(campaign.actor_id)?.name} · {relativeDate(campaign.created_at)}</p><div className="mt-7 max-w-xl"><Progress amount={summary.amount} count={summary.count} goal={Number(campaign.goal_amount)} currency={campaign.currency_code}/></div><div className="mt-6 flex flex-wrap items-center gap-4">{canEdit&&<Link href="/fundraising/performance" className="text-sm text-gold">Global fundraising performance →</Link>}{canEdit&&<Link href={`/fundraising/campaigns/${id}/edit`} className="text-sm text-gold">Edit campaign →</Link>}</div></header>
   <ReferralShare path={`/c/${id}`} title={campaign.title}/>
   <DonationForm campaignId={id} currency={campaign.currency_code}/>
   <Card title="Campaign story"><p className="whitespace-pre-wrap">{campaign.story}</p></Card>
