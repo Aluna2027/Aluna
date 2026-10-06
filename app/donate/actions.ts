@@ -9,7 +9,7 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function startDonation(form:FormData){
  const campaignId=String(form.get('campaign_id')??''),fundraiserId=String(form.get('fundraiser_id')??'')||null,requestKey=String(form.get('request_key')??'');
  if(!uuid.test(campaignId)||!uuid.test(requestKey)||fundraiserId&&!uuid.test(fundraiserId))redirect('/fundraising');
- const admin=paymentAdmin();const {data:campaign}=await admin.from('fundraising_campaigns').select('id,mission_id,title,currency_code').eq('id',campaignId).maybeSingle();if(!campaign)redirect('/fundraising');
+ const admin=paymentAdmin();const {data:campaign}=await admin.from('fundraising_campaigns').select('id,mission_id,title,currency_code').eq('id',campaignId).is('removed_at',null).is('archived_at',null).maybeSingle();if(!campaign)redirect('/fundraising');
  const returnPath=fundraiserId?`/f/${fundraiserId}`:`/c/${campaignId}`;
  const fail=()=>`/c/${campaignId}?donation_error=1`;
  const {data:fundraiser}=fundraiserId?await admin.from('fundraisers').select('id,slug,campaign_id').eq('id',fundraiserId).maybeSingle():{data:null};
