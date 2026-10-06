@@ -51,3 +51,12 @@ export async function setCampaignReferralStatus(form:FormData){
  if(error||!data)redirect(`/fundraising/campaigns/${campaign_id}?referral_error=status`);
  revalidatePath(`/fundraising/campaigns/${campaign_id}`);redirect(`/fundraising/campaigns/${campaign_id}?referral_status=${active?'enabled':'disabled'}`);
 }
+
+
+export async function removeOrArchiveCampaign(form:FormData){
+ const client=await authenticated();const id=String(form.get('id')??'');if(!uuid(id))redirect('/fundraising');
+ const {data:result,error}=await client.rpc('remove_or_archive_campaign',{p_campaign:id});
+ if(error)redirect(`/fundraising/campaigns/${id}?remove_error=1`);
+ revalidatePath('/fundraising');revalidatePath('/fundraising/performance');
+ redirect(`/fundraising?status=${result==='archived'?'archived':'removed'}`);
+}
