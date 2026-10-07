@@ -39,3 +39,12 @@ export async function leaveCommunity(form:FormData) {
  const {error}=await client.from('mesh_community_members').delete().eq('community_id',id).eq('actor_id',actor_id).eq('member_role','member');
  if(error)redirect(`/communities/${id}?error=leave`);revalidatePath(`/communities/${id}`);redirect(`/communities/${id}?tab=members`);
 }
+
+
+export async function removeCommunity(form:FormData) {
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/communities');
+ const {error}=await client.rpc('remove_mesh_community',{p_community:id});
+ if(error)redirect(`/communities/${id}?error=delete`);
+ revalidatePath('/communities');revalidatePath('/world-map');redirect('/communities');
+}
