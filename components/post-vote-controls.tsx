@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
+import { votePostInline } from '@/app/(app)/feed/actions';
 import { ShareLink } from '@/components/share-link';
 import type { Actor } from '@/lib/social';
 
@@ -29,45 +29,36 @@ export function PostVoteControls({
  const [upvotes,setUpvotes]=useState(initialUpvotes);
  const [downvotes,setDownvotes]=useState(initialDownvotes);
  const [actorVotes,setActorVotes]=useState<Record<string,Vote>>({...initialActorVotes});
- const [pending,startTransition]=useTransition();
+ const [pending,setPending]=useState(false);
 
- function castVote(vote:Vote) {
+ async function castVote(vote:Vote) {
    if(!selectedActor||pending)return;
    const previous=actorVotes[selectedActor]??0;
    const next=previous===vote?0:vote;
    const previousUpvotes=upvotes,previousDownvotes=downvotes,previousVotes={...actorVotes};
+
    setUpvotes(upvotes-(previous===1?1:0)+(next===1?1:0));
    setDownvotes(downvotes-(previous===-1?1:0)+(next===-1?1:0));
    setActorVotes(current=>{const updated={...current};if(next===0)delete updated[selectedActor];else updated[selectedActor]=next;return updated;});
+   setPending(true);
 
-   startTransition(async()=>{
-     const client=createClient();
-     let error=null;
-     if(previous!==0){
-       const removed=await client.from('reactions').delete().eq('post_id',postId).eq('actor_id',selectedActor);
-       error=removed.error;
-     }
-     if(!error&&next!==0){
-       const inserted=await client.from('reactions').insert({post_id:postId,actor_id:selectedActor,vote:next});
-       error=inserted.error;
-     }
-     if(error){
+   try {
+     const result=await votePostInline({post_id:postId,actor_id:selectedActor,vote});
+     if(!result.ok){
        setUpvotes(previousUpvotes);setDownvotes(previousDownvotes);setActorVotes(previousVotes);return;
      }
-     const {data,error:countError}=await client.from('reactions').select('vote').eq('post_id',postId);
-     if(countError)return;
-     const confirmedUpvotes=(data??[]).filter(row=>Number(row.vote)!==-1).length;
-     const confirmedDownvotes=(data??[]).filter(row=>Number(row.vote)===-1).length;
-     setUpvotes(confirmedUpvotes);setDownvotes(confirmedDownvotes);
-   });
+     setUpvotes(result.upvotes);setDownvotes(result.downvotes);
+   } finally {
+     setPending(false);
+   }
  }
 
  const selectedVote=actorVotes[selectedActor]??0;
  return <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-line pt-3 text-sm text-muted">
    {showComments&&<Link href={`/posts/${postId}`} className="hover:text-gold">{commentCount} comments</Link>}
    {actors.length>0&&<>
-     <button type="button" onClick={()=>castVote(1)} disabled={pending} aria-pressed={selectedVote===1} className={selectedVote===1?'text-gold':'hover:text-gold'}>👍 Upvote</button>
-     <button type="button" onClick={()=>castVote(-1)} disabled={pending} aria-pressed={selectedVote===-1} className={selectedVote===-1?'text-gold':'hover:text-gold'}>👎 Downvote</button>
+     <button type="button" onClick={()=>void castVote(1)} disabled={pending} aria-pressed={selectedVote===1} className={selectedVote===1?'text-gold':'hover:text-gold'}>👍 Upvote</button>
+     <button type="button" onClick={()=>void castVote(-1)} disabled={pending} aria-pressed={selectedVote===-1} className={selectedVote===-1?'text-gold':'hover:text-gold'}>👎 Downvote</button>
    </>}
    <span>👍 {upvotes}</span>
    <span>👎 {downvotes}</span>
