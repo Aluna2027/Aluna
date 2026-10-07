@@ -6,7 +6,7 @@ import { Card } from '@/components/ui';
 import { updateCommunity } from '../../actions';
 export default async function EditCommunity({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{error?:string}>}) {
  const {id}=await params;const {error}=await searchParams;const client=await createClient();const actors=await ownedActors();
- const {data:community}=await client.from('mesh_communities').select('id,name,location_text,description,population,people_connected,nodes,local_owners').eq('id',id).maybeSingle();if(!community)notFound();
+ const {data:community}=await client.from('mesh_communities').select('id,name,location_text,description,population,people_connected,nodes,local_owners').eq('id',id).is('removed_at',null).maybeSingle();if(!community)notFound();
  const {data:stewards}=await client.from('mesh_community_members').select('actor_id').eq('community_id',id).eq('member_role','steward');if(!stewards?.some(s=>actors.some(a=>a.id===s.actor_id)))notFound();
  return <div className="space-y-5"><Link href={`/communities/${id}`} className="text-sm text-gold">← Community</Link><Card title="Edit Wi-Fi Mesh Community"><p className="mb-5 text-sm">Report actual values only. Empty figures appear as “Not reported”.</p><form action={updateCommunity} className="max-w-2xl space-y-5"><input type="hidden" name="id" value={id}/>{error&&<p role="alert" className="text-amber-300">Check the details and try again. People connected cannot exceed population.</p>}
  <label className="block text-sm">Name<input name="name" required minLength={2} maxLength={160} defaultValue={community.name} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
