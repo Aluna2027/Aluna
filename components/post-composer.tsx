@@ -18,6 +18,22 @@ function destination(returnTo:string){
  return returnTo;
 }
 
+async function normalizeGlobalFeedImage(file:File){
+ const url=URL.createObjectURL(file);
+ try{
+  const image=await new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('image'));img.src=url;});
+  const targetW=1080,targetH=1920,targetRatio=targetW/targetH,sourceRatio=image.naturalWidth/image.naturalHeight;
+  let sx=0,sy=0,sw=image.naturalWidth,sh=image.naturalHeight;
+  if(sourceRatio>targetRatio){sw=image.naturalHeight*targetRatio;sx=(image.naturalWidth-sw)/2;}else if(sourceRatio<targetRatio){sh=image.naturalWidth/targetRatio;sy=(image.naturalHeight-sh)/2;}
+  const canvas=document.createElement('canvas');canvas.width=targetW;canvas.height=targetH;
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('canvas');
+  ctx.drawImage(image,sx,sy,sw,sh,0,0,targetW,targetH);
+  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('blob')),'image/jpeg',0.92));
+  const base=file.name.replace(/\.[^.]+$/,'')||'photo';
+  return new File([blob],`${base}-1080x1920.jpg`,{type:'image/jpeg'});
+ } finally {URL.revokeObjectURL(url);}
+}
+
 export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missionId}:{actors:Actor[];returnTo?:string;repostOf?:string;communityId?:string;missionId?:string}) {
  const router=useRouter();
  const [submitting,setSubmitting]=useState(false);
@@ -42,6 +58,11 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
      setUploadError('Choose a supported photo or video up to 50 MB.');
      setSubmitting(false);
      return;
+   }
+
+   let uploadMedia=media;
+   if(mediaType==='image'&&returnTo==='/feed'){
+     try{uploadMedia=await normalizeGlobalFeedImage(media);}catch{setUploadError('Could not prepare this photo as 1080 × 1920. Please choose another image.');setSubmitting(false);return;}
    }
 
    const body=String(data.get('body')??'').trim();
@@ -75,8 +96,8 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
      return;
    }
 
-   const path=`${user.id}/${post.id}/${crypto.randomUUID()}.${fileExtension(media)}`;
-   const {error:storageError}=await client.storage.from('post-media').upload(path,media,{contentType:media.type,upsert:false});
+   const path=`${user.id}/${post.id}/${crypto.randomUUID()}.${fileExtension(uploadMedia)}`;
+   const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
    if(storageError){
      await client.from('posts').delete().eq('id',post.id);
      setUploadError('Could not upload the photo or video. Please try again.');
