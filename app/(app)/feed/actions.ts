@@ -38,11 +38,16 @@ export async function addComment(form:FormData) {
  const {error}=await client.from('comments').insert({post_id,actor_id,body});if(error)redirect(withError(returnTo,'comment'));
  revalidatePath(`/posts/${post_id}`);revalidatePath('/feed');redirect(returnTo);
 }
-export async function toggleReaction(form:FormData) {
- const client=await current(),returnTo=destination(form);const post_id=String(form.get('post_id')??''),actor_id=String(form.get('actor_id')??'');
- const {data}=await client.from('reactions').select('post_id').eq('post_id',post_id).eq('actor_id',actor_id).maybeSingle();
- const {error}=data?await client.from('reactions').delete().eq('post_id',post_id).eq('actor_id',actor_id):await client.from('reactions').insert({post_id,actor_id});
- if(error)redirect(withError(returnTo,'reaction'));revalidatePath('/feed');revalidatePath(`/posts/${post_id}`);redirect(returnTo);
+export async function votePost(form:FormData) {
+ const client=await current(),returnTo=destination(form);const post_id=String(form.get('post_id')??''),actor_id=String(form.get('actor_id')??'');const vote=Number(form.get('vote'))===-1?-1:1;
+ const {data}=await client.from('reactions').select('vote').eq('post_id',post_id).eq('actor_id',actor_id).maybeSingle();
+ let error=null;
+ if(data&&Number(data.vote)===vote){({error}=await client.from('reactions').delete().eq('post_id',post_id).eq('actor_id',actor_id));}
+ else {
+   if(data){const removed=await client.from('reactions').delete().eq('post_id',post_id).eq('actor_id',actor_id);if(removed.error)error=removed.error;}
+   if(!error){const inserted=await client.from('reactions').insert({post_id,actor_id,vote});error=inserted.error;}
+ }
+ if(error)redirect(withError(returnTo,'vote'));revalidatePath('/feed');revalidatePath('/following');revalidatePath(`/posts/${post_id}`);redirect(returnTo);
 }
 export async function toggleFollow(form:FormData) {
  const client=await current(),returnTo=destination(form);const follower_actor_id=String(form.get('actor_id')??''),followed_actor_id=String(form.get('target_actor_id')??'');
