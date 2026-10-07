@@ -19,6 +19,7 @@ export async function createPost(form:FormData) {
  const raw=form.get('media');const media=raw instanceof File&&raw.size>0?raw:null;
  const media_type=media?(imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':null):null;
  if(media&&(!media_type||media.size>50*1024*1024))redirect(withError(returnTo,'media'));
+ if(media&&media_type==='image'&&returnTo==='/feed')redirect(withError(returnTo,'media'));
  const {data:post,error}=await client.from('posts').insert({actor_id,body,visibility:community_id||mission_id?'public':visibility,repost_of_id,community_id,mission_id}).select('id').single();if(error||!post)redirect(withError(returnTo,'post'));
  if(media&&media_type){
    const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
