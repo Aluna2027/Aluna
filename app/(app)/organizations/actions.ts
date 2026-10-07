@@ -41,3 +41,12 @@ export async function updateOrganization(form:FormData) {
  revalidatePath('/organizations');revalidatePath(`/organizations/${id}`);revalidatePath('/profile');
  redirect(`/organizations/${id}?status=saved`);
 }
+
+
+export async function removeOrganization(form:FormData) {
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/organizations');
+ const {error}=await client.rpc('remove_organization',{p_organization:id});
+ if(error)redirect(`/organizations/${id}?error=delete`);
+ revalidatePath('/organizations');revalidatePath('/profile');redirect('/organizations');
+}
