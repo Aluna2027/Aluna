@@ -49,6 +49,23 @@ export async function votePost(form:FormData) {
  }
  if(error)redirect(withError(returnTo,'vote'));revalidatePath('/feed');revalidatePath('/following');revalidatePath(`/posts/${post_id}`);redirect(returnTo);
 }
+export async function votePostInline(input:{post_id:string;actor_id:string;vote:1|-1}) {
+ const client=await current();const post_id=String(input.post_id??''),actor_id=String(input.actor_id??'');const vote=input.vote===-1?-1:1;
+ const {data,currentError}=await (async()=>{const result=await client.from('reactions').select('vote').eq('post_id',post_id).eq('actor_id',actor_id).maybeSingle();return {data:result.data,currentError:result.error};})();
+ if(currentError)return {ok:false as const};
+ let error=null;
+ if(data&&Number(data.vote)===vote){({error}=await client.from('reactions').delete().eq('post_id',post_id).eq('actor_id',actor_id));}
+ else {
+   if(data){const removed=await client.from('reactions').delete().eq('post_id',post_id).eq('actor_id',actor_id);if(removed.error)error=removed.error;}
+   if(!error){const inserted=await client.from('reactions').insert({post_id,actor_id,vote});error=inserted.error;}
+ }
+ if(error)return {ok:false as const};
+ const {data:all,error:countError}=await client.from('reactions').select('vote').eq('post_id',post_id);
+ if(countError)return {ok:false as const};
+ const upvotes=(all??[]).filter(row=>Number(row.vote)!==-1).length;
+ const downvotes=(all??[]).filter(row=>Number(row.vote)===-1).length;
+ return {ok:true as const,upvotes,downvotes,score:upvotes-downvotes};
+}
 export async function toggleFollow(form:FormData) {
  const client=await current(),returnTo=destination(form);const follower_actor_id=String(form.get('actor_id')??''),followed_actor_id=String(form.get('target_actor_id')??'');
  const {data}=await client.from('follows').select('follower_actor_id').eq('follower_actor_id',follower_actor_id).eq('followed_actor_id',followed_actor_id).maybeSingle();
