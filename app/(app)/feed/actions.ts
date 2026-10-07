@@ -68,9 +68,9 @@ export async function editPost(form:FormData) {
  revalidatePath(`/posts/${id}`);revalidatePath('/feed');redirect(`/posts/${id}`);
 }
 export async function deletePost(form:FormData) {
- const client=await current();const id=String(form.get('id')??'');
- const {error}=await client.from('posts').delete().eq('id',id);if(error)redirect(`/posts/${id}?error=delete`);
- revalidatePath('/feed');revalidatePath('/following');redirect('/feed');
+ const client=await current();const id=String(form.get('id')??''),returnTo=destination(form);
+ const {error}=await client.from('posts').delete().eq('id',id);if(error)redirect(withError(returnTo,'delete'));
+ revalidatePath('/feed');revalidatePath('/following');revalidatePath(returnTo);redirect(returnTo);
 }
 export async function deleteComment(form:FormData) {
  const client=await current();const id=String(form.get('id')??''),postId=String(form.get('post_id')??'');
