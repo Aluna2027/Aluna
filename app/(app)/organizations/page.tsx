@@ -5,7 +5,7 @@ export default async function Organizations({searchParams}:{searchParams:Promise
  const {type,q:rawQuery}=await searchParams;const client=await createClient();
  const filter=['university','ngo','company'].includes(type??'')?type:undefined;
  const queryText=(rawQuery??'').trim().slice(0,120);
- let query=client.from('organizations').select('id,name,organization_type,description,location_text').order('name').limit(100);
+ let query=client.from('organizations').select('id,name,organization_type,description,location_text').is('removed_at',null).order('name').limit(100);
  if(filter)query=query.eq('organization_type',filter);
  if(queryText){
   const normalized=queryText.toLocaleLowerCase('en');
