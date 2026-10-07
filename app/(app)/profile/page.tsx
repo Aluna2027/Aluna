@@ -8,7 +8,7 @@ import type { PublicProfile } from '@/lib/profiles';
 export default async function Profile({searchParams}:{searchParams:Promise<{tab?:string;status?:string}>}) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const {data:profile}=await client.from('profiles').select('id,display_name,first_name,last_name,bio,avatar_url,location_text,website,skills,interests,aluna_role').eq('id',user.id).single();
- const {data:memberships}=await client.from('organization_members').select('organization_id,member_role,organizations(id,name,organization_type)').eq('profile_id',user.id);
+ const {data:memberships}=await client.from('organization_members').select('organization_id,member_role,organizations!inner(id,name,organization_type,removed_at)').eq('profile_id',user.id).is('organizations.removed_at',null);
  const {data:actor}=await client.from('actors').select('id').eq('profile_id',user.id).maybeSingle();
  const {tab,status}=await searchParams;
  return <div className="space-y-6"><div className="flex justify-end"><Link href="/settings" className="text-sm text-gold">Account settings →</Link></div><Card title="The First 340"><p className="mb-3">Apply for the special global team program from your existing Aluna profile.</p><Link href="/first-340" className="text-gold">Apply for The First 340 →</Link></Card>{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Profile saved.</p>}
