@@ -11,7 +11,13 @@ import { ProofList } from '@/components/proof-list';
 export default async function PostPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{error?:string}>}) {
  const {id}=await params;const {error}=await searchParams;const client=await createClient();const actors=await ownedActors();
  const {data:post}=await client.from('posts').select('id,actor_id,body,created_at,repost_of_id,community_id,mission_id,media_path,media_type').eq('id',id).maybeSingle();if(!post)notFound();
- const {data:comments}=await client.from('comments').select('id,actor_id,body,created_at').eq('post_id',id).order('created_at',{ascending:true}).limit(100);const {data:reactions}=await client.from('reactions').select('actor_id,vote').eq('post_id',id);const upvotes=(reactions??[]).filter(r=>Number(r.vote)!==-1).length;const downvotes=(reactions??[]).filter(r=>Number(r.vote)===-1).length;const ownedActorIds=new Set(actors.map(a=>a.id));const actorVotes=Object.fromEntries((reactions??[]).filter(r=>ownedActorIds.has(r.actor_id)).map(r=>[r.actor_id,Number(r.vote)===-1?-1:1])) as Record<string,1|-1>;
+ const {data:comments}=await client.from('comments').select('id,actor_id,body,created_at').eq('post_id',id).order('created_at',{ascending:true}).limit(100);
+ const {data:reactions}=await client.from('reactions').select('actor_id,vote').eq('post_id',id);
+ const upvotes=(reactions??[]).filter(r=>Number(r.vote)!==-1).length;
+ const downvotes=(reactions??[]).filter(r=>Number(r.vote)===-1).length;
+ const ownedActorIds=new Set(actors.map(a=>a.id));
+ const actorVotes:Record<string,1|-1>={};
+ for(const reaction of reactions??[]){if(ownedActorIds.has(reaction.actor_id))actorVotes[reaction.actor_id]=Number(reaction.vote)===-1?-1:1;}
  const detail=await actorDetails([post.actor_id,...(comments??[]).map(c=>c.actor_id)]);
  const author=detail.get(post.actor_id);const canEdit=actors.some(a=>a.id===post.actor_id);
  const {data:signed}=post.media_path?await client.storage.from('post-media').createSignedUrl(post.media_path,3600):{data:null};const mediaUrl=signed?.signedUrl;
