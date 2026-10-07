@@ -36,7 +36,7 @@ export async function updateOrganization(form:FormData) {
  if(membership?.member_role!=='admin')redirect(`/organizations/${id}`);
  const name=String(form.get('name')??'').trim(),description=String(form.get('description')??'').trim(),website=String(form.get('website')??'').trim(),location_text=String(form.get('location_text')??'').trim(),logo_url=String(form.get('logo_url')??'').trim();
  if(name.length<2||name.length>160||description.length>3000||website.length>300||location_text.length>160||(website&&!safeUrl(website))||logo_url.length>500||(logo_url&&!safeUrl(logo_url)))redirect(`/organizations/${id}/edit?error=validation`);
- const {error}=await client.from('organizations').update({name,description:description||null,website:website||null,location_text:location_text||null,logo_url:logo_url||null,updated_at:new Date().toISOString()}).eq('id',id);
+ const {error}=await client.from('organizations').update({name,description:description||null,website:website||null,location_text:location_text||null,logo_url:logo_url||null,updated_at:new Date().toISOString()}).eq('id',id).is('removed_at',null);
  if(error)redirect(`/organizations/${id}/edit?error=save`);
  revalidatePath('/organizations');revalidatePath(`/organizations/${id}`);revalidatePath('/profile');
  redirect(`/organizations/${id}?status=saved`);
