@@ -22,7 +22,7 @@ export async function updateCommunity(form:FormData) {
  let population,people_connected,nodes,local_owners;
  try {population=optionalCount(form,'population');people_connected=optionalCount(form,'people_connected');nodes=optionalCount(form,'nodes');local_owners=optionalCount(form,'local_owners');}catch{redirect(`/communities/${id}/edit?error=validation`);}
  if(population!==null&&people_connected!==null&&people_connected>population)redirect(`/communities/${id}/edit?error=validation`);
- const {error}=await client.from('mesh_communities').update({name,location_text,description:description||null,population,people_connected,nodes,local_owners,updated_at:new Date().toISOString()}).eq('id',id);
+ const {error}=await client.from('mesh_communities').update({name,location_text,description:description||null,population,people_connected,nodes,local_owners,updated_at:new Date().toISOString()}).eq('id',id).is('removed_at',null);
  if(error)redirect(`/communities/${id}/edit?error=save`);
  revalidatePath('/communities');revalidatePath(`/communities/${id}`);redirect(`/communities/${id}?status=saved`);
 }
