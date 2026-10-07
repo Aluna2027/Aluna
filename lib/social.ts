@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 export type Actor = {id:string;name:string;kind:string;href:string};
-export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number};
+export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number;actor_votes?:Record<string,1|-1>};
 
 export async function ownedActors() {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return [] as Actor[];
@@ -22,13 +22,13 @@ export async function actorDetails(ids:string[]):Promise<Map<string,Actor>> {
  return result;
 }
 
-export async function attachVoteCounts(posts:FeedPost[]) {
+export async function attachVoteCounts(posts:FeedPost[],actors:Actor[]=[]) {
  if(!posts.length)return posts;
- const client=await createClient();const ids=posts.map(p=>p.id);
- const {data}=await client.from('reactions').select('post_id,vote').in('post_id',ids);
- const counts=new Map<string,{up:number;down:number}>();
- for(const reaction of data??[]){const current=counts.get(reaction.post_id)??{up:0,down:0};if(Number(reaction.vote)===-1)current.down+=1;else current.up+=1;counts.set(reaction.post_id,current);}
- return posts.map(post=>{const count=counts.get(post.id)??{up:0,down:0};return {...post,upvote_count:count.up,downvote_count:count.down,score:count.up-count.down};});
+ const client=await createClient();const ids=posts.map(p=>p.id),owned=new Set(actors.map(a=>a.id));
+ const {data}=await client.from('reactions').select('post_id,actor_id,vote').in('post_id',ids);
+ const counts=new Map<string,{up:number;down:number}>(),votes=new Map<string,Record<string,1|-1>>();
+ for(const reaction of data??[]){const current=counts.get(reaction.post_id)??{up:0,down:0};const value:NumberConstructor extends never?never:number=Number(reaction.vote);if(value===-1)current.down+=1;else current.up+=1;counts.set(reaction.post_id,current);if(owned.has(reaction.actor_id)){const map=votes.get(reaction.post_id)??{};map[reaction.actor_id]=value===-1?-1:1;votes.set(reaction.post_id,map);}}
+ return posts.map(post=>{const count=counts.get(post.id)??{up:0,down:0};return {...post,upvote_count:count.up,downvote_count:count.down,score:count.up-count.down,actor_votes:votes.get(post.id)??{}};});
 }
 
 export async function attachPostMedia(posts:FeedPost[]) {
