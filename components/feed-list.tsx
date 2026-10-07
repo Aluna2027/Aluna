@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { deletePost, toggleReaction } from '@/app/(app)/feed/actions';
+import { deletePost, votePost } from '@/app/(app)/feed/actions';
 import { ShareLink } from '@/components/share-link';
 import type { Actor, FeedPost } from '@/lib/social';
 import { relativeDate } from '@/lib/social';
@@ -10,5 +10,5 @@ export function FeedList({posts,actors,returnTo}:{posts:FeedPost[];actors:Actor[
  {post.media_url&&post.media_type==='image'&&<img src={post.media_url} alt="" className="mt-4 max-h-[560px] w-full rounded-2xl border border-line object-cover"/>}
  {post.media_url&&post.media_type==='video'&&<video src={post.media_url} controls preload="metadata" className="mt-4 max-h-[560px] w-full rounded-2xl border border-line"/>}
  {post.repost_of_id&&<Link href={`/posts/${post.repost_of_id}`} className="mt-3 inline-block text-sm text-gold">Shared post →</Link>}
- <div className="mt-5 flex flex-wrap items-center gap-5 border-t border-line pt-3 text-sm text-muted"><Link href={`/posts/${post.id}`}>{post.comment_count} comments</Link><span>{post.reaction_count} reactions</span><ShareLink path={`/posts/${post.id}`}/>{actors.length>0&&<form action={toggleReaction} className="flex gap-2"><input type="hidden" name="post_id" value={post.id}/><input type="hidden" name="return_to" value={returnTo}/><select name="actor_id" aria-label="React as" className="rounded-lg border border-line bg-panel-raised p-1 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><button className="text-gold hover:underline">React / Undo</button></form>}</div></article>})}</div>;
+ <div className="mt-5 flex flex-wrap items-center gap-5 border-t border-line pt-3 text-sm text-muted"><Link href={`/posts/${post.id}`}>{post.comment_count} comments</Link><span>👍 {post.upvote_count??0}</span><span>👎 {post.downvote_count??0}</span><span>Score {post.score??0}</span><ShareLink path={`/posts/${post.id}`}/>{actors.length>0&&<form action={votePost} className="flex flex-wrap items-center gap-2"><input type="hidden" name="post_id" value={post.id}/><input type="hidden" name="return_to" value={returnTo}/><select name="actor_id" aria-label="Vote as" className="rounded-lg border border-line bg-panel-raised p-1 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><button name="vote" value="1" aria-label="Upvote" className="text-gold hover:underline">👍 Upvote</button><button name="vote" value="-1" aria-label="Downvote" className="text-gold hover:underline">👎 Downvote</button></form>}</div></article>})}</div>;
 }
