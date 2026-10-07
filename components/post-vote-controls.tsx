@@ -15,6 +15,7 @@ export function PostVoteControls({
  initialUpvotes,
  initialDownvotes,
  initialActorVotes,
+ showComments=true,
 }:{
  postId:string;
  commentCount:number;
@@ -22,6 +23,7 @@ export function PostVoteControls({
  initialUpvotes:number;
  initialDownvotes:number;
  initialActorVotes:Record<string,Vote>;
+ showComments?:boolean;
 }) {
  const [selectedActor,setSelectedActor]=useState(actors[0]?.id??'');
  const [upvotes,setUpvotes]=useState(initialUpvotes);
@@ -62,7 +64,7 @@ export function PostVoteControls({
 
  const selectedVote=actorVotes[selectedActor]??0;
  return <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-line pt-3 text-sm text-muted">
-   <Link href={`/posts/${postId}`} className="hover:text-gold">{commentCount} comments</Link>
+   {showComments&&<Link href={`/posts/${postId}`} className="hover:text-gold">{commentCount} comments</Link>}
    {actors.length>0&&<>
      <button type="button" onClick={()=>castVote(1)} disabled={pending} aria-pressed={selectedVote===1} className={selectedVote===1?'text-gold':'hover:text-gold'}>👍 Upvote</button>
      <button type="button" onClick={()=>castVote(-1)} disabled={pending} aria-pressed={selectedVote===-1} className={selectedVote===-1?'text-gold':'hover:text-gold'}>👎 Downvote</button>
