@@ -10,7 +10,7 @@ export default async function CityPage({params,searchParams}:{params:Promise<{id
  const client=await createClient();
  const {data:place}=['wifi-mesh-communities','missions'].includes(active.slug)?await client.from('places').select('id').eq('source_key',id).maybeSingle():{data:null};
  const {data:missions}=place&&active.slug==='missions'?await client.from('missions').select('id,title,location_text').eq('city_id',place.id).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:null};
- const {data:communities}=place?await client.from('mesh_communities').select('id,name,location_text,people_connected').eq('city_id',place.id).order('name').limit(100):{data:null};
+ const {data:communities}=place?await client.from('mesh_communities').select('id,name,location_text,people_connected').eq('city_id',place.id).is('removed_at',null).order('name').limit(100):{data:null};
  return <div className="space-y-6"><Link href="/world-map" className="text-sm font-medium text-gold hover:underline">← World map</Link>
   <header className="rounded-3xl bg-navy p-7 text-white sm:p-10"><p className="text-xs tracking-[.2em] text-gold-soft">CITY HUB · {city.region.toUpperCase()}</p><h1 className="mt-3 text-4xl font-semibold">{city.name}</h1><p className="mt-2 text-muted">{city.country} · {formatPopulation(city.population)} people · {populationCategory(city.population).label}</p></header>
   <nav aria-label="City sections" className="flex gap-2 overflow-x-auto pb-2">{cityTabs.map(item=><Link key={item.slug} href={`/cities/${id}?tab=${item.slug}`} aria-current={active.slug===item.slug?'page':undefined} className={`shrink-0 rounded-full px-4 py-2 text-sm ${active.slug===item.slug?'bg-gold text-navy':'glass hover:bg-panel-raised'}`}>{item.title}</Link>)}</nav>
