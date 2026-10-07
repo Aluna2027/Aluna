@@ -6,11 +6,12 @@ export async function ownedActors() {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return [] as Actor[];
  const [{data:personal},{data:memberships}]=await Promise.all([
    client.from('actors').select('id,profile_id,profiles(display_name)').eq('profile_id',user.id),
-   client.from('organization_members').select('organization_id,organizations(name,organization_type)').eq('profile_id',user.id).eq('member_role','admin'),
+   client.from('organization_members').select('organization_id,organizations(name,organization_type,removed_at)').eq('profile_id',user.id).eq('member_role','admin'),
  ]);
- const orgIds=(memberships??[]).map(m=>m.organization_id);
+ const activeMemberships=(memberships??[]).filter(m=>!(m.organizations as unknown as {removed_at:string|null}|null)?.removed_at);
+ const orgIds=activeMemberships.map(m=>m.organization_id);
  const {data:orgActors}=orgIds.length?await client.from('actors').select('id,organization_id').in('organization_id',orgIds):{data:[]};
- const names=new Map((memberships??[]).map(m=>[m.organization_id,m.organizations as unknown as {name:string;organization_type:string}|null]));
+ const names=new Map(activeMemberships.map(m=>[m.organization_id,m.organizations as unknown as {name:string;organization_type:string;removed_at:string|null}|null]));
  return [...(personal??[]).map(a=>({id:a.id,name:(a.profiles as unknown as {display_name:string}|null)?.display_name||'You',kind:'user',href:`/people/${user.id}`})),...(orgActors??[]).map(a=>({id:a.id,name:names.get(a.organization_id)?.name||'Organization',kind:names.get(a.organization_id)?.organization_type||'organization',href:`/organizations/${a.organization_id}`}))];
 }
 
