@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import { votePostInline } from '@/app/(app)/feed/actions';
+import { createClient } from '@/lib/supabase/client';
 import { ShareLink } from '@/components/share-link';
 import type { Actor } from '@/lib/social';
 
@@ -34,17 +34,29 @@ export function PostVoteControls({
    const previous=actorVotes[selectedActor]??0;
    const next=previous===vote?0:vote;
    const previousUpvotes=upvotes,previousDownvotes=downvotes,previousVotes={...actorVotes};
-   const optimisticUpvotes=upvotes-(previous===1?1:0)+(next===1?1:0);
-   const optimisticDownvotes=downvotes-(previous===-1?1:0)+(next===-1?1:0);
-   setUpvotes(optimisticUpvotes);
-   setDownvotes(optimisticDownvotes);
+   setUpvotes(upvotes-(previous===1?1:0)+(next===1?1:0));
+   setDownvotes(downvotes-(previous===-1?1:0)+(next===-1?1:0));
    setActorVotes(current=>{const updated={...current};if(next===0)delete updated[selectedActor];else updated[selectedActor]=next;return updated;});
+
    startTransition(async()=>{
-     const result=await votePostInline({post_id:postId,actor_id:selectedActor,vote});
-     if(!result.ok){
+     const client=createClient();
+     let error=null;
+     if(previous!==0){
+       const removed=await client.from('reactions').delete().eq('post_id',postId).eq('actor_id',selectedActor);
+       error=removed.error;
+     }
+     if(!error&&next!==0){
+       const inserted=await client.from('reactions').insert({post_id:postId,actor_id:selectedActor,vote:next});
+       error=inserted.error;
+     }
+     if(error){
        setUpvotes(previousUpvotes);setDownvotes(previousDownvotes);setActorVotes(previousVotes);return;
      }
-     setUpvotes(result.upvotes);setDownvotes(result.downvotes);
+     const {data,error:countError}=await client.from('reactions').select('vote').eq('post_id',postId);
+     if(countError)return;
+     const confirmedUpvotes=(data??[]).filter(row=>Number(row.vote)!==-1).length;
+     const confirmedDownvotes=(data??[]).filter(row=>Number(row.vote)===-1).length;
+     setUpvotes(confirmedUpvotes);setDownvotes(confirmedDownvotes);
    });
  }
 
