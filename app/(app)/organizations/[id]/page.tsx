@@ -11,10 +11,11 @@ import { ActorFundraising } from '@/components/actor-fundraising';
 import { ActorCommunities } from '@/components/actor-communities';
 import { ActorSocial } from '@/components/actor-social';
 import { type Organization, organizationTabs, tabSlug } from '@/lib/profiles';
+import { removeOrganization } from '../actions';
 
 export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string}>}) {
  const {id}=await params;const {tab,status}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const {data:org}=await client.from('organizations').select('id,name,organization_type,description,is_verified,logo_url,location_text,website,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score').eq('id',id).maybeSingle();if(!org)notFound();
+ const {data:org}=await client.from('organizations').select('id,name,organization_type,country,description,is_verified,logo_url,location_text,website,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score').eq('id',id).is('removed_at',null).maybeSingle();if(!org)notFound();
  const organization=org as Organization;const tabs=organizationTabs[organization.organization_type];if(!tabs)notFound();
  const active=tabs.find(label=>tabSlug(label)===tab)??'About';
  const {data:membership}=await client.from('organization_members').select('member_role').eq('organization_id',id).eq('profile_id',user.id).maybeSingle();
@@ -28,7 +29,8 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
    {label:'Acting Ethically',value:organization.wba_acting_ethically_score},
  ]:[];
  return <div className="space-y-6"><Link href="/organizations" className="text-sm text-gold hover:underline">← Organizations</Link>{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization saved.</p>}
- <ProfileHeader name={organization.name} kind={organization.organization_type} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} unverified={!organization.is_verified} editHref={isAdmin?`/organizations/${id}/edit`:undefined} scores={scores}/>
+ <ProfileHeader name={organization.name} kind={organization.organization_type} country={organization.country} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} unverified={!organization.is_verified} editHref={isAdmin?`/organizations/${id}/edit`:undefined} scores={scores}/>
+ {isAdmin&&<form action={removeOrganization} className="flex justify-end"><input type="hidden" name="id" value={id}/><button className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Delete organization</button></form>}
  <ProfileTabs base={`/organizations/${id}`} tabs={tabs} active={tabSlug(active)}/>
  {active==='About'?<><Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{actor&&<ActorSocial actorId={actor.id} section="About" returnTo={`/organizations/${id}`}/>}</>:active==='People'?<Card title="People"><div className="space-y-3">{people?.map(person=>{const profile=person.profiles as unknown as {display_name:string}|null;return <Link key={person.profile_id} href={`/people/${person.profile_id}`} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{profile?.display_name||'Member'} <span className="text-sm text-muted">· {person.member_role}</span></Link>})}{!people?.length&&<p>No members yet.</p>}</div></Card>:active==='Wi-Fi Mesh Communities'&&actor?<ActorCommunities actorId={actor.id}/>:active==='Missions'&&actor?<ActorMissions actorId={actor.id}/>:active==='Fundraising'&&actor?<ActorFundraising actorId={actor.id}/>:active==='Contributions'&&actor?<ContributionList actorId={actor.id}/>:active==='Proofs'&&actor?<ProofList actorId={actor.id}/>:actor&&['Posts','Connections'].includes(active)?<ActorSocial actorId={actor.id} section={active} returnTo={`/organizations/${id}`}/>:<Placeholder title={active} description={`${active} for ${organization.name} will appear here in a later phase.`}/>}
  </div>;
