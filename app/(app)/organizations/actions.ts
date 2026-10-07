@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { type OrganizationType, organizationTabs, safeUrl } from '@/lib/profiles';
+import { countrySet } from '@/lib/countries';
 
 const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);
 function ext(file:File){return file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';}
@@ -12,13 +13,14 @@ function newUrl(type:string,error:string){return `/organizations/new?error=${err
 export async function createOrganization(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const name=String(form.get('name')??'').trim();const type=String(form.get('organization_type')??'') as OrganizationType;
+ const country=String(form.get('country')??'').trim();
  const description=String(form.get('description')??'').trim();
  const raw=form.get('logo_file');const logo=raw instanceof File&&raw.size>0?raw:null;
  const total=score(form,'wba_total_score'),human=score(form,'wba_human_rights_score'),decent=score(form,'wba_decent_work_score'),ethics=score(form,'wba_acting_ethically_score');
- if(name.length<2||name.length>160||description.length>3000||!(type in organizationTabs)||!!logo&&(!imageTypes.has(logo.type)||logo.size>5*1024*1024)||(type==='company'&&[total,human,decent,ethics].some(v=>Number.isNaN(v))))redirect(newUrl(type,'validation'));
+ if(name.length<2||name.length>160||!countrySet.has(country)||description.length>3000||!(type in organizationTabs)||!!logo&&(!imageTypes.has(logo.type)||logo.size>5*1024*1024)||(type==='company'&&[total,human,decent,ethics].some(v=>Number.isNaN(v))))redirect(newUrl(type,'validation'));
  let logo_url:string|null=null;
  if(logo){const path=`${user.id}/organizations/${crypto.randomUUID()}.${ext(logo)}`;const {error}=await client.storage.from('profile-media').upload(path,logo,{contentType:logo.type});if(error)redirect(newUrl(type,'save'));logo_url=client.storage.from('profile-media').getPublicUrl(path).data.publicUrl;}
- const {data:id,error}=await client.rpc('create_organization',{p_name:name,p_type:type,p_description:description||null});
+ const {data:id,error}=await client.rpc('create_organization_v2',{p_name:name,p_type:type,p_country:country,p_description:description||null});
  if(error||!id)redirect(newUrl(type,'save'));
  const update:Record<string,unknown>={};if(logo_url)update.logo_url=logo_url;
  if(type==='company'){update.wba_total_score=total;update.wba_human_rights_score=human;update.wba_decent_work_score=decent;update.wba_acting_ethically_score=ethics;}
