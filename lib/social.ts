@@ -27,7 +27,7 @@ export async function attachVoteCounts(posts:FeedPost[],actors:Actor[]=[]) {
  const client=await createClient();const ids=posts.map(p=>p.id),owned=new Set(actors.map(a=>a.id));
  const {data}=await client.from('reactions').select('post_id,actor_id,vote').in('post_id',ids);
  const counts=new Map<string,{up:number;down:number}>(),votes=new Map<string,Record<string,1|-1>>();
- for(const reaction of data??[]){const current=counts.get(reaction.post_id)??{up:0,down:0};const value:NumberConstructor extends never?never:number=Number(reaction.vote);if(value===-1)current.down+=1;else current.up+=1;counts.set(reaction.post_id,current);if(owned.has(reaction.actor_id)){const map=votes.get(reaction.post_id)??{};map[reaction.actor_id]=value===-1?-1:1;votes.set(reaction.post_id,map);}}
+ for(const reaction of data??[]){const current=counts.get(reaction.post_id)??{up:0,down:0};const value=Number(reaction.vote);if(value===-1)current.down+=1;else current.up+=1;counts.set(reaction.post_id,current);if(owned.has(reaction.actor_id)){const map=votes.get(reaction.post_id)??{};map[reaction.actor_id]=value===-1?-1:1;votes.set(reaction.post_id,map);}}
  return posts.map(post=>{const count=counts.get(post.id)??{up:0,down:0};return {...post,upvote_count:count.up,downvote_count:count.down,score:count.up-count.down,actor_votes:votes.get(post.id)??{}};});
 }
 
