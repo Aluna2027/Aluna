@@ -17,7 +17,7 @@ const primary=[
 const secondary=[
  {href:'/communities',label:'Mesh communities',icon:RadioTower},
  {href:'/missions',label:'SDG Missions',icon:Target},
- {href:'/fundraising',label:'Fundraising',icon:HeartHandshake},
+ {href:'/fundraising',label:'SDG Fundraising',icon:HeartHandshake},
  {href:'/contributions',label:'Contributions',icon:HandHeart},
  {href:'/proofs',label:'Proofs',icon:BadgeCheck},
  {href:'/impact',label:'Impact',icon:BadgeCheck},
