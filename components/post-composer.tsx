@@ -22,15 +22,16 @@ async function normalizeGlobalFeedImage(file:File){
  const url=URL.createObjectURL(file);
  try{
   const image=await new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('image'));img.src=url;});
-  const targetW=1080,targetH=1920,targetRatio=targetW/targetH,sourceRatio=image.naturalWidth/image.naturalHeight;
-  let sx=0,sy=0,sw=image.naturalWidth,sh=image.naturalHeight;
-  if(sourceRatio>targetRatio){sw=image.naturalHeight*targetRatio;sx=(image.naturalWidth-sw)/2;}else if(sourceRatio<targetRatio){sh=image.naturalWidth/targetRatio;sy=(image.naturalHeight-sh)/2;}
-  const canvas=document.createElement('canvas');canvas.width=targetW;canvas.height=targetH;
+  const targetW=1080,targetH=1920;
+  const scale=Math.min(targetW/image.naturalWidth,targetH/image.naturalHeight);
+  const outputW=Math.max(1,Math.round(image.naturalWidth*scale));
+  const outputH=Math.max(1,Math.round(image.naturalHeight*scale));
+  const canvas=document.createElement('canvas');canvas.width=outputW;canvas.height=outputH;
   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('canvas');
-  ctx.drawImage(image,sx,sy,sw,sh,0,0,targetW,targetH);
+  ctx.drawImage(image,0,0,image.naturalWidth,image.naturalHeight,0,0,outputW,outputH);
   const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('blob')),'image/jpeg',0.92));
   const base=file.name.replace(/\.[^.]+$/,'')||'photo';
-  return new File([blob],`${base}-1080x1920.jpg`,{type:'image/jpeg'});
+  return new File([blob],`${base}-feed.jpg`,{type:'image/jpeg'});
  } finally {URL.revokeObjectURL(url);}
 }
 
