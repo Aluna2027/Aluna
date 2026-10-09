@@ -4,7 +4,7 @@ import { ImpactView } from '@/components/impact-view';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { actorDetails, ownedActors, type FeedPost } from '@/lib/social';
+import { actorDetails, attachPostMedia, ownedActors, type FeedPost } from '@/lib/social';
 import { communityTabs, metric, type MeshCommunity } from '@/lib/communities';
 import { getCity } from '@/lib/cities';
 import { Card, Placeholder } from '@/components/ui';
@@ -25,7 +25,11 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
  const cursor=before&&!Number.isNaN(Date.parse(before))?before:null;
  const {data:missions}=active==='Missions'?await client.from('missions').select('id,title,goal').eq('community_id',id).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:null};
  const {data:feed}=active==='Feed'?await client.rpc('mesh_community_feed_page',{p_community:id,p_before:cursor,p_before_id:before_id||null,p_limit:20}):{data:null};
- const posts=(feed??[]) as FeedPost[];const place=community.places;const city=place?.source_key?getCity(place.source_key):null;
+ const rawPosts=(feed??[]) as FeedPost[];
+ const {data:postMedia}=active==='Feed'&&rawPosts.length?await client.from('posts').select('id,media_path,media_type').in('id',rawPosts.map(p=>p.id)):{data:[]};
+ const mediaById=new Map((postMedia??[]).map(row=>[row.id,row]));
+ const posts=await attachPostMedia(rawPosts.map(post=>({...post,...mediaById.get(post.id)})));
+ const place=community.places;const city=place?.source_key?getCity(place.source_key):null;
  return <div className="space-y-6"><Link href="/communities" className="text-sm text-gold">← Wi-Fi Mesh Communities</Link>
  {status==='saved'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Community saved.</p>}{error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
  <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><p className="deck-label">PHYSICAL WI-FI MESH COMMUNITY · {place?.name||'CITY'}</p><h1 className="mt-4 text-4xl sm:text-5xl">{community.name}</h1><p className="mt-3 text-muted">{community.location_text}{city?` · ${city.country}`:''}</p><p className="mt-3 text-xs text-muted">{community.is_verified?'Verified details':'Infrastructure figures are self-reported and have not been verified by Aluna.'}</p><div className="mt-6 flex flex-wrap gap-3">{city&&<Link href={`/cities/${city.id}?tab=wifi-mesh-communities`} className="text-sm text-gold">View city →</Link>}{canEdit&&<Link href={`/communities/${id}/edit`} className="text-sm text-gold">Edit community →</Link>}{canEdit&&<form action={removeCommunity}><input type="hidden" name="id" value={id}/><button className="text-sm text-red-300">Delete community</button></form>}</div></header>
