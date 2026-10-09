@@ -22,8 +22,9 @@ async function normalizeGlobalFeedImage(file:File){
  const url=URL.createObjectURL(file);
  try{
   const image=await new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('image'));img.src=url;});
+  if(image.naturalWidth===1080&&image.naturalHeight===1920)return file;
   const targetW=1080,targetH=1920;
-  const scale=Math.min(targetW/image.naturalWidth,targetH/image.naturalHeight);
+  const scale=Math.min(targetW/image.naturalWidth,targetH/image.naturalHeight,1);
   const outputW=Math.max(1,Math.round(image.naturalWidth*scale));
   const outputH=Math.max(1,Math.round(image.naturalHeight*scale));
   const canvas=document.createElement('canvas');canvas.width=outputW;canvas.height=outputH;
@@ -63,7 +64,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
 
    let uploadMedia=media;
    if(mediaType==='image'&&returnTo==='/feed'){
-     try{uploadMedia=await normalizeGlobalFeedImage(media);}catch{setUploadError('Could not prepare this photo as 1080 × 1920. Please choose another image.');setSubmitting(false);return;}
+     try{uploadMedia=await normalizeGlobalFeedImage(media);}catch{setUploadError('Could not prepare this photo for the Global Feed. Please choose another image.');setSubmitting(false);return;}
    }
 
    const body=String(data.get('body')??'').trim();
