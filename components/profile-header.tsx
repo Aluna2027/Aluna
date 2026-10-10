@@ -21,7 +21,7 @@ function WbaScorePanel({ scores }: { scores: Score[] }) {
       <div>
         <p className="deck-label">WORLD BENCHMARKING ALLIANCE</p>
         <h2 className="mt-2 text-xl font-bold text-ink">Social Benchmark Scores</h2>
-        <p className="mt-2 text-sm text-muted">An overview of the company's WBA assessment results, scored out of 100.</p>
+        <p className="mt-2 text-sm text-muted">An overview of the company&apos;s WBA assessment results, scored out of 100.</p>
       </div>
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)]">
         <div className="flex flex-col justify-between rounded-2xl border border-gold/30 bg-panel-raised p-5">
