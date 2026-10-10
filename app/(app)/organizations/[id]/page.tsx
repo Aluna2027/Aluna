@@ -14,8 +14,8 @@ import { type Organization, organizationTabs, tabSlug } from '@/lib/profiles';
 import { removeOrganization } from '../actions';
 import { ArchiveOrganizationConfirmation } from '@/components/archive-organization-confirmation';
 
-export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string}>}) {
- const {id}=await params;const {tab,status}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string}>}) {
+ const {id}=await params;const {tab,status,error}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const {data:org}=await client.from('organizations').select('id,name,organization_type,country,description,is_verified,logo_url,location_text,website,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score,management_type').eq('id',id).is('removed_at',null).maybeSingle();if(!org)notFound();
  const organization=org as Organization;const tabs=organizationTabs[organization.organization_type];if(!tabs)notFound();
  const active=tabs.find(label=>tabSlug(label)===tab)??'About';
@@ -30,7 +30,7 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
    {label:'Providing and Promoting Decent Work',value:organization.wba_decent_work_score},
    {label:'Acting Ethically',value:organization.wba_acting_ethically_score},
  ]:[];
- return <div className="space-y-6"><Link href="/organizations" className="text-sm text-gold hover:underline">← Organizations</Link>{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization saved.</p>}{status==='archived'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization archived.</p>}
+ return <div className="space-y-6"><Link href="/organizations" className="text-sm text-gold hover:underline">← Organizations</Link>{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization saved.</p>}{status==='archived'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization archived.</p>}{error==='archive'&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">This organization could not be archived. Nothing was changed.</p>}
  <ProfileHeader name={organization.name} kind={organization.organization_type} country={organization.country} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} unverified={!organization.is_verified} editHref={isAdmin?`/organizations/${id}/edit`:undefined} scores={scores}/>
  {canArchive&&<ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={organization.name} className="flex justify-end"><input type="hidden" name="id" value={id}/><input type="hidden" name="return_to" value="profile"/><button type="submit" className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Archive organization</button></form></ArchiveOrganizationConfirmation>}
  <ProfileTabs base={`/organizations/${id}`} tabs={tabs} active={tabSlug(active)}/>
