@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui';
 import { removeOrganization,restoreOrganization,updateOrganizationWba } from '../organizations/actions';
+import { ArchiveOrganizationConfirmation } from '@/components/archive-organization-confirmation';
 
 export default async function AlunaAdmin({searchParams}:{searchParams:Promise<{status?:string;error?:string}>}) {
   const client=await createClient();
@@ -33,7 +34,7 @@ export default async function AlunaAdmin({searchParams}:{searchParams:Promise<{s
       <div className="max-h-96 space-y-2 overflow-y-auto">
         {active.map(org=><div key={org.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-3">
           <div><Link href={`/organizations/${org.id}`} className="font-semibold text-ink hover:text-gold">{org.name}</Link><p className="text-xs text-muted">{org.organization_type} · {org.management_type} · {org.country??'Unknown country'}</p></div>
-          <form action={removeOrganization}><input type="hidden" name="id" value={org.id}/><button type="submit" className="rounded-lg border border-red-700 px-3 py-2 text-sm text-red-300">Archive</button></form>
+          <ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={org.name}><input type="hidden" name="id" value={org.id}/><input type="hidden" name="return_to" value="admin"/><button type="submit" className="rounded-lg border border-red-700 px-3 py-2 text-sm text-red-300">Archive</button></form></ArchiveOrganizationConfirmation>
         </div>)}
         {!active.length&&<p>No active organizations.</p>}
       </div>
