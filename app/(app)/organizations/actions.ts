@@ -42,10 +42,12 @@ export async function updateOrganization(form:FormData) {
 
 export async function removeOrganization(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/organizations');
+ const id=String(form.get('id')??'');const fromAdmin=form.get('return_to')==='admin';
+ if(!/^[0-9a-f-]{36}$/i.test(id))redirect(fromAdmin?'/aluna-admin?error=validation':'/organizations?error=validation');
  const {error}=await client.rpc('remove_organization',{p_organization:id});
- if(error)redirect(`/organizations/${id}?error=delete`);
- revalidatePath('/organizations');revalidatePath('/profile');redirect('/organizations');
+ if(error)redirect(fromAdmin?'/aluna-admin?error=archive':`/organizations/${id}?error=archive`);
+ revalidatePath('/organizations');revalidatePath(`/organizations/${id}`);revalidatePath('/aluna-admin');revalidatePath('/profile');
+ redirect(fromAdmin?'/aluna-admin?status=archived':'/organizations?status=archived');
 }
 
 export async function restoreOrganization(form:FormData) {
