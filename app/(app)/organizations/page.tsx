@@ -139,7 +139,7 @@ export default async function Organizations({ searchParams }: { searchParams: Pr
                   <span className="text-xs font-bold uppercase tracking-wider text-muted">WBA Total Score</span>
                   {org.wba_total_score != null ? (
                     <span className="flex items-baseline gap-1">
-                      <span className="metric-number text-2xl leading-none text-gold">{Number(org.wba_total_score).toFixed(1)}</span>
+                      <span className="metric-number text-2xl leading-none text-gold">{(Number(org.wba_total_score) * 10).toFixed(1)}</span>
                       <span className="text-xs text-muted">/ 10</span>
                     </span>
                   ) : <span className="text-xs text-muted">Not scored</span>}
