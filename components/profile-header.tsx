@@ -55,7 +55,7 @@ function WbaScorePanel({ scores }: { scores: Score[] }) {
           ))}
         </div>
       </div>
-      <p className="mt-4 text-xs text-muted">WBA scores are external benchmark results and are separate from Aluna's organization verification status.</p>
+      <p className="mt-4 text-xs text-muted">WBA scores are external benchmark results and are separate from Aluna&apos;s organization verification status.</p>
     </section>
   );
 }
