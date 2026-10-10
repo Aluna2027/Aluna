@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 
 const PAGE_SIZE = 48;
 type SortOrder = 'score' | 'name' | 'name_desc' | 'country';
-type Params = { type?: string; q?: string; sort?: string; page?: string };
+type Params = { type?: string; q?: string; sort?: string; page?: string; status?: string; error?: string };
 
 function directoryUrl(type?: string, q?: string, sort?: string, page?: number) {
   const params = new URLSearchParams();
@@ -20,7 +20,7 @@ function scoreWidth(value: number | null) {
 }
 
 export default async function Organizations({ searchParams }: { searchParams: Promise<Params> }) {
-  const { type, q: rawQuery, sort: rawSort, page: rawPage } = await searchParams;
+  const { type, q: rawQuery, sort: rawSort, page: rawPage, status, error: actionError } = await searchParams;
   const client = await createClient();
   const filter = ['university', 'ngo', 'company'].includes(type ?? '') ? type : undefined;
   const queryText = (rawQuery ?? '').trim().slice(0, 120);
@@ -78,6 +78,8 @@ export default async function Organizations({ searchParams }: { searchParams: Pr
         </Link>
       </div>
 
+      {status === "archived" && <p role="status" className="rounded-xl border border-gold p-3 text-gold">Organization archived successfully.</p>}
+      {actionError && <p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">The organization could not be archived. No changes were made.</p>}
       <form method="get" className="glass rounded-2xl p-4">
         {filter && <input type="hidden" name="type" value={filter} />}
         {rawSort && validSorts.includes(rawSort as SortOrder) && <input type="hidden" name="sort" value={rawSort} />}
