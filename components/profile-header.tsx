@@ -4,7 +4,7 @@ import { safeUrl } from '@/lib/profiles';
 type Score = { label: string; value: number | null | undefined };
 
 function displayScore(value: number | null | undefined) {
-  return value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toFixed(1);
+  return value == null || !Number.isFinite(Number(value)) ? '—' : (Number(value) * 10).toFixed(1);
 }
 
 function scoreWidth(value: number | null | undefined) {
@@ -21,7 +21,7 @@ function WbaScorePanel({ scores }: { scores: Score[] }) {
       <div>
         <p className="deck-label">WORLD BENCHMARKING ALLIANCE</p>
         <h2 className="mt-2 text-xl font-bold text-ink">Social Benchmark Scores</h2>
-        <p className="mt-2 text-sm text-muted">An overview of the company's WBA assessment results, scored out of 10.</p>
+        <p className="mt-2 text-sm text-muted">An overview of the company's WBA assessment results, scored out of 100.</p>
       </div>
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)]">
         <div className="flex flex-col justify-between rounded-2xl border border-gold/30 bg-panel-raised p-5">
@@ -29,7 +29,7 @@ function WbaScorePanel({ scores }: { scores: Score[] }) {
             <p className="text-xs font-bold uppercase tracking-widest text-muted">Total WBA Score</p>
             <div className="mt-4 flex items-baseline gap-2">
               <span className="metric-number text-5xl leading-none text-gold sm:text-6xl">{displayScore(total?.value)}</span>
-              <span className="text-sm text-muted">/ 10</span>
+              <span className="text-sm text-muted">/ 100</span>
             </div>
           </div>
           <div className="mt-5">
@@ -45,7 +45,7 @@ function WbaScorePanel({ scores }: { scores: Score[] }) {
               <div className="mb-2 flex items-end justify-between gap-4">
                 <p className="text-sm font-medium leading-snug text-ink">{score.label}</p>
                 <span className="shrink-0 text-sm font-semibold tabular-nums text-gold">
-                  {displayScore(score.value)} <span className="font-normal text-muted">/ 10</span>
+                  {displayScore(score.value)} <span className="font-normal text-muted">/ 100</span>
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">
