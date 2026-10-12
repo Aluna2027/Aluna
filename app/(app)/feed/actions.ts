@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
-function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;return /^\/(feed|following|posts\/[0-9a-f-]{36}|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
+function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;if(/^\/(?:profile|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})(?:\?tab=(?:about|posts|connections|followers|following))?$/i.test(path))return path;return /^\/(feed|following|posts\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
 function withError(path:string,error:string){return `${path}${path.includes('?')?'&':'?'}error=${error}`;}
 async function current() {const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');return client;}
 function bodyText(form:FormData,key:string,max:number){const value=String(form.get(key)??'').trim();return value.length>=1&&value.length<=max?value:null;}
@@ -70,18 +70,18 @@ export async function toggleFollow(form:FormData) {
  const client=await current(),returnTo=destination(form);const follower_actor_id=String(form.get('actor_id')??''),followed_actor_id=String(form.get('target_actor_id')??'');
  const {data}=await client.from('follows').select('follower_actor_id').eq('follower_actor_id',follower_actor_id).eq('followed_actor_id',followed_actor_id).maybeSingle();
  const {error}=data?await client.from('follows').delete().eq('follower_actor_id',follower_actor_id).eq('followed_actor_id',followed_actor_id):await client.from('follows').insert({follower_actor_id,followed_actor_id});
- if(error)redirect(withError(returnTo,'follow'));revalidatePath('/following');revalidatePath(returnTo);redirect(returnTo);
+ if(error)redirect(withError(returnTo,'follow'));revalidatePath('/following');revalidatePath(returnTo.split('?')[0]);redirect(returnTo);
 }
 export async function requestConnection(form:FormData) {
  const client=await current(),returnTo=destination(form);const requested_by=String(form.get('actor_id')??''),other=String(form.get('target_actor_id')??'');
  if(requested_by===other||!requested_by||!other)redirect(returnTo);
  const [actor_a,actor_b]=[requested_by,other].sort();const {error}=await client.from('connections').insert({actor_a,actor_b,requested_by});
- if(error)redirect(withError(returnTo,'connection'));revalidatePath(returnTo);redirect(returnTo);
+ if(error)redirect(withError(returnTo,'connection'));revalidatePath(returnTo.split('?')[0]);redirect(returnTo);
 }
 export async function respondConnection(form:FormData) {
  const client=await current(),returnTo=destination(form);const actor_a=String(form.get('actor_a')??''),actor_b=String(form.get('actor_b')??'');const status=form.get('status')==='accepted'?'accepted':'declined';
  const {error}=await client.from('connections').update({status,updated_at:new Date().toISOString()}).eq('actor_a',actor_a).eq('actor_b',actor_b);
- if(error)redirect(withError(returnTo,'connection'));revalidatePath(returnTo);redirect(returnTo);
+ if(error)redirect(withError(returnTo,'connection'));revalidatePath(returnTo.split('?')[0]);redirect(returnTo);
 }
 export async function editPost(form:FormData) {
  const client=await current();const id=String(form.get('id')??'');const body=bodyText(form,'body',5000);
@@ -93,7 +93,7 @@ export async function editPost(form:FormData) {
 export async function deletePost(form:FormData) {
  const client=await current();const id=String(form.get('id')??''),returnTo=destination(form);
  const {error}=await client.from('posts').delete().eq('id',id);if(error)redirect(withError(returnTo,'delete'));
- revalidatePath('/feed');revalidatePath('/following');revalidatePath(returnTo);redirect(returnTo);
+ revalidatePath('/feed');revalidatePath('/following');revalidatePath(returnTo.split('?')[0]);redirect(returnTo);
 }
 export async function deleteComment(form:FormData) {
  const client=await current();const id=String(form.get('id')??''),postId=String(form.get('post_id')??'');
