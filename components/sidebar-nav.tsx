@@ -7,10 +7,10 @@ import { Bell,Building2,ChevronDown,CircleUserRound,Globe2,LayoutDashboard,Mail,
 const primary=[
  {href:'/dashboard',label:'Overview',icon:LayoutDashboard},
  {href:'/feed',label:'Global feed',icon:Newspaper},
+ {href:'/following',label:'Personal time-line',icon:CircleUserRound},
  {href:'/profile',label:'Profile',icon:CircleUserRound},
  {href:'/messages',label:'Messages',icon:Mail},
  {href:'/notifications',label:'Notifications',icon:Bell},
- {href:'/following',label:'Following',icon:CircleUserRound},
  {href:'/organizations',label:'Organizations',icon:Building2},
  {href:'/world-map',label:'World map',icon:Globe2},
 ];

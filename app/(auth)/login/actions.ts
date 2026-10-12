@@ -11,7 +11,7 @@ export async function signIn(form: FormData) {
   const { error } = await client.auth.signInWithPassword({ email, password });
   const next=String(form.get('next')??'');
   const safeNext=safeAuthDestination(next);
-  if (error) redirect(`/login?error=invalid${safeNext!=='/dashboard'?`&next=${encodeURIComponent(safeNext)}`:''}`);
+  if (error) redirect(`/login?error=invalid${safeNext!=='/feed'?`&next=${encodeURIComponent(safeNext)}`:''}`);
   redirect(safeNext);
 }
 
