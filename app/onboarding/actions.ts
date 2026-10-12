@@ -25,5 +25,5 @@ export async function completeOnboarding(form:FormData){
  const {error}=await client.rpc('complete_member_onboarding_v3',{p_display_name:display_name,p_first_name:first_name,p_last_name:last_name,p_avatar:avatarUrl,p_location:location,p_bio:bio,p_skills:skills,p_interests:interests,p_aluna_role:aluna_role});
  if(error)redirect('/onboarding?error=save');
  revalidatePath('/profile');
- redirect('/dashboard');
+ redirect('/feed');
 }

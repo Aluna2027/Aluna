@@ -21,7 +21,7 @@ export async function refreshSession(request: NextRequest) {
   const { data: { user } } = await client.auth.getUser();
   if (!user && !['/login','/forgot-password','/reset-password'].includes(request.nextUrl.pathname) && !request.nextUrl.pathname.startsWith('/auth/') && !request.nextUrl.pathname.startsWith('/f/') && !request.nextUrl.pathname.startsWith('/r/') && !request.nextUrl.pathname.startsWith('/c/') && !request.nextUrl.pathname.startsWith('/donate/thank-you') && request.nextUrl.pathname !== '/api/stripe/webhook') {
     const url = request.nextUrl.clone(); url.pathname = '/login';
-    if (safeAuthDestination(request.nextUrl.pathname)!=='/dashboard') url.searchParams.set('next', request.nextUrl.pathname);
+    if (safeAuthDestination(request.nextUrl.pathname)!=='/feed') url.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
   if (user && request.nextUrl.pathname === '/login') {
