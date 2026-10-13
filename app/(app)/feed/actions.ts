@@ -7,7 +7,7 @@ function destination(form:FormData) {const path=String(form.get('return_to')??'/
 function withError(path:string,error:string){return `${path}${path.includes('?')?'&':'?'}error=${error}`;}
 async function current() {const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');return client;}
 function bodyText(form:FormData,key:string,max:number){const value=String(form.get(key)??'').trim();return value.length>=1&&value.length<=max?value:null;}
-const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);
+const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);const documentTypes=new Set(['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
 function ext(file:File){return file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g,'')||(file.type.startsWith('image/')?'jpg':'mp4');}
 
 export async function createPost(form:FormData) {
@@ -17,13 +17,13 @@ export async function createPost(form:FormData) {
  const community_id=String(form.get('community_id')??'')||null;
  const mission_id=String(form.get('mission_id')??'')||null;
  const raw=form.get('media');const media=raw instanceof File&&raw.size>0?raw:null;
- const media_type=media?(imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':null):null;
+ const media_type=media?(imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':documentTypes.has(media.type)?'document':null):null;
  if(media&&(!media_type||media.size>50*1024*1024))redirect(withError(returnTo,'media'));
  if(media&&media_type==='image'&&returnTo==='/feed')redirect(withError(returnTo,'media'));
  const {data:post,error}=await client.from('posts').insert({actor_id,body,visibility:community_id||mission_id?'public':visibility,repost_of_id,community_id,mission_id}).select('id').single();if(error||!post)redirect(withError(returnTo,'post'));
  if(media&&media_type){
    const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
-   const path=`${user.id}/${post.id}/${crypto.randomUUID()}.${ext(media)}`;
+   const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${media.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
    const {error:uploadError}=await client.storage.from('post-media').upload(path,media,{contentType:media.type});
    if(uploadError){await client.from('posts').delete().eq('id',post.id);redirect(withError(returnTo,'media'));}
    const {error:updateError}=await client.from('posts').update({media_path:path,media_type}).eq('id',post.id);
