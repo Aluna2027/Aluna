@@ -13,7 +13,7 @@ import { SocialProfileTabs } from '@/components/social-profile-tabs';
 import { type PublicProfile, tabSlug, userTabs } from '@/lib/profiles';
 
 export async function UserProfile({profile,tab,isOwner=false,actorId,base,error}:{profile:PublicProfile;tab?:string;isOwner?:boolean;actorId?:string;base?:string;error?:string}) {
- const active=userTabs.find(t=>tabSlug(t)===tab)??'About';
+ const active=userTabs.find(t=>tabSlug(t)===tab)??(isOwner?'Posts':'About');
  const href=base??`/people/${profile.id}`;
  const role=profile.aluna_role?profile.aluna_role.charAt(0).toUpperCase()+profile.aluna_role.slice(1):null;
  const fullName=[profile.first_name,profile.last_name].filter(Boolean).join(' ');
