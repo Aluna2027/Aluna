@@ -1,3 +1,4 @@
+import { DocumentAttachment } from '@/components/document-attachment';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
@@ -34,6 +35,7 @@ async function ActorPosts({actorId}:{actorId:string}){
   {post.body&&<p className="mt-2 whitespace-pre-wrap break-words text-ink">{post.body}</p>}
   {url&&post.media_type==='image'&&<img src={url} alt="Post image" className="mt-3 max-h-[520px] w-full rounded-xl border border-line object-contain"/>}
   {url&&post.media_type==='video'&&<video src={url} controls preload="metadata" className="mt-3 max-h-[520px] w-full rounded-xl border border-line"/>}
+  {url&&post.media_type==='document'&&post.media_path&&<DocumentAttachment url={url} path={post.media_path}/>}
   <Link href={`/posts/${post.id}`} className="mt-3 inline-block text-sm text-gold hover:underline">View post →</Link>
  </article>;})}{!data?.length&&<p>No posts yet.</p>}</div></Card>;
 }
