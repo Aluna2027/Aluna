@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
+import { ComposerTools, allowedDocuments } from '@/components/composer-tools';
 import { useRouter } from 'next/navigation';
 import { createPost } from '@/app/(app)/feed/actions';
 import { createClient } from '@/lib/supabase/client';
@@ -40,13 +41,17 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
  const router=useRouter();
  const [submitting,setSubmitting]=useState(false);
  const [uploadError,setUploadError]=useState<string|null>(null);
+ const [file,setFile]=useState<File|null>(null);
+ const [body,setBody]=useState('');
+ const textarea=useRef<HTMLTextAreaElement>(null);
+ const insertEmoji=(value:string)=>{const el=textarea.current;const start=el?.selectionStart??body.length,end=el?.selectionEnd??start;setBody(text=>text.slice(0,start)+value+text.slice(end));requestAnimationFrame(()=>{el?.focus();el?.setSelectionRange(start+value.length,start+value.length);});};
  if(!actors.length)return null;
 
  async function handleSubmit(event:FormEvent<HTMLFormElement>){
    const form=event.currentTarget;
    const data=new FormData(form);
-   const raw=data.get('media');
-   const media=raw instanceof File&&raw.size>0?raw:null;
+   const media=file;
+   if(media)data.set('media',media);
 
    // Text-only posts and reposts continue through the existing server action.
    if(!media)return;
@@ -55,9 +60,9 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    setUploadError(null);
    setSubmitting(true);
 
-   const mediaType=imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':null;
+   const mediaType=imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':allowedDocuments.has(media.type)?'document':null;
    if(!mediaType||media.size>50*1024*1024){
-     setUploadError('Choose a supported photo or video up to 50 MB.');
+     setUploadError('Choose a supported photo, video or document up to 50 MB.');
      setSubmitting(false);
      return;
    }
@@ -102,7 +107,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
    if(storageError){
      await client.from('posts').delete().eq('id',post.id);
-     setUploadError('Could not upload the photo or video. Please try again.');
+     setUploadError('Could not upload the attachment. Please try again.');
      setSubmitting(false);
      return;
    }
@@ -110,20 +115,19 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    const {error:updateError}=await client.from('posts').update({media_path:path,media_type:mediaType}).eq('id',post.id);
    if(updateError){
      await client.from('posts').delete().eq('id',post.id);
-     setUploadError('Could not attach the photo or video to the post.');
+     setUploadError('Could not attach the file to the post.');
      setSubmitting(false);
      return;
    }
 
-   form.reset();
+   form.reset();setFile(null);setBody('');
    router.push(destination(returnTo));
    router.refresh();
    setSubmitting(false);
  }
 
  return <form action={createPost} onSubmit={handleSubmit} encType="multipart/form-data" className="glass space-y-4 rounded-2xl p-5"><h2 className="text-lg">{repostOf?'Share this post':'Create a post'}</h2><input type="hidden" name="return_to" value={returnTo}/>{repostOf&&<input type="hidden" name="repost_of_id" value={repostOf}/>} {communityId&&<input type="hidden" name="community_id" value={communityId}/>} {missionId&&<input type="hidden" name="mission_id" value={missionId}/>}
- <textarea name="body" required maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full rounded-xl border border-line bg-panel-raised p-3 text-ink"/>
- {!repostOf&&<label className="block text-sm text-muted">Photo or video<input name="media" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" className="mt-2 block w-full rounded-xl border border-line bg-panel-raised p-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-gold file:px-4 file:py-2 file:font-semibold file:text-navy"/></label>}
+ <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={textarea} name="body" value={body} onChange={e=>setBody(e.target.value)} required maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full resize-y border-0 bg-transparent p-2 text-ink"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji}/>}</div>
  {uploadError&&<p role="alert" className="text-sm text-amber-300">{uploadError}</p>}
  <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!communityId&&!missionId&&<label className="text-sm text-muted">Audience <select name="visibility" className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}<button disabled={submitting} className="ml-auto rounded-lg bg-gold px-5 py-2 font-semibold text-navy hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-60">{submitting?'Posting…':'Post'}</button></div></form>;
 }
