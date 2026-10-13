@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { sendMessageInline } from '@/app/(app)/messages/actions';
 import { ComposerTools, allowedDocuments } from '@/components/composer-tools';
 
-export type ChatMessage={id:string;sender_actor_id:string;body:string|null;created_at:string;media_type:string|null;media_url:string|null};
+export type ChatMessage={id:string;sender_actor_id:string;body:string|null;created_at:string;media_type:string|null;media_url:string|null;media_path?:string|null};
 export function MessageThread({initialMessages,conversationId,recipientId,recipientName,senders,senderOptions}:{initialMessages:ChatMessage[];conversationId?:string;recipientId:string;recipientName:string;senders:{id:string;name:string}[];senderOptions:{id:string;name:string}[]}){
  const router=useRouter();
  const [messages,setMessages]=useState(initialMessages);
@@ -49,7 +49,7 @@ export function MessageThread({initialMessages,conversationId,recipientId,recipi
     {m.body&&<p className="mt-2 whitespace-pre-wrap break-words">{m.body}</p>}
     {m.media_url&&m.media_type==='image'&&<img src={m.media_url} alt="Attached image" className="mt-3 max-h-96 w-full rounded-xl object-cover"/>}
     {m.media_url&&m.media_type==='video'&&<video src={m.media_url} controls preload="metadata" className="mt-3 max-h-96 w-full rounded-xl"/>}
-    {m.media_url&&m.media_type==='document'&&<a href={m.media_url} download className="mt-3 inline-block rounded-lg border border-line p-3 text-gold hover:underline">Download document</a>}
+    {m.media_url&&m.media_type==='document'&&<a href={m.media_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block rounded-lg border border-line p-3 text-gold hover:underline">Open / download document</a>}
     {m.id.startsWith('pending-')&&m.media_type&&<p className="text-xs text-muted">Uploading attachment…</p>}
    </div>)}
    <div ref={end}/>
