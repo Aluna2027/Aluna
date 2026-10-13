@@ -121,7 +121,9 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    }
 
    form.reset();setFile(null);setBody('');
-   router.refresh();
+   // Followers-only posts do not appear in the public Global Feed.
+   if(returnTo==='/feed'&&visibility==='followers'&&!communityId&&!missionId)router.push('/following');
+   else router.refresh();
    setSubmitting(false);
  }
 
