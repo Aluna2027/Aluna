@@ -55,10 +55,10 @@ export function MessageThread({initialMessages,conversationId,recipientId,recipi
    <div ref={end}/>
   </div>
   <form onSubmit={submit} className="space-y-3">
-   <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={inputRef} value={body} onChange={e=>setBody(e.target.value)} maxLength={4000} rows={3} placeholder={`Write a private message to ${recipientName}…`} className="w-full border-0 bg-transparent p-2 text-ink"/><ComposerTools onFile={setFile} selectedFile={file} onEmoji={insertEmoji}/></div>
+   <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={inputRef} value={body} onChange={e=>setBody(e.target.value)} maxLength={4000} rows={3} placeholder={`Write a private message to ${recipientName}…`} className="w-full border-0 bg-transparent p-2 text-ink"/><ComposerTools onFile={setFile} selectedFile={file} onEmoji={insertEmoji} variant="post" submitDisabled={sending||(!body.trim()&&!file)} submitting={sending}/></div>
    <div className="flex flex-wrap gap-3">
     {senderOptions.length>1&&<select value={sender} onChange={e=>setSender(e.target.value)} aria-label="Send as" className="rounded-lg border border-line bg-panel-raised p-2">{senderOptions.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select>}
-    <button type="submit" disabled={sending||(!body.trim()&&!file)} className="rounded-lg bg-gold px-5 py-2 font-semibold text-navy disabled:opacity-60">{sending?'Sending…':'Send'}</button>
+    
    </div>
    {error&&<p role="alert" className="text-sm text-red-300">{error}</p>}
   </form>
