@@ -1,43 +1,84 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, MessageCircle, UserPlus } from 'lucide-react';
-import { requestConnection, respondConnection, toggleFollow } from '@/app/(app)/feed/actions';
+import { CheckCircle2, ChevronDown, MessageCircle, UserPlus } from 'lucide-react';
+import { answerProfileConnectionRequest, removeProfileConnection, sendProfileConnectionRequest, setProfileFollow } from '@/app/(app)/feed/profile-actions';
 
-export type ProfileRelationOption = {
- id: string;
- name: string;
- following: boolean;
- connection: { actor_a:string; actor_b:string; requested_by:string; status:string } | null;
-};
-
-export function ProfileSocialActionBar({targetActorId,returnTo,options}:{targetActorId:string;returnTo:string;options:ProfileRelationOption[]}) {
- const [selectedId,setSelectedId]=useState(options[0]?.id??'');
- const selected=options.find(option=>option.id===selectedId)??options[0];
+type Connection={actor_a:string;actor_b:string;requested_by:string;status:string};
+export type ProfileRelationOption={id:string;name:string;following:boolean;connection:Connection|null};
+type Patch={following?:boolean;connection?:Connection|null};
+export function ProfileSocialActionBar({targetActorId,profilePath,options}:{targetActorId:string;profilePath:string;options:ProfileRelationOption[]}) {
+ const router=useRouter(),menu=useRef<HTMLDetailsElement>(null);
+ const [actorId,setActorId]=useState(options[0]?.id??'');
+ const [patches,setPatches]=useState<Record<string,Patch>>({});
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ const selected=options.find(o=>o.id===actorId)??options[0];
  if(!selected)return null;
- const connection=selected.connection;
- return <section aria-label="Profile actions" className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel p-4 text-sm">
-  {options.length>1&&<label className="flex items-center gap-2 text-muted"><span>Act as</span><select aria-label="Act as" value={selected.id} onChange={event=>setSelectedId(event.target.value)} className="max-w-56 rounded-lg border border-line bg-panel-raised px-3 py-2 text-ink">{options.map(option=><option key={option.id} value={option.id}>{option.name}</option>)}</select></label>}
-  <form action={toggleFollow}>
-   <input type="hidden" name="actor_id" value={selected.id}/><input type="hidden" name="target_actor_id" value={targetActorId}/><input type="hidden" name="return_to" value={returnTo}/>
-   <button type="submit" aria-label={selected.following?'Unfollow this profile':'Follow this profile'} title={selected.following?'Unfollow this profile':'Follow this profile'} className="inline-flex items-center gap-2 rounded-lg border border-gold px-4 py-2 font-medium text-gold hover:bg-gold/10">{selected.following?<Check size={16}/>:<UserPlus size={16}/>} {selected.following?'Following':'Follow'}</button>
-  </form>
-  {connection?.status==='accepted'
-   ?<span className="inline-flex items-center gap-2 rounded-lg border border-line bg-nav-active px-4 py-2 font-medium text-ink"><Check size={16} className="text-turquoise"/>Connected</span>
-   :connection?.status==='pending'
-    ?connection.requested_by===selected.id
-      ?<span className="rounded-lg border border-line px-4 py-2 text-muted">Request pending</span>
-      :<form action={respondConnection} className="flex flex-wrap gap-2">
-       <input type="hidden" name="actor_a" value={connection.actor_a}/><input type="hidden" name="actor_b" value={connection.actor_b}/><input type="hidden" name="return_to" value={returnTo}/>
-       <button type="submit" name="status" value="accepted" className="rounded-lg border border-gold px-4 py-2 text-gold hover:bg-gold/10">Accept</button>
-       <button type="submit" name="status" value="declined" className="rounded-lg border border-line px-4 py-2 text-muted hover:bg-panel-raised">Decline</button>
-      </form>
-    :connection?.status==='declined'
-     ?<span className="rounded-lg border border-line px-4 py-2 text-muted">Request declined</span>
-     :<form action={requestConnection}>
-      <input type="hidden" name="actor_id" value={selected.id}/><input type="hidden" name="target_actor_id" value={targetActorId}/><input type="hidden" name="return_to" value={returnTo}/>
-      <button type="submit" className="rounded-lg border border-line px-4 py-2 font-medium text-ink hover:bg-panel-raised">Connect</button>
-     </form>}
-  <Link href={`/messages?to=${targetActorId}`} className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-navy hover:opacity-90"><MessageCircle size={16}/>Message</Link>
+ const patch=patches[selected.id]??{};
+ const following=patch.following??selected.following;
+ const connection=patch.connection===undefined?selected.connection:patch.connection;
+ const update=(id:string,value:Patch)=>setPatches(p=>({...p,[id]:{...p[id],...value}}));
+ const sync=()=>router.refresh();
+ const follow=async()=>{
+  if(busy)return;
+  const id=selected.id,previous=following,next=!following;
+  setBusy(true);setError('');update(id,{following:next});
+  try {
+   const result=await setProfileFollow({actorId:id,targetActorId,following:next});
+   if(result.ok)sync();else{update(id,{following:previous});setError('Follow could not be updated. Please try again.');}
+  }catch{update(id,{following:previous});setError('Follow could not be updated. Please try again.');}
+  finally{setBusy(false);}
+ };
+ const connect=async()=>{
+  if(busy)return;setBusy(true);setError('');
+  const id=selected.id,[actor_a,actor_b]=[selected.id,targetActorId].sort();
+  try{
+   const result=await sendProfileConnectionRequest({actorId:id,targetActorId});
+   if(result.ok){update(id,{connection:{actor_a,actor_b,requested_by:id,status:'pending'}});sync();}
+   else setError('Connection request failed. Please try again.');
+  }catch{setError('Connection request failed. Please try again.');}
+  finally{setBusy(false);}
+ };
+ const respond=async(status:'accepted'|'declined')=>{
+  if(busy||!connection)return;setBusy(true);setError('');
+  try{
+   const result=await answerProfileConnectionRequest({actorId:selected.id,actorA:connection.actor_a,actorB:connection.actor_b,status});
+   if(result.ok){update(selected.id,{connection:{...connection,status}});sync();}
+   else setError('Could not update connection request.');
+  }catch{setError('Could not update connection request.');}
+  finally{setBusy(false);}
+ };
+ const remove=async()=>{
+  if(busy||!connection)return;
+  if(!window.confirm('Remove this connection? You will still be able to Follow and Message each other.'))return;
+  setBusy(true);setError('');
+  try{
+   const result=await removeProfileConnection({actorId:selected.id,targetActorId});
+   if(result.ok){update(selected.id,{connection:null});menu.current?.removeAttribute('open');sync();}
+   else setError('Could not remove connection. Please try again.');
+  }catch{setError('Could not remove connection. Please try again.');}
+  finally{setBusy(false);}
+ };
+ return <section aria-label="Profile actions" className="space-y-2 rounded-2xl border border-line bg-panel p-4 text-sm">
+  <div className="flex flex-wrap items-center gap-3">
+   {options.length>1&&<label className="flex items-center gap-2 text-muted">Act as<select aria-label="Act as" value={selected.id} onChange={e=>{setActorId(e.target.value);setError('');}} className="max-w-56 rounded-lg border border-line bg-panel-raised px-3 py-2 text-ink">{options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
+   {connection?.status==='accepted'
+    ?<details ref={menu} className="relative">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg border border-line bg-panel-raised px-4 py-2 font-medium text-ink hover:bg-nav-active [&::-webkit-details-marker]:hidden"><CheckCircle2 size={17} className="text-turquoise"/> Connected <ChevronDown size={15}/></summary>
+      <div className="absolute left-0 z-20 mt-2 min-w-52 rounded-xl border border-line bg-panel-raised p-2 shadow-xl">
+       <Link href={`${profilePath}?tab=connections`} scroll={false} className="block rounded-lg px-3 py-2 text-ink hover:bg-nav-active">View connections</Link>
+       <button type="button" disabled={busy} onClick={remove} className="w-full rounded-lg px-3 py-2 text-left text-red-300 hover:bg-nav-active disabled:opacity-60">Remove connection</button>
+      </div>
+     </details>
+    :connection?.status==='pending'
+     ?connection.requested_by===selected.id?<span className="rounded-lg border border-line px-4 py-2 text-muted">Request pending</span>
+      :<div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={()=>respond('accepted')} className="rounded-lg border border-gold px-4 py-2 text-gold disabled:opacity-60">Accept</button><button type="button" disabled={busy} onClick={()=>respond('declined')} className="rounded-lg border border-line px-4 py-2 text-muted disabled:opacity-60">Decline</button></div>
+     :connection?.status==='declined'?<span className="rounded-lg border border-line px-4 py-2 text-muted">Request declined</span>
+     :<button type="button" disabled={busy} onClick={connect} className="rounded-lg border border-line px-4 py-2 font-medium text-ink hover:bg-panel-raised disabled:opacity-60">Connect</button>}
+   <button type="button" onClick={follow} disabled={busy} aria-pressed={following} title={following?'Unfollow this profile':'Follow this profile'} className="inline-flex items-center gap-2 rounded-lg border border-gold px-4 py-2 font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-60">{following?<CheckCircle2 size={16}/>:<UserPlus size={16}/>} {following?'Following':'Follow'}</button>
+   <Link href={`/messages?to=${targetActorId}`} className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-navy hover:opacity-90"><MessageCircle size={16}/>Message</Link>
+  </div>
+  {error&&<p role="alert" className="text-red-300">{error}</p>}
  </section>;
 }
