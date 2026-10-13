@@ -53,10 +53,11 @@ async function ActorRelations({actorId,section}:{actorId:string;section:Section}
  const accepted=(all??[]).filter(c=>c.status==='accepted');
  const other=(c:{actor_a:string;actor_b:string})=>c.actor_a===actorId?c.actor_b:c.actor_a;
  const names=await actorDetails([...incoming,...sent,...accepted].map(other));
- const member=(id:string)=>{const actor=names.get(id);return actor?<Link href={actor.href} className="font-medium text-gold hover:underline">{actor.name}</Link>:<span>Member</span>;};
+ const member=(id:string,showPosts=false)=>{const actor=names.get(id);return actor?<Link href={showPosts?`${actor.href}?tab=posts`:actor.href} className="font-medium text-gold hover:underline">{actor.name}</Link>:<span>Member</span>;};
  return <div className="space-y-5">
+  <Card title={`My Connections (${accepted.length})`}><div className="space-y-3">{accepted.map(c=><div key={other(c)} className="flex items-center gap-2 rounded-xl border border-line p-3"><span aria-label="Connected" style={{color:"#26E7D4"}}>✓</span>{member(other(c),true)}</div>)}{!accepted.length&&<p>No connections yet.</p>}</div></Card>
   {isOwn&&<Card title={`Connection requests (${incoming.length})`}><div className="space-y-3">{incoming.map(c=><div key={other(c)} className="space-y-3 rounded-xl border border-line bg-panel-raised p-4">{member(other(c))}<p className="text-sm text-muted">Wants to connect with you</p><ConnectionRequestActions actorId={actorId} actorA={c.actor_a} actorB={c.actor_b}/></div>)}{!incoming.length&&<p>No pending connection requests.</p>}</div></Card>}
   {isOwn&&<Card title={`Sent requests (${sent.length})`}><div className="space-y-3">{sent.map(c=><div key={other(c)} className="rounded-xl border border-line p-3">{member(other(c))} <span className="text-xs text-muted">· Pending</span></div>)}{!sent.length&&<p>No sent requests pending.</p>}</div></Card>}
-  <Card title={`My Connections (${accepted.length})`}><div className="space-y-3">{accepted.map(c=><div key={other(c)} className="flex items-center gap-2 rounded-xl border border-line p-3"><span aria-label="Connected" style={{color:"#26E7D4"}}>✓</span>{member(other(c))}</div>)}{!accepted.length&&<p>No connections yet.</p>}</div></Card>
+
  </div>;
 }
