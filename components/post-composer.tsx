@@ -121,7 +121,6 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    }
 
    form.reset();setFile(null);setBody('');
-   router.push(destination(returnTo));
    router.refresh();
    setSubmitting(false);
  }
