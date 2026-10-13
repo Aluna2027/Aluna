@@ -29,7 +29,9 @@ export async function createPost(form:FormData) {
    const {error:updateError}=await client.from('posts').update({media_path:path,media_type}).eq('id',post.id);
    if(updateError){await client.from('posts').delete().eq('id',post.id);redirect(withError(returnTo,'media'));}
  }
- revalidatePath('/feed');revalidatePath('/following');revalidatePath('/profile');redirect(returnTo);
+ revalidatePath('/feed');revalidatePath('/following');revalidatePath('/profile');
+ const publishedDestination=returnTo==='/feed'&&visibility==='followers'&&!community_id&&!mission_id?'/following':returnTo;
+ redirect(publishedDestination);
 }
 
 export async function addComment(form:FormData) {
