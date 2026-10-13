@@ -2,31 +2,25 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
 import { ProfileSocialActionBar, type ProfileRelationOption } from '@/components/profile-social-action-bar';
-import { Card, Placeholder } from '@/components/ui';
+import { Card } from '@/components/ui';
 
 type Section='Posts'|'Followers'|'Following'|'Connections';
-export async function ActorSocial({actorId,section,returnTo}:{actorId:string;section:string;returnTo:string}) {
- const client=await createClient();
- const owned=await ownedActors();
- // Never offer self-follow/self-connect controls on accounts the user manages.
- const isOwnActor=owned.some(actor=>actor.id===actorId);
- let options:ProfileRelationOption[]=[];
- if(!isOwnActor&&owned.length){
-  const relations=await Promise.all(owned.map(async actor=>{
-   const [a,b]=[actor.id,actorId].sort();
-   const [follow,connection]=await Promise.all([
-    client.from('follows').select('follower_actor_id').eq('follower_actor_id',actor.id).eq('followed_actor_id',actorId).maybeSingle(),
-    client.from('connections').select('actor_a,actor_b,requested_by,status').eq('actor_a',a).eq('actor_b',b).maybeSingle()
-   ]);
-   return {actor,follow,connection};
-  }));
-  if(relations.some(result=>result.follow.error||result.connection.error))return <p role="alert" className="rounded-lg border border-red-700 p-3 text-sm text-red-300">Could not load profile relationships. Please try again.</p>;
-  options=relations.map(({actor,follow,connection})=>({id:actor.id,name:actor.name,following:!!follow.data,connection:connection.data}));
- }
- return <div className="space-y-5">
-  {options.length>0&&<ProfileSocialActionBar targetActorId={actorId} returnTo={returnTo} options={options}/>}
-  {section==='About'?null:section==='Posts'?<ActorPosts actorId={actorId}/>:['Followers','Following','Connections'].includes(section)?<ActorRelations actorId={actorId} section={section as Section}/>:<Placeholder title={section} description="This part of the profile is coming soon."/>}
- </div>;
+export async function ActorSocial({actorId,section}:{actorId:string;section:string}) {
+ return section==='Posts'?<ActorPosts actorId={actorId}/>:['Followers','Following','Connections'].includes(section)?<ActorRelations actorId={actorId} section={section as Section}/>:null;
+}
+export async function ActorSocialActions({actorId,profilePath}:{actorId:string;profilePath:string}) {
+ const client=await createClient(),owned=await ownedActors();
+ if(owned.some(a=>a.id===actorId)||!owned.length)return null;
+ const options=await Promise.all(owned.map(async actor=>{
+  const [actor_a,actor_b]=[actor.id,actorId].sort();
+  const [follow,connection]=await Promise.all([
+   client.from('follows').select('follower_actor_id').eq('follower_actor_id',actor.id).eq('followed_actor_id',actorId).maybeSingle(),
+   client.from('connections').select('actor_a,actor_b,requested_by,status').eq('actor_a',actor_a).eq('actor_b',actor_b).maybeSingle()
+  ]);
+  return {actor,follow,connection};
+ }));
+ if(options.some(o=>o.follow.error||o.connection.error))return <p role="alert" className="text-red-300">Could not load profile relationships.</p>;
+ return <ProfileSocialActionBar targetActorId={actorId} profilePath={profilePath} options={options.map(o=>({id:o.actor.id,name:o.actor.name,following:!!o.follow.data,connection:o.connection.data}))}/>;
 }
 async function ActorPosts({actorId}:{actorId:string}) {const client=await createClient();const {data}=await client.from('posts').select('id,body,created_at').eq('actor_id',actorId).order('created_at',{ascending:false}).limit(20);return <Card title="Posts"><div className="space-y-4">{data?.map(post=><Link href={`/posts/${post.id}`} key={post.id} className="block border-b border-line pb-3 text-ink hover:text-gold"><span className="text-xs text-muted">{relativeDate(post.created_at)}</span><p className="mt-2 line-clamp-3 whitespace-pre-wrap">{post.body}</p></Link>)}{!data?.length&&<p>No posts yet.</p>}</div></Card>}
 async function ActorRelations({actorId,section}:{actorId:string;section:Section}) {
