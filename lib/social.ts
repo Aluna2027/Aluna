@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 export type Actor = {id:string;name:string;kind:string;href:string};
-export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number;actor_votes?:Record<string,1|-1>};
+export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|'document'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number;actor_votes?:Record<string,1|-1>};
 
 export async function ownedActors() {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return [] as Actor[];

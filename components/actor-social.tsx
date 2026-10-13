@@ -1,28 +1,65 @@
+import { DocumentAttachment } from '@/components/document-attachment';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
-import { Card, Placeholder } from '@/components/ui';
-import { requestConnection, respondConnection, toggleFollow } from '@/app/(app)/feed/actions';
+import { ProfileSocialActionBar, type ProfileRelationOption } from '@/components/profile-social-action-bar';
+import { Card } from '@/components/ui';
+import { ConnectionRequestActions } from '@/components/connection-request-actions';
 
 type Section='Posts'|'Followers'|'Following'|'Connections';
-export async function ActorSocial({actorId,section,returnTo}:{actorId:string;section:string;returnTo:string}) {
- const client=await createClient();const owned=await ownedActors();const other=owned.filter(a=>a.id!==actorId);
- const {data:follows}=await client.from('follows').select('follower_actor_id,followed_actor_id').eq('followed_actor_id',actorId).limit(1);
- const currentFollow=owned.length?await client.from('follows').select('follower_actor_id').eq('followed_actor_id',actorId).in('follower_actor_id',owned.map(a=>a.id)).limit(1):{data:[]};
- const {data:connection}=owned.length?await client.from('connections').select('actor_a,actor_b,requested_by,status').or(`actor_a.eq.${actorId},actor_b.eq.${actorId}`).limit(100):{data:[]};
- const ourConnection=(connection??[]).find(c=>owned.some(a=>a.id===c.actor_a||a.id===c.actor_b));
- return <div className="space-y-5"><div className="flex flex-wrap items-center gap-3 text-sm text-muted"><span>{follows?.length? 'Followers available below':'Follow this profile for updates'}</span>{other.length>0&&<form action={toggleFollow} className="flex gap-2"><input type="hidden" name="target_actor_id" value={actorId}/><input type="hidden" name="return_to" value={returnTo}/><select name="actor_id" aria-label="Follow as" className="rounded-lg border border-line bg-panel-raised p-2">{other.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><button className="rounded-lg border border-gold px-3 py-2 text-gold">{currentFollow.data?.length?'Follow / Unfollow':'Follow'}</button></form>}
- {other.length>0&&!ourConnection&&<form action={requestConnection}><input type="hidden" name="target_actor_id" value={actorId}/><input type="hidden" name="actor_id" value={other[0].id}/><input type="hidden" name="return_to" value={returnTo}/><button className="rounded-lg border border-line px-3 py-2 text-ink">Connect</button></form>}
- {ourConnection?.status==='pending'&&<span>Connection pending</span>}{ourConnection?.status==='accepted'&&<span>Connected</span>}
- {ourConnection?.status==='pending'&&owned.some(a=>a.id!==ourConnection.requested_by&&(a.id===ourConnection.actor_a||a.id===ourConnection.actor_b))&&<form action={respondConnection} className="flex gap-2"><input type="hidden" name="actor_a" value={ourConnection.actor_a}/><input type="hidden" name="actor_b" value={ourConnection.actor_b}/><input type="hidden" name="return_to" value={returnTo}/><button name="status" value="accepted" className="text-gold">Accept</button><button name="status" value="declined">Decline</button></form>}
- {other.length>0&&<Link href={`/messages?to=${actorId}`} className="rounded-lg border border-line px-3 py-2 text-gold">Message</Link>}</div>
- {section==='About'?null:section==='Posts'?<ActorPosts actorId={actorId}/>:['Followers','Following','Connections'].includes(section)?<ActorRelations actorId={actorId} section={section as Section}/>:<Placeholder title={section} description="This part of the profile is coming soon."/>}
- </div>;
+export async function ActorSocial({actorId,section}:{actorId:string;section:string}) {
+ return section==='Posts'?<ActorPosts actorId={actorId}/>:['Followers','Following','Connections'].includes(section)?<ActorRelations actorId={actorId} section={section as Section}/>:null;
 }
-async function ActorPosts({actorId}:{actorId:string}) {const client=await createClient();const {data}=await client.from('posts').select('id,body,created_at').eq('actor_id',actorId).order('created_at',{ascending:false}).limit(20);return <Card title="Posts"><div className="space-y-4">{data?.map(post=><Link href={`/posts/${post.id}`} key={post.id} className="block border-b border-line pb-3 text-ink hover:text-gold"><span className="text-xs text-muted">{relativeDate(post.created_at)}</span><p className="mt-2 line-clamp-3 whitespace-pre-wrap">{post.body}</p></Link>)}{!data?.length&&<p>No posts yet.</p>}</div></Card>}
-async function ActorRelations({actorId,section}:{actorId:string;section:Section}) {
- const client=await createClient();let ids:string[]=[];
- if(section==='Followers'||section==='Following') {const col=section==='Followers'?'followed_actor_id':'follower_actor_id';const {data}=await client.from('follows').select('follower_actor_id,followed_actor_id').eq(col,actorId).limit(100);ids=(data??[]).map(row=>section==='Followers'?row.follower_actor_id:row.followed_actor_id);}
- if(section==='Connections'){const {data}=await client.from('connections').select('actor_a,actor_b').eq('status','accepted').or(`actor_a.eq.${actorId},actor_b.eq.${actorId}`).limit(100);ids=(data??[]).map(row=>row.actor_a===actorId?row.actor_b:row.actor_a);}
- const details=await actorDetails(ids);return <Card title={section}><div className="space-y-3">{ids.map(id=>{const actor=details.get(id);return actor&&<Link key={id} href={actor.href} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{actor.name} <span className="text-xs text-muted">· {actor.kind}</span></Link>})}{!ids.length&&<p>No {section.toLowerCase()} yet.</p>}</div></Card>;
+export async function ActorSocialActions({actorId,profilePath}:{actorId:string;profilePath:string}) {
+ const client=await createClient(),owned=await ownedActors();
+ if(owned.some(a=>a.id===actorId)||!owned.length)return null;
+ const options=await Promise.all(owned.map(async actor=>{
+  const [actor_a,actor_b]=[actor.id,actorId].sort();
+  const [follow,connection]=await Promise.all([
+   client.from('follows').select('follower_actor_id').eq('follower_actor_id',actor.id).eq('followed_actor_id',actorId).maybeSingle(),
+   client.from('connections').select('actor_a,actor_b,requested_by,status').eq('actor_a',actor_a).eq('actor_b',actor_b).maybeSingle()
+  ]);
+  return {actor,follow,connection};
+ }));
+ if(options.some(o=>o.follow.error||o.connection.error))return <p role="alert" className="text-red-300">Could not load profile relationships.</p>;
+ return <ProfileSocialActionBar targetActorId={actorId} profilePath={profilePath} options={options.map(o=>({id:o.actor.id,name:o.actor.name,following:!!o.follow.data,connection:o.connection.data}))}/>;
+}
+async function ActorPosts({actorId}:{actorId:string}){
+ const client=await createClient();
+ const {data}=await client.from('posts').select('id,body,created_at,media_path,media_type').eq('actor_id',actorId).order('created_at',{ascending:false}).limit(20);
+ const paths=(data??[]).map(p=>p.media_path).filter((p):p is string=>!!p);
+ const {data:signed}=paths.length?await client.storage.from('post-media').createSignedUrls(paths,3600):{data:[]};
+ const urls=new Map((signed??[]).filter(item=>item.signedUrl).map(item=>[item.path,item.signedUrl]));
+ return <Card title="Posts"><div className="space-y-5">{data?.map(post=>{const url=post.media_path?urls.get(post.media_path):null;return <article key={post.id} className="border-b border-line pb-4">
+  <Link href={`/posts/${post.id}`} className="block text-xs text-gold hover:underline">{relativeDate(post.created_at)}</Link>
+  {post.body&&<p className="mt-2 whitespace-pre-wrap break-words text-ink">{post.body}</p>}
+  {url&&post.media_type==='image'&&<img src={url} alt="Post image" className="mt-3 max-h-[520px] w-full rounded-xl border border-line object-contain"/>}
+  {url&&post.media_type==='video'&&<video src={url} controls preload="metadata" className="mt-3 max-h-[520px] w-full rounded-xl border border-line"/>}
+  {url&&post.media_type==='document'&&post.media_path&&<DocumentAttachment url={url} path={post.media_path}/>}
+  <Link href={`/posts/${post.id}`} className="mt-3 inline-block text-sm text-gold hover:underline">View post →</Link>
+ </article>;})}{!data?.length&&<p>No posts yet.</p>}</div></Card>;
+}
+async function ActorRelations({actorId,section}:{actorId:string;section:Section}){
+ const client=await createClient();
+ const owned=await ownedActors(),isOwn=owned.some(a=>a.id===actorId);
+ if(section!=='Connections'){
+  const col=section==='Followers'?'followed_actor_id':'follower_actor_id';
+  const {data}=await client.from('follows').select('follower_actor_id,followed_actor_id').eq(col,actorId).limit(100);
+  const ids=(data??[]).map(row=>section==='Followers'?row.follower_actor_id:row.followed_actor_id);
+  const details=await actorDetails(ids);
+  return <Card title={section}><div className="space-y-3">{ids.map(id=>{const actor=details.get(id);return actor&&<Link key={id} href={actor.href} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{actor.name} <span className="text-xs text-muted">· {actor.kind}</span></Link>})}{!ids.length&&<p>No {section.toLowerCase()} yet.</p>}</div></Card>;
+ }
+ const {data:all}=await client.from('connections').select('actor_a,actor_b,requested_by,status,created_at').or(`actor_a.eq.${actorId},actor_b.eq.${actorId}`).order('created_at',{ascending:false}).limit(100);
+ const incoming=isOwn?(all??[]).filter(c=>c.status==='pending'&&c.requested_by!==actorId):[];
+ const sent=isOwn?(all??[]).filter(c=>c.status==='pending'&&c.requested_by===actorId):[];
+ const accepted=(all??[]).filter(c=>c.status==='accepted');
+ const other=(c:{actor_a:string;actor_b:string})=>c.actor_a===actorId?c.actor_b:c.actor_a;
+ const names=await actorDetails([...incoming,...sent,...accepted].map(other));
+ const member=(id:string,showPosts=false)=>{const actor=names.get(id);return actor?<Link href={showPosts?`${actor.href}?tab=posts`:actor.href} className="font-medium text-gold hover:underline">{actor.name}</Link>:<span>Member</span>;};
+ return <div className="space-y-5">
+  <Card title={`My Connections (${accepted.length})`}><div className="space-y-3">{accepted.map(c=><div key={other(c)} className="flex items-center gap-2 rounded-xl border border-line p-3"><span aria-label="Connected" style={{color:"#26E7D4"}}>✓</span>{member(other(c),true)}</div>)}{!accepted.length&&<p>No connections yet.</p>}</div></Card>
+  {isOwn&&<Card title={`Connection requests (${incoming.length})`}><div className="space-y-3">{incoming.map(c=><div key={other(c)} className="space-y-3 rounded-xl border border-line bg-panel-raised p-4">{member(other(c))}<p className="text-sm text-muted">Wants to connect with you</p><ConnectionRequestActions actorId={actorId} actorA={c.actor_a} actorB={c.actor_b}/></div>)}{!incoming.length&&<p>No pending connection requests.</p>}</div></Card>}
+  {isOwn&&<Card title={`Sent requests (${sent.length})`}><div className="space-y-3">{sent.map(c=><div key={other(c)} className="rounded-xl border border-line p-3">{member(other(c))} <span className="text-xs text-muted">· Pending</span></div>)}{!sent.length&&<p>No sent requests pending.</p>}</div></Card>}
+
+ </div>;
 }
