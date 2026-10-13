@@ -103,7 +103,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
      return;
    }
 
-   const path=`${user.id}/${post.id}/${crypto.randomUUID()}.${fileExtension(uploadMedia)}`;
+   const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
    const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
    if(storageError){
      await client.from('posts').delete().eq('id',post.id);
