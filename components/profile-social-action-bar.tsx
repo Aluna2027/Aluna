@@ -65,7 +65,7 @@ export function ProfileSocialActionBar({targetActorId,profilePath,options}:{targ
    {options.length>1&&<label className="flex items-center gap-2 text-muted">Act as<select aria-label="Act as" value={selected.id} onChange={e=>{setActorId(e.target.value);setError('');}} className="max-w-56 rounded-lg border border-line bg-panel-raised px-3 py-2 text-ink">{options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
    {connection?.status==='accepted'
     ?<details ref={menu} className="relative">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg border border-line bg-panel-raised px-4 py-2 font-medium text-ink hover:bg-nav-active [&::-webkit-details-marker]:hidden"><CheckCircle2 size={17} className="text-turquoise"/> Connected <ChevronDown size={15}/></summary>
+      <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg border border-line bg-panel-raised px-4 py-2 font-medium text-ink hover:bg-nav-active [&::-webkit-details-marker]:hidden"><CheckCircle2 size={17} style={{color:"#26E7D4"}}/> Connected <ChevronDown size={15}/></summary>
       <div className="absolute left-0 z-20 mt-2 min-w-52 rounded-xl border border-line bg-panel-raised p-2 shadow-xl">
        <Link href={`${profilePath}?tab=connections`} scroll={false} className="block rounded-lg px-3 py-2 text-ink hover:bg-nav-active">View connections</Link>
        <button type="button" disabled={busy} onClick={remove} className="w-full rounded-lg px-3 py-2 text-left text-red-300 hover:bg-nav-active disabled:opacity-60">Remove connection</button>
@@ -76,7 +76,7 @@ export function ProfileSocialActionBar({targetActorId,profilePath,options}:{targ
       :<div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={()=>respond('accepted')} className="rounded-lg border border-gold px-4 py-2 text-gold disabled:opacity-60">Accept</button><button type="button" disabled={busy} onClick={()=>respond('declined')} className="rounded-lg border border-line px-4 py-2 text-muted disabled:opacity-60">Decline</button></div>
      :connection?.status==='declined'?<span className="rounded-lg border border-line px-4 py-2 text-muted">Request declined</span>
      :<button type="button" disabled={busy} onClick={connect} className="rounded-lg border border-line px-4 py-2 font-medium text-ink hover:bg-panel-raised disabled:opacity-60">Connect</button>}
-   <button type="button" onClick={follow} disabled={busy} aria-pressed={following} title={following?'Unfollow this profile':'Follow this profile'} className="inline-flex items-center gap-2 rounded-lg border border-gold px-4 py-2 font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-60">{following?<CheckCircle2 size={16}/>:<UserPlus size={16}/>} {following?'Following':'Follow'}</button>
+   <button type="button" onClick={follow} disabled={busy} aria-pressed={following} title={following?'Unfollow this profile':'Follow this profile'} className="inline-flex items-center gap-2 rounded-lg border border-gold px-4 py-2 font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-60">{following?<CheckCircle2 size={16} style={{color:"#26E7D4"}}/>:<UserPlus size={16}/>} {following?'Following':'Follow'}</button>
    <Link href={`/messages?to=${targetActorId}`} className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 font-semibold text-navy hover:opacity-90"><MessageCircle size={16}/>Message</Link>
   </div>
   {error&&<p role="alert" className="text-red-300">{error}</p>}
