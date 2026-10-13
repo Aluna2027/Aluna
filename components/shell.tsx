@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Bell, CircleUserRound, Globe2, Mail, Search } from 'lucide-react';
+import { Bell, CircleUserRound, Globe2, Mail } from 'lucide-react';
+import { ProfileHeaderControls } from '@/components/profile-header-controls';
 import { signOut } from '@/app/(auth)/login/actions';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { MobileSidebarMenu } from '@/components/mobile-sidebar-menu';
@@ -17,7 +18,7 @@ export function Shell({ children, name }: { children:React.ReactNode; name:strin
         <SidebarNav/>
         <form action={signOut} className="mt-3 border-t border-line px-3 pt-4"><button className="text-sm text-muted hover:text-ink">Sign out</button></form>
       </aside>
-      <main className="min-w-0"><div className="mb-6 flex flex-wrap items-center gap-4"><div><p className="deck-label">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-sm text-muted">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline" aria-label="Open my profile">{name}</Link></p></div><form action="/search" className="glass ml-auto flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-muted"><Search size={18}/><input name="q" type="search" aria-label="Search people and organizations" placeholder="Search people & organizations" className="w-44 bg-transparent outline-none sm:w-56"/></form></div>{children}</main>
+      <main className="min-w-0"><div className="mb-6 flex flex-wrap items-center gap-4"><div><p className="deck-label">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-sm text-muted">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline" aria-label="Open my profile">{name}</Link></p></div><ProfileHeaderControls/></div>{children}</main>
     </div>
   </div>;
 }
