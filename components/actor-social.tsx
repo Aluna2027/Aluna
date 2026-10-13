@@ -5,6 +5,7 @@ import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
 import { ProfileSocialActionBar, type ProfileRelationOption } from '@/components/profile-social-action-bar';
 import { Card } from '@/components/ui';
 import { ConnectionRequestActions } from '@/components/connection-request-actions';
+import { deletePost } from '@/app/(app)/feed/actions';
 
 type Section='Posts'|'Followers'|'Following'|'Connections';
 export async function ActorSocial({actorId,section}:{actorId:string;section:string}) {
@@ -26,12 +27,18 @@ export async function ActorSocialActions({actorId,profilePath}:{actorId:string;p
 }
 async function ActorPosts({actorId}:{actorId:string}){
  const client=await createClient();
+ const owned=await ownedActors();
+ const managingActor=owned.find(actor=>actor.id===actorId);
+ const returnTo=managingActor
+  ? `${managingActor.kind==='user'?'/profile':managingActor.href}?tab=posts`
+  : null;
  const {data}=await client.from('posts').select('id,body,created_at,media_path,media_type').eq('actor_id',actorId).order('created_at',{ascending:false}).limit(20);
  const paths=(data??[]).map(p=>p.media_path).filter((p):p is string=>!!p);
  const {data:signed}=paths.length?await client.storage.from('post-media').createSignedUrls(paths,3600):{data:[]};
  const urls=new Map((signed??[]).filter(item=>item.signedUrl).map(item=>[item.path,item.signedUrl]));
- return <Card title="Posts"><div className="space-y-5">{data?.map(post=>{const url=post.media_path?urls.get(post.media_path):null;return <article key={post.id} className="border-b border-line pb-4">
-  <Link href={`/posts/${post.id}`} className="block text-xs text-gold hover:underline">{relativeDate(post.created_at)}</Link>
+ return <Card title="Posts"><div className="space-y-5">{data?.map(post=>{const url=post.media_path?urls.get(post.media_path):null;return <article key={post.id} className="relative border-b border-line pb-4">
+  {returnTo&&<details className="absolute right-0 top-0 z-10"><summary aria-label="Post actions" className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-full text-xl leading-none text-muted hover:bg-panel-raised hover:text-ink">⋯</summary><div className="absolute right-0 mt-2 min-w-36 rounded-xl border border-line bg-panel p-2 shadow-xl"><Link href={`/posts/${post.id}/edit`} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-gold hover:bg-panel-raised">Edit post</Link><form action={deletePost}><input type="hidden" name="id" value={post.id}/><input type="hidden" name="return_to" value={returnTo}/><button className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-panel-raised">Delete post</button></form></div></details>}
+  <Link href={`/posts/${post.id}`} className="block pr-10 text-xs text-gold hover:underline">{relativeDate(post.created_at)}</Link>
   {post.body&&<p className="mt-2 whitespace-pre-wrap break-words text-ink">{post.body}</p>}
   {url&&post.media_type==='image'&&<img src={url} alt="Post image" className="mt-3 max-h-[520px] w-full rounded-xl border border-line object-contain"/>}
   {url&&post.media_type==='video'&&<video src={url} controls preload="metadata" className="mt-3 max-h-[520px] w-full rounded-xl border border-line"/>}
