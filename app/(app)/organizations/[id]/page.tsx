@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card, Placeholder } from '@/components/ui';
 import { ProfileHeader } from '@/components/profile-header';
-import { ProfileTabs } from '@/components/profile-tabs';
+import { SocialProfileTabs } from '@/components/social-profile-tabs';
 import { ContributionList } from '@/components/contribution-list';
 import { ActorMissions } from '@/components/actor-missions';
 import { ProofList } from '@/components/proof-list';
@@ -34,7 +34,7 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  <ProfileHeader name={organization.name} kind={organization.organization_type} country={organization.country} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} unverified={!organization.is_verified} editHref={isAdmin?`/organizations/${id}/edit`:undefined} scores={scores}/>
  {canArchive&&<ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={organization.name} className="flex justify-end"><input type="hidden" name="id" value={id}/><input type="hidden" name="return_to" value="profile"/><button type="submit" className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Archive organization</button></form></ArchiveOrganizationConfirmation>}
  {actor&&<ActorSocialActions actorId={actor.id} profilePath={`/organizations/${id}`}/>}
- <ProfileTabs base={`/organizations/${id}`} tabs={tabs} active={tabSlug(active)}/>
+ <SocialProfileTabs base={`/organizations/${id}`} tabs={tabs} active={tabSlug(active)} actorId={actor?.id}/>
  {active==='About'?<><Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card></>:active==='People'?<Card title="People"><div className="space-y-3">{people?.map(person=>{const profile=person.profiles as unknown as {display_name:string}|null;return <Link key={person.profile_id} href={`/people/${person.profile_id}`} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{profile?.display_name||'Member'} <span className="text-sm text-muted">· {person.member_role}</span></Link>})}{!people?.length&&<p>No members yet.</p>}</div></Card>:active==='Wi-Fi Mesh Communities'&&actor?<ActorCommunities actorId={actor.id}/>:active==='Missions'&&actor?<ActorMissions actorId={actor.id}/>:active==='Fundraising'&&actor?<ActorFundraising actorId={actor.id}/>:active==='Contributions'&&actor?<ContributionList actorId={actor.id}/>:active==='Proofs'&&actor?<ProofList actorId={actor.id}/>:actor&&['Posts','Connections'].includes(active)?<ActorSocial actorId={actor.id} section={active}/>:<Placeholder title={active} description={`${active} for ${organization.name} will appear here in a later phase.`}/>}
  </div>;
 }
