@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { Search, Wifi, MapPin, UsersRound, RadioTower, UserRoundPlus, CircleCheck } from 'lucide-react';
+import { Search, Wifi, MapPin, UsersRound, RadioTower, UserRoundPlus, CircleCheck, Ellipsis } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { cities } from '@/lib/cities';
 import { metric } from '@/lib/communities';
 import { ownedActors } from '@/lib/social';
-import { joinCommunityFromDirectory } from './actions';
+import { joinCommunityFromDirectory, leaveCommunityFromDirectory, removeCommunity } from './actions';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
 
 type View='all'|'joined'|'managed';
 function directoryUrl(view:View='all',city?:string,q?:string,page=0,openSearch=false){const p=new URLSearchParams();if(view!=='all')p.set('view',view);if(city)p.set('city',city);if(q)p.set('q',q);if(page>0)p.set('page',String(page));if(openSearch)p.set('search','1');const v=p.toString();return v?`/communities?${v}`:'/communities';}
@@ -30,6 +31,7 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
  const managedIds=new Set(ownMemberships.filter(m=>m.member_role==='steward').map(m=>m.community_id));
 
  return <div className="space-y-6">
+  {status==='left'&&<p role="status" className="rounded-xl border border-[#26E7D4] p-3 text-[#26E7D4]">You left the Wi-Fi Mesh Community.</p>}
   {status==='joined'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">You joined the Wi-Fi Mesh Community.</p>}
   {actionError&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the community. Please try again.</p>}
   {membershipError&&<p role="alert" className="text-red-300">Could not load your memberships.</p>}
@@ -62,9 +64,18 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
     const joinedActorIds=membershipsByCommunity.get(item.id)??new Set<string>();
     const availableActors=actors.filter(actor=>!joinedActorIds.has(actor.id));
     const joined=joinedActorIds.size>0;
-    return <article key={item.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink">
+    const isManager=managedIds.has(item.id);
+    const leaveable=ownMemberships.filter(m=>m.community_id===item.id&&m.member_role==='member');
+    return <article key={item.id} className="relative flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink">
+     {isManager&&<details className="absolute right-4 top-3 z-[2] rounded-xl bg-panel">
+      <summary aria-label="Manage community" className="grid size-9 cursor-pointer list-none place-items-center rounded-lg border border-line text-muted hover:text-ink"><Ellipsis size={22}/></summary>
+      <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-line bg-panel-raised p-2 shadow-xl">
+       <Link href={`/communities/${item.id}/edit`} className="block rounded-lg px-3 py-2 text-sm text-ink hover:bg-panel">Edit</Link>
+       <form action={removeCommunity}><input type="hidden" name="id" value={item.id}/><ConfirmSubmitButton message="Are you sure you want to delete this community?" className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-panel">Delete</ConfirmSubmitButton></form>
+      </div>
+     </details>}
      <Link href={`/communities/${item.id}`} className="group block min-w-0">
-      <div className="flex items-center justify-between"><Wifi aria-hidden="true" size={24} strokeWidth={2} className="text-[#26E7D4]"/><span className="text-xs font-normal uppercase text-muted">COMMUNITY</span></div>
+      <div className="flex items-center justify-between"><Wifi aria-hidden="true" size={24} strokeWidth={2} className="text-[#26E7D4]"/><span className={isManager?"mr-10 text-xs font-normal uppercase text-muted":"text-xs font-normal uppercase text-muted"}>COMMUNITY</span></div>
       <h2 className="mt-7 break-words text-xl font-bold normal-case leading-snug text-ink [font-stretch:normal] group-hover:underline">{item.name}</h2>
       <p className="mt-6 flex items-center gap-2 text-base font-normal text-muted"><MapPin aria-hidden="true" size={18}/>{cityInfo?.name||place?.name||'City'} · {cityInfo?.country||place?.country_code||'Country'}</p>
       <p className="mt-6 text-base font-semibold text-gold">SDG 9: Industry, Innovation and Infrastructure</p>
@@ -77,6 +88,7 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
      </div>
      <div className="mt-auto pt-7">
       {joined&&<div role="status" className="flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck aria-hidden="true" size={19}/>{managedIds.has(item.id)?'Managed · Joined':'Joined'}</div>}
+      {joined&&!isManager&&leaveable.length>0&&<div className="mt-3 space-y-2">{leaveable.map(member=><form key={member.actor_id} action={leaveCommunityFromDirectory} className="text-center"><input type="hidden" name="community_id" value={item.id}/><input type="hidden" name="actor_id" value={member.actor_id}/><ConfirmSubmitButton message="Are you sure you want to leave this Wi-Fi Mesh Community?" className="text-sm text-muted underline underline-offset-4 hover:text-ink">Leave Community{leaveable.length>1?` · ${actors.find(actor=>actor.id===member.actor_id)?.name??'Account'}`:''}</ConfirmSubmitButton></form>)}</div>}
       {availableActors.length>0&&<form action={joinCommunityFromDirectory} className="space-y-2">
        <input type="hidden" name="community_id" value={item.id}/>
        {availableActors.length===1?<input type="hidden" name="actor_id" value={availableActors[0].id}/>:<select name="actor_id" aria-label={`Join ${item.name} as`} required className="w-full rounded-lg border border-line bg-panel-raised p-2 text-sm">{availableActors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select>}
