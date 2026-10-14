@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 
 const PAGE_SIZE = 48;
 type SortOrder = 'score' | 'name' | 'name_desc' | 'country';
-type Params = { type?: string; q?: string; sort?: string; page?: string; status?: string; error?: string };
+type Params = { type?: string; q?: string; sort?: string; page?: string; status?: string; error?: string; search?: string };
 
 function directoryUrl(type?: string, q?: string, sort?: string, page?: number) {
   const params = new URLSearchParams();
@@ -20,7 +20,7 @@ function scoreWidth(value: number | null) {
 }
 
 export default async function Organizations({ searchParams }: { searchParams: Promise<Params> }) {
-  const { type, q: rawQuery, sort: rawSort, page: rawPage, status, error: actionError } = await searchParams;
+  const { type, q: rawQuery, sort: rawSort, page: rawPage, status, error: actionError, search: searchOpen } = await searchParams;
   const client = await createClient();
   const filter = ['university', 'ngo', 'company'].includes(type ?? '') ? type : undefined;
   const queryText = (rawQuery ?? '').trim().slice(0, 120);
@@ -86,10 +86,10 @@ export default async function Organizations({ searchParams }: { searchParams: Pr
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link href={filter ? `/organizations/new?type=${filter}` : '/organizations/new'} className="rounded-full border border-gold px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10">+ Create</Link>
-          <a href="#organizations-search" aria-label="Search organizations" className="rounded-full border border-line bg-panel-raised px-3 py-2 text-gold hover:border-gold">⌕</a>
+          <a href={`${directoryUrl(filter, queryText, sort)}${directoryUrl(filter, queryText, sort).includes("?") ? "&" : "?"}search=1#organizations-search`} aria-label="Search organizations" className="rounded-full border border-line bg-panel-raised px-3 py-2 text-gold hover:border-gold">⌕</a>
         </div>
       </nav>
-      <details id="organizations-search" className="glass rounded-2xl p-4" open={Boolean(queryText)}>
+      <details id="organizations-search" className="glass rounded-2xl p-4" open={Boolean(queryText) || searchOpen === "1"}>
         <summary className="cursor-pointer text-sm font-semibold text-gold">Search Organizations</summary>
         <form method="get" className="mt-3">
           {filter && <input type="hidden" name="type" value={filter} />}
