@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Bell, CircleUserRound, Globe2, Mail } from 'lucide-react';
-import { ProfileHeaderControls } from '@/components/profile-header-controls';
+import { ShellWelcomeRow } from '@/components/shell-welcome-row';
 import { signOut } from '@/app/(auth)/login/actions';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { MobileSidebarMenu } from '@/components/mobile-sidebar-menu';
@@ -18,7 +18,7 @@ export function Shell({ children, name }: { children:React.ReactNode; name:strin
         <SidebarNav/>
         <form action={signOut} className="mt-3 border-t border-line px-3 pt-4"><button className="text-sm text-muted hover:text-ink">Sign out</button></form>
       </aside>
-      <main className="min-w-0"><div className="mb-6 flex flex-wrap items-center gap-4"><div><p className="deck-label">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-sm text-muted">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline" aria-label="Open my profile">{name}</Link></p></div><ProfileHeaderControls/></div>{children}</main>
+      <main className="min-w-0"><ShellWelcomeRow name={name}/>{children}</main>
     </div>
   </div>;
 }
