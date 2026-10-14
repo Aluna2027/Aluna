@@ -30,7 +30,6 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
  const managedIds=new Set(ownMemberships.filter(m=>m.member_role==='steward').map(m=>m.community_id));
 
  return <div className="space-y-6">
-  <div className="text-center xl:hidden"><p className="deck-label">PHYSICAL PLACES · COMMUNITY-OWNED CONNECTIVITY</p><h1 className="mt-1 text-3xl">Wi-Fi Mesh Communities</h1></div>
   {status==='joined'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">You joined the Wi-Fi Mesh Community.</p>}
   {actionError&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the community. Please try again.</p>}
   {membershipError&&<p role="alert" className="text-red-300">Could not load your memberships.</p>}
