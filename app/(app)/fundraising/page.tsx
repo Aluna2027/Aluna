@@ -99,7 +99,6 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
  const creatorDetails=await actorDetails((campaigns??[]).map(c=>c.actor_id));
 
  return <div className="space-y-6">
-  <div className="text-center"><p className="deck-label">SDG MISSION FUNDRAISING</p><h1 className="mt-1 text-2xl sm:text-3xl">SDG Fundraising</h1></div>
   {status==='archived'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Campaign archived.</p>}
   {status==='removed'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Campaign removed.</p>}
   <nav aria-label="Fundraising views" className="flex flex-wrap items-center justify-between gap-3">
