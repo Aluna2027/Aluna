@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { cities, getCity } from '@/lib/cities';
 import { money } from '@/lib/missions';
 import { MissionParticipationControl } from '@/components/mission-participation-control';
-import { Search, MapPin, Wallet } from 'lucide-react';
+import { MapPin, Wallet } from 'lucide-react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { ownedActors } from '@/lib/social';
 import { sdgLabel,sdgs,sdgColors } from '@/lib/sdgs';
@@ -53,7 +53,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
  {([['All','all'],['Participating','participating'],['Created','created']] as const).map(([label,value])=><Link key={value} href={params(value)} aria-current={view===value?'page':undefined} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${view===value?'bg-gold font-semibold text-navy':'glass'}`}>{label}</Link>)}
  </div>
- <div className="flex shrink-0 gap-2"><Link href={selectedCity?`/missions/new?city=${selectedCity.id}`:'/missions/new'} className="rounded-full border border-gold px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10">+ Create</Link><Link aria-label="Search SDG Missions" href={params(view,selectedSdg,queryText,0,true)+'#missions-search'} className="rounded-full border border-line bg-panel-raised p-2 text-gold"><Search size={18}/></Link></div>
+ <div className="flex shrink-0 gap-2"><Link href={selectedCity?`/missions/new?city=${selectedCity.id}`:'/missions/new'} className="rounded-full border border-gold px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10">+ Create</Link></div>
  </nav>
  <div className="glass rounded-2xl p-4"><form method="get" className="flex flex-wrap items-center gap-3">{view!=='all'&&<input type="hidden" name="view" value={view}/>} {selectedCity&&<input type="hidden" name="city" value={selectedCity.id}/>} {community&&<input type="hidden" name="community" value={community}/>} {queryText&&<input type="hidden" name="q" value={queryText}/>}
  <label htmlFor="sdg-filter" className="text-sm font-semibold text-ink">Filter by SDG</label>
