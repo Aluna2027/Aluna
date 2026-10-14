@@ -45,6 +45,9 @@ export async function leaveCommunity(form:FormData) {
 export async function removeCommunity(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/communities');
+ const owned=await ownedActors();
+ const {data:stewards,error:membershipError}=await client.from('mesh_community_members').select('actor_id').eq('community_id',id).eq('member_role','steward');
+ if(membershipError||!stewards?.some(s=>owned.some(actor=>actor.id===s.actor_id)))redirect('/communities?error=delete');
  const {error}=await client.rpc('remove_mesh_community',{p_community:id});
  if(error)redirect(`/communities/${id}?error=delete`);
  revalidatePath('/communities');revalidatePath('/world-map');redirect('/communities');
