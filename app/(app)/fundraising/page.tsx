@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search, Heart, MapPin, Share2 } from 'lucide-react';
+import { Search, Heart, MapPin } from 'lucide-react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { createClient } from '@/lib/supabase/server';
 import { Progress, campaignTotal, type Total } from '@/lib/fundraising';
