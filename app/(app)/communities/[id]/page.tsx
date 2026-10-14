@@ -1,4 +1,4 @@
-import { Wifi, Earth, MapPin, ShieldAlert, Map, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen } from 'lucide-react';
+import { Wifi, Earth, MapPin, ShieldAlert, Map as MapIcon, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen } from 'lucide-react';
 import { DetailPageHeader, DetailMetricCard, DetailSectionCard } from '@/components/detail-design-elements';
 import { ContributionList } from '@/components/contribution-list';
 import { ProofList } from '@/components/proof-list';
@@ -47,7 +47,7 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
    <p className="mt-6 text-base font-semibold text-gold sm:text-lg">SDG 9: Industry, Innovation and Infrastructure</p>
    <p className="mt-6 flex items-start gap-3 text-sm leading-relaxed text-muted sm:text-base"><ShieldAlert size={19} className="mt-0.5 shrink-0"/>{community.is_verified?'Verified details':'Infrastructure figures are self-reported and have not been verified by Aluna.'}</p>
    <div className="mt-9 flex flex-wrap items-center gap-5 border-t border-line pt-8 text-base">
-    {city&&<Link href={'/cities/'+city.id+'?tab=wifi-mesh-communities'} className="inline-flex items-center gap-2 text-[#26E7D4] hover:underline"><Map size={19}/>View City →</Link>}
+    {city&&<Link href={'/cities/'+city.id+'?tab=wifi-mesh-communities'} className="inline-flex items-center gap-2 text-[#26E7D4] hover:underline"><MapIcon size={19}/>View City →</Link>}
     {canEdit&&<Link href={'/communities/'+id+'/edit'} className="inline-flex items-center gap-2 text-gold hover:underline"><Pencil size={18}/><span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit Community</span></Link>}
     {canEdit&&<form action={removeCommunity}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this community?" className="inline-flex items-center gap-2 text-[#E49BA3]"><Trash2 size={18}/><span className="sm:hidden">Delete</span><span className="hidden sm:inline">Delete Community</span></ConfirmSubmitButton></form>}
    </div>
