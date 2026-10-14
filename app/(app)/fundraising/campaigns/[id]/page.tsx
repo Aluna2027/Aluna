@@ -5,6 +5,7 @@ import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
 import { Progress, campaignTotal, type Total, type Campaign } from '@/lib/fundraising';
 import { money } from '@/lib/missions';
 import { getCity } from '@/lib/cities';
+import { sdgLabel, sdgColors } from '@/lib/sdgs';
 import { Card } from '@/components/ui';
 import { ReferralShare } from '@/components/referral-share';
 import { DonationForm } from '@/components/donation-form';
@@ -40,13 +41,33 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
  }
  const archived=Boolean(campaign.archived_at);
  const totalReferral=referralRows.reduce((v,r)=>({clicks:v.clicks+Number(r.clicks||0),donors:v.donors+Number(r.donor_count||0),amount:v.amount+Number(r.amount_raised||0)}),{clicks:0,donors:0,amount:0});
+ const {data:campaignSdgs}=await client.from('mission_sdgs').select('sdg_number').eq('mission_id',campaign.mission_id).order('sdg_number');
+ const {data:{user}}=await client.auth.getUser();
+ const {data:visitor}=user?await client.from('profiles').select('display_name').eq('id',user.id).maybeSingle():{data:null};
+ const visitorName=visitor?.display_name||user?.email?.split('@')[0]||'member';
  return <div className="space-y-6">
-  <Link href="/fundraising" className="text-sm text-gold">← Fundraising</Link>
+  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-2">
+   <div className="min-w-0"><p className="deck-label !text-[.55rem] sm:!text-[.7rem]">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-xs text-muted sm:text-sm">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline">{visitorName}</Link></p></div>
+   <div className="min-w-0 text-center"><p className="text-[.55rem] font-semibold uppercase tracking-wider text-gold sm:text-xs">SDG FUNDRAISING</p><h1 className="break-words text-sm font-bold normal-case leading-tight text-ink sm:text-xl">{campaign.title}</h1></div>
+   <Link href="/fundraising" className="min-w-0 text-right text-[.65rem] font-semibold text-gold hover:underline sm:text-sm">← Fundraising</Link>
+  </div>
   {referral_status&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Referral link {referral_status}.</p>}
   {remove_error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not delete this campaign. Please try again.</p>}
   {archived&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">This campaign is archived. Its financial and referral history is preserved.</p>}
   {referral_error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not update the referral link. Check the details and try again.</p>}
-  <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><p className="deck-label">MISSION CAMPAIGN</p><h1 className="mt-3 text-4xl">{campaign.title}</h1>{missionLocation&&<p className="mt-3 text-gold">{missionLocation}</p>}<p className="mt-3 text-muted"><Link href={`/missions/${campaign.mission_id}`} className="text-gold">{campaign.missions?.title} →</Link> · {actors.get(campaign.actor_id)?.name} · {relativeDate(campaign.created_at)}</p><div className="mt-7 max-w-xl"><Progress amount={summary.amount} count={summary.count} goal={Number(campaign.goal_amount)} currency={campaign.currency_code}/></div><div className="mt-6 flex flex-wrap items-center gap-4">{canEdit&&<Link href="/fundraising/performance" className="text-sm text-gold">Global fundraising performance →</Link>}{canEdit&&!archived&&<Link href={`/fundraising/campaigns/${id}/edit`} className="text-sm text-gold">Edit campaign →</Link>}{canEdit&&!archived&&<form action={removeOrArchiveCampaign}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this campaign?" className="text-sm text-red-300">Delete campaign</ConfirmSubmitButton></form>}</div></header>
+  <header className="glass rounded-2xl p-6 sm:p-8">
+   <p className="text-sm font-semibold text-gold">{missionLocation||'SDG Mission fundraising'}</p>
+   <div className="mt-3 flex flex-wrap gap-2">{(campaignSdgs??[]).map(row=><span key={row.sdg_number} className="rounded-lg border px-2 py-1 text-xs font-semibold" style={{borderColor:sdgColors[row.sdg_number],color:sdgColors[row.sdg_number]}}>{sdgLabel(row.sdg_number)}</span>)}</div>
+   <Link href={`/missions/${campaign.mission_id}`} className="mt-3 block text-sm text-gold hover:underline">{campaign.missions?.title||'SDG Mission'} →</Link>
+   <h2 className="mt-3 text-2xl text-ink sm:text-3xl">{campaign.title}</h2>
+   <p className="mt-3 text-sm text-muted">Created by {actors.get(campaign.actor_id)?.name||'Member'} · {relativeDate(campaign.created_at)}</p>
+   <div className="mt-6 max-w-xl"><Progress amount={summary.amount} count={summary.count} goal={Number(campaign.goal_amount)} currency={campaign.currency_code}/></div>
+   <div className="mt-6 flex flex-wrap items-center gap-4">
+    {canEdit&&<Link href="/fundraising/performance" className="text-sm text-gold">Global fundraising performance →</Link>}
+    {canEdit&&!archived&&<Link href={`/fundraising/campaigns/${id}/edit`} className="text-sm text-gold">Edit campaign →</Link>}
+    {canEdit&&!archived&&<form action={removeOrArchiveCampaign}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this campaign?" className="text-sm text-red-300">Delete campaign</ConfirmSubmitButton></form>}
+   </div>
+  </header>
   {!archived&&<ReferralShare path={`/c/${id}`} title={campaign.title}/>} 
   {!archived&&<DonationForm campaignId={id} currency={campaign.currency_code}/>} 
   <Card title="Campaign story"><p className="whitespace-pre-wrap">{campaign.story}</p></Card>
