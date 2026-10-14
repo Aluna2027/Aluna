@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { cities, getCity } from '@/lib/cities';
 import { money,participationOptions } from '@/lib/missions';
 import { joinMissionFromDirectory } from './actions';
-import { Search } from 'lucide-react';
+import { Search, MapPin, Wallet, UserRoundPlus, UsersRound, HandHeart, Wrench, Clock, Lightbulb, Box, Check } from 'lucide-react';
+import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { actorDetails,ownedActors } from '@/lib/social';
 import { sdgLabel,sdgs,sdgColors } from '@/lib/sdgs';
 export default async function Missions({searchParams}:{searchParams:Promise<{city?:string;community?:string;page?:string;q?:string;view?:string;sdg?:string;search?:string;status?:string;error?:string}>}) {
@@ -76,24 +77,34 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const participated=new Set(participations.filter(p=>p.mission_id===m.id).map(p=>p.actor_id));
  const available=actors.filter(a=>!participated.has(a.id));
  const owned=actorIdSet.has(m.created_by_actor_id);
- return <article key={m.id} className="glass rounded-2xl p-6">
-  <Link href={`/missions/${m.id}`} className="block hover:underline">
-   <p className="text-sm font-semibold text-gold">{placeLabel}</p>
-   <div className="mt-3 flex flex-wrap gap-2">{selected.map(n=><span key={n} className="rounded-lg border px-2 py-1 text-xs font-semibold" style={{borderColor:sdgColors[n],color:sdgColors[n]}}>{sdgLabel(n)}</span>)}</div>
-   <h2 className="mt-3 text-xl text-gold">{m.title}</h2>
-   <p className="mt-2 text-sm text-ink">Created by {creatorDetails.get(m.created_by_actor_id)?.name||'Member'}</p>
-   <p className="mt-3 line-clamp-2 text-sm text-gold">{m.goal}</p>
-   <p className="mt-4 text-sm text-ink">Funding goal: {money(m.funding_goal_amount,m.currency_code)}</p>
+ return <article key={m.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-5 text-ink sm:p-6">
+  <Link href={`/missions/${m.id}`} className="group block">
+   <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-3"><span className="flex size-14 items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={selected[0]??9} size={29}/></span><span className="text-xs uppercase text-muted">PRIMARY SDG · {selected[0]??'—'}</span></div>
+    <div className="flex gap-3">{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
+   </div>
+   <h2 className="mt-6 break-words text-[23px] font-bold normal-case leading-tight text-ink [font-stretch:normal] group-hover:underline">{m.title}</h2>
+   <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin aria-hidden="true" size={18}/>{placeLabel}</p>
+   <div className="mt-6 space-y-1">{selected.map((n,i)=><p key={n} className={i===0?'text-base text-gold':'text-base text-muted'}>{sdgLabel(n)}</p>)}</div>
+   <div className="mt-7 border-t border-line pt-7"><p className="line-clamp-3 text-base leading-relaxed text-ink">{m.goal}</p></div>
+   <p className="mt-5 flex items-center gap-3 text-base text-ink"><Wallet aria-hidden="true" className="text-[#26E7D4]" size={21}/>Funding goal: {money(m.funding_goal_amount,m.currency_code)}</p>
   </Link>
-  <div className="mt-4 border-t border-line pt-3">
-   {owned&&<p className="mb-2 text-sm text-gold">Created by you</p>}
+  <div className="mt-auto pt-6">
+   {owned&&<p className="mb-2 text-sm font-semibold text-gold">Created by you</p>}
    {participated.size>0&&<p className="mb-2 text-sm font-semibold text-[#26E7D4]">Participating</p>}
-   {actors.length>0&&<details className="rounded-lg border border-line p-3"><summary className="cursor-pointer text-sm font-semibold text-gold">Join Mission — choose contribution types</summary><form action={joinMissionFromDirectory} className="mt-4 space-y-3">
-    <input type="hidden" name="mission_id" value={m.id}/>
-    <label className="block text-sm">Join as <select name="actor_id" required className="mt-1 w-full rounded-lg border border-line bg-panel-raised p-2">{actors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select></label>
-    <fieldset><legend className="mb-2 text-sm">Choose one or more participation types</legend><div className="grid gap-2 sm:grid-cols-2">{participationOptions.map((o,i)=><label key={o.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-panel-raised p-3 text-xs"><input type="checkbox" name="participation_kind" value={o.value} className="accent-[#FFC43D]"/><span style={{color:['#FFC43D','#26E7D4','#8A4DFF','#35F3FF','#FF4FD8','#6A7CFF'][i]}}>{o.label}</span></label>)}</div></fieldset>
-    <button className="rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-navy">Confirm Participation</button>
-   </form></details>}
+   {actors.length>0&&<details className="group rounded-xl">
+    <summary className="flex min-h-[65px] w-full cursor-pointer list-none items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy marker:hidden"><UserRoundPlus aria-hidden="true" size={21}/>Join Mission</summary>
+    <div className="mt-4 rounded-2xl border border-line bg-navy p-4">
+     <h3 className="text-xl font-bold normal-case text-ink [font-stretch:normal]">Join SDG Mission</h3>
+     <p className="mt-2 text-sm text-muted">Choose one or more ways to participate.</p>
+     <form action={joinMissionFromDirectory} className="mt-5 space-y-4">
+      <input type="hidden" name="mission_id" value={m.id}/>
+      <label className="block text-sm text-ink">Join as<select name="actor_id" required className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3">{actors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select></label>
+      <fieldset><legend className="sr-only">Choose one or more participation types</legend><div className="grid grid-cols-2 gap-3">{participationOptions.map((o,i)=>{const Icon=[UsersRound,HandHeart,Wrench,Clock,Lightbulb,Box][i];const color=['#FFC43D','#26E7D4','#8A4DFF','#35F3FF','#FF4FD8','#6A7CFF'][i];return <label key={o.value} className="relative flex min-h-28 cursor-pointer flex-col justify-between rounded-xl border border-line bg-panel-raised p-3 has-[:checked]:border-[var(--option-color)] has-[:checked]:bg-[#1B2331]" style={{'--option-color':color} as React.CSSProperties}><span className="flex items-start justify-between gap-2"><Icon aria-hidden="true" color={color} size={24}/><input type="checkbox" name="participation_kind" value={o.value} aria-label={o.label} className="size-4 accent-gold"/></span><span className="text-sm font-semibold text-ink">{o.label}</span></label>})}</div></fieldset>
+      <button className="flex min-h-[64px] w-full items-center justify-center gap-2 rounded-xl bg-gold text-base font-semibold text-navy"><Check aria-hidden="true" size={20}/>Confirm Participation</button>
+     </form>
+    </div>
+   </details>}
   </div>
  </article>})}</div>
  {!missions?.length&&<p className="glass rounded-2xl p-6 text-muted">{queryText?'No SDG Missions match your search.':view==='participating'?'You have no mission participations yet.':view==='created'?'You have not created any missions yet.':'No SDG Missions have been added here yet.'}</p>}
