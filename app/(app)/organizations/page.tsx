@@ -68,41 +68,40 @@ export default async function Organizations({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap justify-between gap-4">
-        <div>
-          <p className="deck-label">ALUNA ACTORS</p>
-          <h1 className="mt-2 text-4xl">Organizations</h1>
-        </div>
-        <Link href={filter ? `/organizations/new?type=${filter}` : '/organizations/new'} className="h-fit rounded-xl bg-gold px-5 py-3 font-semibold text-navy hover:bg-gold-soft">
-          Create organization
-        </Link>
+      <div className="text-center xl:hidden">
+        <p className="deck-label">ALUNA ACTORS</p>
+        <h1 className="mt-1 text-3xl">Organizations</h1>
       </div>
-
       {status === "archived" && <p role="status" className="rounded-xl border border-gold p-3 text-gold">Organization archived successfully.</p>}
       {actionError && <p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">The organization could not be archived. No changes were made.</p>}
-      <form method="get" className="glass rounded-2xl p-4">
-        {filter && <input type="hidden" name="type" value={filter} />}
-        {rawSort && validSorts.includes(rawSort as SortOrder) && <input type="hidden" name="sort" value={rawSort} />}
-        <label htmlFor="organization-search" className="block text-sm">Search Organizations</label>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input id="organization-search" name="q" defaultValue={queryText} placeholder="Search Universities, Companies and NGOs" className="w-full rounded-xl border border-line bg-panel-raised p-3" />
-          <button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Search</button>
-          {queryText && <Link href={directoryUrl(filter, undefined, rawSort)} className="rounded-xl border border-line px-5 py-3 text-center text-gold">Clear</Link>}
+      <nav aria-label="Organization types" className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+          {([['All', ''], ['Universities', 'university'], ['NGOs', 'ngo'], ['Companies', 'company']] as const).map(([label, value]) => (
+            <Link key={label} href={directoryUrl(value, queryText)}
+              aria-current={(filter ?? '') === value ? 'page' : undefined}
+              className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${(filter ?? '') === value ? 'bg-gold font-semibold text-navy' : 'glass'}`}>
+              {label}
+            </Link>
+          ))}
         </div>
-      </form>
-
-      <nav aria-label="Organization types" className="flex gap-2 overflow-x-auto">
-        {([['All', ''], ['Universities', 'university'], ['NGOs', 'ngo'], ['Companies', 'company']] as const).map(([label, value]) => (
-          <Link
-            key={label}
-            href={directoryUrl(value, queryText)}
-            aria-current={(filter ?? '') === value ? 'page' : undefined}
-            className={`rounded-full px-4 py-2 text-sm ${(filter ?? '') === value ? 'bg-gold text-navy' : 'glass'}`}
-          >
-            {label}
-          </Link>
-        ))}
+        <div className="flex shrink-0 items-center gap-2">
+          <Link href={filter ? `/organizations/new?type=${filter}` : '/organizations/new'} className="rounded-full border border-gold px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10">+ Create</Link>
+          <a href="#organizations-search" aria-label="Search organizations" className="rounded-full border border-line bg-panel-raised px-3 py-2 text-gold hover:border-gold">⌕</a>
+        </div>
       </nav>
+      <details id="organizations-search" className="glass rounded-2xl p-4" open={Boolean(queryText)}>
+        <summary className="cursor-pointer text-sm font-semibold text-gold">Search Organizations</summary>
+        <form method="get" className="mt-3">
+          {filter && <input type="hidden" name="type" value={filter} />}
+          {rawSort && validSorts.includes(rawSort as SortOrder) && <input type="hidden" name="sort" value={rawSort} />}
+          <label htmlFor="organization-search" className="sr-only">Search Organizations</label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input id="organization-search" name="q" defaultValue={queryText} placeholder="Search Universities, Companies and NGOs" className="w-full rounded-xl border border-line bg-panel-raised p-3" />
+            <button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Search</button>
+            {queryText && <Link href={directoryUrl(filter, undefined, rawSort)} className="rounded-xl border border-line px-5 py-3 text-center text-gold">Clear</Link>}
+          </div>
+        </form>
+      </details>
 
       <div className="glass flex flex-wrap items-end justify-between gap-4 rounded-2xl p-4">
         <div>
