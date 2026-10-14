@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, Heart, MapPin, Share2 } from 'lucide-react';
+import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { createClient } from '@/lib/supabase/server';
 import { Progress, campaignTotal, type Total } from '@/lib/fundraising';
 import { cities, getCity } from '@/lib/cities';
 import { actorDetails, ownedActors } from '@/lib/social';
-import { sdgs, sdgLabel, sdgColors } from '@/lib/sdgs';
+import { sdgs, sdgLabel } from '@/lib/sdgs';
 import { ReferralShare } from '@/components/referral-share';
 
 type View = 'all' | 'campaigns' | 'fundraisers';
@@ -143,22 +144,29 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
     const cityInfo=mission?.places?.source_key?getCity(mission.places.source_key):null;
     const placeLabel=mission?.manual_place&&mission.manual_country?`${mission.manual_place}, ${mission.manual_country}`:cityInfo?`${cityInfo.name}, ${cityInfo.country}`:mission?.places?.name??'Location not specified';
     const relatedFundraisers=myFundraisers.filter(f=>f.campaign_id===c.id);
-    return <article key={c.id} className="glass rounded-2xl p-6">
-     <p className="text-sm font-semibold text-gold">{placeLabel}</p>
-     <div className="mt-3 flex flex-wrap gap-2">
-      {(sdgsByMission.get(c.mission_id)??[]).map(n=><span key={n} className="rounded-lg border px-2 py-1 text-xs font-semibold" style={{borderColor:sdgColors[n],color:sdgColors[n]}}>{sdgLabel(n)}</span>)}
+    const selectedSdgs=sdgsByMission.get(c.mission_id)??[];
+    const pct=Number(c.goal_amount)>0?Math.min(100,Math.round(total.amount/Number(c.goal_amount)*100)):0;
+    return <article key={c.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink">
+     <div className="flex items-center justify-between gap-2">
+      <span className="flex size-[54px] items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={selectedSdgs[0]??9} size={29}/></span>
+      <div className="flex items-center gap-3">{selectedSdgs.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
      </div>
-     <Link href={`/missions/${c.mission_id}`} className="mt-3 block text-sm text-gold hover:underline">Mission: {mission?.title||'SDG Mission'} →</Link>
-     <h2 className="mt-2 text-xl text-ink">{c.title}</h2>
-     <p className="mt-2 text-sm text-muted">Created by {creatorDetails.get(c.actor_id)?.name||'Member'}</p>
-     <p className="my-4 line-clamp-2 text-sm text-ink">{c.story}</p>
-     {view==='fundraisers'&&<p className="mb-2 text-xs font-semibold text-muted">Campaign total</p>}
-     <Progress amount={total.amount} count={total.count} goal={Number(c.goal_amount)} currency={c.currency_code}/>
+     <p className="mt-5 text-xs font-semibold uppercase text-gold">SDG MISSION CAMPAIGN</p>
+     <h2 className="mt-2 break-words text-[21px] font-bold normal-case leading-tight text-ink [font-stretch:normal]">{c.title}</h2>
+     <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin aria-hidden="true" size={18}/>{placeLabel}</p>
+     <div className="mt-6 space-y-1">{selectedSdgs.map((n,i)=><p key={n} className={i===0?'text-sm text-ink':'text-sm text-muted'}>{sdgLabel(n)}</p>)}</div>
+     <div className="mt-7 border-t border-line pt-8">
+      <div className="flex flex-wrap items-baseline gap-3"><strong className="text-[27px] font-bold text-gold">{new Intl.NumberFormat('en',{style:'currency',currency:c.currency_code,maximumFractionDigits:0}).format(total.amount)}</strong><span className="text-sm text-muted">raised of {new Intl.NumberFormat('en',{style:'currency',currency:c.currency_code,maximumFractionDigits:0}).format(Number(c.goal_amount))}</span></div>
+      <div role="progressbar" aria-label="Campaign funding progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="mt-3 h-3 overflow-hidden rounded-full bg-[#2A3040]"><div className="h-full rounded-full bg-[#26E7D4]" style={{width:`${pct}%`}}/></div>
+      <div className="mt-3 flex justify-between gap-2 text-sm text-muted"><span>{pct}% funded</span><span>{total.count} donors</span></div>
+     </div>
      {view==='fundraisers'&&relatedFundraisers.length>0&&<div className="mt-4 space-y-3 border-t border-line pt-3">{relatedFundraisers.map(f=>{const personal=byFundraiser.get(f.id);return <div key={f.id} className="rounded-xl border border-line p-3"><Link href={`/fundraising/${f.slug}`} className="mb-2 block text-sm font-semibold text-gold hover:underline">Your fundraiser: {f.title} →</Link><Progress amount={Number(personal?.amount_raised??0)} count={Number(personal?.donor_count??0)} goal={Number(f.goal_amount)} currency={c.currency_code}/></div>})}</div>}
-     <div className="mt-5 flex flex-wrap items-start gap-2 border-t border-line pt-4">
-      <Link href={`/fundraising/campaigns/${c.id}`} className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-navy hover:bg-gold-soft">Donate</Link>
-      <div className="min-w-0"><ReferralShare path={`/c/${c.id}`} title={c.title} noun="campaign"/></div>
-      <Link href={`/fundraising/campaigns/${c.id}`} className="rounded-xl border border-line px-4 py-2 text-sm text-gold hover:border-gold">View Campaign</Link>
+     <div className="mt-auto pt-9">
+      <Link href={`/fundraising/campaigns/${c.id}`} className="flex min-h-[63px] w-full items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy hover:bg-gold-soft"><Heart aria-hidden="true" size={21}/>Donate</Link>
+      <div className="mt-5 flex items-center justify-between gap-3">
+       <div className="min-w-0 [&_button]:!bg-transparent [&_button]:!p-0 [&_button]:!text-base [&_button]:!font-normal [&_button]:!text-muted"><ReferralShare path={`/c/${c.id}`} title={c.title} noun="campaign"/></div>
+       <Link href={`/fundraising/campaigns/${c.id}`} className="shrink-0 text-base font-medium text-gold hover:underline">View Campaign →</Link>
+      </div>
      </div>
     </article>;
    })}
