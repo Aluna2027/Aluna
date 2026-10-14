@@ -1,3 +1,8 @@
+import { randomUUID } from 'crypto';
+import { MapPin, BookOpen, UsersRound, ChartNoAxesColumnIncreasing } from 'lucide-react';
+import { DetailPageHeader, DetailSectionCard, DetailSdgRows, featuredSdg } from '@/components/detail-design-elements';
+import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
+import { CampaignDonationFields } from '@/components/campaign-donation-fields';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -5,7 +10,7 @@ import { actorDetails, ownedActors, relativeDate } from '@/lib/social';
 import { Progress, campaignTotal, type Total, type Campaign } from '@/lib/fundraising';
 import { money } from '@/lib/missions';
 import { getCity } from '@/lib/cities';
-import { sdgLabel, sdgColors } from '@/lib/sdgs';
+import { sdgLabel } from '@/lib/sdgs';
 import { Card } from '@/components/ui';
 import { ReferralShare } from '@/components/referral-share';
 import { DonationForm } from '@/components/donation-form';
@@ -46,31 +51,36 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
  const {data:visitor}=user?await client.from('profiles').select('display_name').eq('id',user.id).maybeSingle():{data:null};
  const visitorName=visitor?.display_name||user?.email?.split('@')[0]||'member';
  return <div className="space-y-6">
-  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-2">
-   <div className="min-w-0"><p className="deck-label !text-[.55rem] sm:!text-[.7rem]">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-xs text-muted sm:text-sm">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline">{visitorName}</Link></p></div>
-   <div className="min-w-0 text-center"><p className="text-[.55rem] font-semibold uppercase tracking-wider text-gold sm:text-xs">SDG FUNDRAISING</p><h1 className="break-words text-sm font-bold normal-case leading-tight text-ink sm:text-xl">{campaign.title}</h1></div>
-   <Link href="/fundraising" className="min-w-0 text-right text-[.65rem] font-semibold text-gold hover:underline sm:text-sm">← Fundraising</Link>
-  </div>
+  <DetailPageHeader kind="SDG FUNDRAISING" title={campaign.title} backHref="/fundraising" backLabel="Fundraising" visitorName={visitorName}/>
   {referral_status&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Referral link {referral_status}.</p>}
   {remove_error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not delete this campaign. Please try again.</p>}
   {archived&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">This campaign is archived. Its financial and referral history is preserved.</p>}
   {referral_error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not update the referral link. Check the details and try again.</p>}
-  <header className="glass rounded-2xl p-6 sm:p-8">
-   <p className="text-sm font-semibold text-gold">{missionLocation||'SDG Mission fundraising'}</p>
-   <div className="mt-3 flex flex-wrap gap-2">{(campaignSdgs??[]).map(row=><span key={row.sdg_number} className="rounded-lg border px-2 py-1 text-xs font-semibold" style={{borderColor:sdgColors[row.sdg_number],color:sdgColors[row.sdg_number]}}>{sdgLabel(row.sdg_number)}</span>)}</div>
-   <Link href={`/missions/${campaign.mission_id}`} className="mt-3 block text-sm text-gold hover:underline">{campaign.missions?.title||'SDG Mission'} →</Link>
-   <h2 className="mt-3 text-2xl text-ink sm:text-3xl">{campaign.title}</h2>
-   <p className="mt-3 text-sm text-muted">Created by {actors.get(campaign.actor_id)?.name||'Member'} · {relativeDate(campaign.created_at)}</p>
-   <div className="mt-6 max-w-xl"><Progress amount={summary.amount} count={summary.count} goal={Number(campaign.goal_amount)} currency={campaign.currency_code}/></div>
-   <div className="mt-6 flex flex-wrap items-center gap-4">
-    {canEdit&&<Link href="/fundraising/performance" className="text-sm text-gold">Global fundraising performance →</Link>}
-    {canEdit&&!archived&&<Link href={`/fundraising/campaigns/${id}/edit`} className="text-sm text-gold">Edit campaign →</Link>}
-    {canEdit&&!archived&&<form action={removeOrArchiveCampaign}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this campaign?" className="text-sm text-red-300">Delete campaign</ConfirmSubmitButton></form>}
+  <header className="rounded-[22px] border border-line bg-panel p-5 sm:p-6">
+   <div className="flex items-center justify-between gap-4">
+    <div className="flex items-center gap-3"><span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-[#173638] sm:size-16"><DirectorySdgIcon number={featuredSdg((campaignSdgs??[]).map(s=>s.sdg_number),true)} size={29}/></span><div><p className="text-sm font-semibold text-gold">SDG MISSION CAMPAIGN</p><h2 className="mt-2 break-words text-[23px] font-bold normal-case leading-tight text-ink [font-stretch:normal] sm:text-[27px]">{campaign.title}</h2></div></div>
+    <div className="flex gap-3">{(campaignSdgs??[]).map(s=>s.sdg_number).filter(n=>n!==featuredSdg((campaignSdgs??[]).map(s=>s.sdg_number),true)).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
+   </div>
+   <p className="mt-7 flex items-center gap-3 text-base text-muted"><MapPin className="shrink-0 text-[#26E7D4]" size={20}/>{missionLocation||'Location not reported'} · <Link href={'/missions/'+campaign.mission_id} className="hover:text-gold hover:underline">{campaign.missions?.title||'SDG Mission'}</Link></p>
+   <div className="mt-6 text-base leading-relaxed sm:text-lg"><DetailSdgRows numbers={(campaignSdgs??[]).map(s=>s.sdg_number)} primary={featuredSdg((campaignSdgs??[]).map(s=>s.sdg_number),true)}/></div>
+   <div className="mt-8 border-t border-line pt-8">
+    <div className="flex items-baseline justify-between gap-4"><strong className="text-[32px] font-bold text-gold sm:text-[38px]">{money(summary.amount,campaign.currency_code)}</strong><strong className="text-[28px] font-bold text-[#26E7D4]">{Number(campaign.goal_amount)>0?Math.min(100,Math.round(summary.amount/Number(campaign.goal_amount)*100)):0}%</strong></div>
+    <div className="mt-1 flex justify-between gap-4 text-sm text-muted sm:text-base"><span>Raised of {money(Number(campaign.goal_amount),campaign.currency_code)}</span><span>{summary.count} confirmed donors</span></div>
+    <div role="progressbar" aria-label="Campaign funding progress" aria-valuenow={Number(campaign.goal_amount)>0?Math.min(100,Math.round(summary.amount/Number(campaign.goal_amount)*100)):0} aria-valuemin={0} aria-valuemax={100} className="mt-5 h-[14px] overflow-hidden rounded-full bg-[#2A3040]"><div className="h-full rounded-full bg-[#26E7D4]" style={{width:(Number(campaign.goal_amount)>0?Math.min(100,Math.round(summary.amount/Number(campaign.goal_amount)*100)):0)+'%'}}/></div>
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+     {!archived&&<div className="min-w-0 [&_button]:!bg-transparent [&_button]:!px-0 [&_button]:!py-0 [&_button]:!text-base [&_button]:!font-medium [&_button]:!text-[#FF4FD8]"><ReferralShare path={'/c/'+id} title={campaign.title}/></div>}
+     <div className="flex flex-wrap gap-3 text-sm"><Link href={'/missions/'+campaign.mission_id} className="text-gold">View SDG Mission →</Link><span className="text-muted">Campaign details</span></div>
+    </div>
    </div>
   </header>
-  {!archived&&<ReferralShare path={`/c/${id}`} title={campaign.title}/>} 
-  {!archived&&<DonationForm campaignId={id} currency={campaign.currency_code}/>} 
-  <Card title="Campaign story"><p className="whitespace-pre-wrap">{campaign.story}</p></Card>
+  <div className="grid items-start gap-4 lg:grid-cols-2">
+   <div className="space-y-4 lg:row-start-1">
+    <DetailSectionCard title="CAMPAIGN STORY" icon={<BookOpen size={25} color="#A78BFA"/>}><p className="whitespace-pre-wrap">{campaign.story}</p></DetailSectionCard>
+    <DetailSectionCard title="FUNDRAISERS" icon={<UsersRound size={25} color="#26E7D4"/>}><div className="space-y-3">{fundraisers?.map(f=>{const total=byFundraiser.get(f.id);return <Link key={f.id} href={'/fundraising/'+f.slug} className="block rounded-xl border border-line p-4 hover:border-gold"><p className="text-gold">{f.title} · {f.kind==='team'?'Team':'Personal'}</p><p className="my-2 text-xs">By {actors.get(f.actor_id)?.name}</p><Progress amount={Number(total?.amount_raised??0)} count={Number(total?.donor_count??0)} goal={Number(f.goal_amount)} currency={campaign.currency_code}/></Link>})}{!fundraisers?.length&&<div className="rounded-xl bg-[#191E2A] p-4"><p>No fundraisers yet.</p><Link href={'/fundraising/new?campaign='+id} className="mt-3 block text-base font-semibold text-gold">+ Start the first fundraiser</Link></div>}</div></DetailSectionCard>
+    {canEdit&&<section className="rounded-[20px] border border-line bg-panel p-5"><h2 className="flex items-center gap-3 text-xl font-bold uppercase text-ink [font-stretch:normal]"><ChartNoAxesColumnIncreasing size={23} className="text-gold"/>CAMPAIGN MANAGEMENT</h2><p className="mt-4 text-sm text-muted">For authorized campaign owners only.</p><div className="mt-3 flex flex-wrap gap-4 text-sm">{!archived&&<Link className="text-gold" href={'/fundraising/campaigns/'+id+'/edit'}>Edit Campaign</Link>}<Link href="/fundraising/performance" className="text-[#26E7D4]">Referral Performance</Link>{!archived&&<form action={removeOrArchiveCampaign}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to archive or delete this campaign?" className="text-[#E49BA3]">Archive / Delete</ConfirmSubmitButton></form>}</div></section>}
+   </div>
+   <div className="row-start-1 lg:col-start-2"><CampaignDonationFields campaignId={id} currency={campaign.currency_code} requestKey={randomUUID()}/></div>
+  </div>
   {canEdit&&!archived&&<Card title="Referral links"><p className="mb-5 text-sm text-muted">Create a unique link for each influencer, user, university, NGO, company, partner or channel. Attribution uses the last campaign referral click for 30 days.</p>
    <form action={createCampaignReferralLink} className="grid gap-3 rounded-xl border border-line p-4 md:grid-cols-2">
     <input type="hidden" name="campaign_id" value={id}/>
@@ -83,6 +93,6 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
    <div className="mt-6 grid gap-4 sm:grid-cols-3"><div className="rounded-xl border border-line p-4"><p className="text-xs text-muted">Clicks</p><p className="mt-1 text-2xl text-gold">{totalReferral.clicks}</p></div><div className="rounded-xl border border-line p-4"><p className="text-xs text-muted">Confirmed donors</p><p className="mt-1 text-2xl text-gold">{totalReferral.donors}</p></div><div className="rounded-xl border border-line p-4"><p className="text-xs text-muted">Attributed raised</p><p className="mt-1 text-2xl text-gold">{money(totalReferral.amount,campaign.currency_code)}</p></div></div>
    <div className="mt-6 space-y-4">{referralRows.map(r=>{const assigned=r.assigned_actor_id?assignable.find(a=>a.id===r.assigned_actor_id)?.name:r.assigned_name;const conversion=Number(r.clicks)>0?(Number(r.donor_count)/Number(r.clicks)*100).toFixed(1):'0.0';return <div key={r.link_id} className="rounded-xl border border-line p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-semibold text-ink">{r.label}</p><p className="mt-1 text-xs text-muted">{r.source_type}{assigned?` · ${assigned}`:''} · {r.is_active?'Active':'Inactive'} · Created {new Date(r.created_at).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Amsterdam'})}</p></div><form action={setCampaignReferralStatus}><input type="hidden" name="campaign_id" value={id}/><input type="hidden" name="id" value={r.link_id}/><input type="hidden" name="active" value={r.is_active?'false':'true'}/><button className="text-sm text-gold">{r.is_active?'Disable':'Enable'}</button></form></div><div className="mt-4 grid gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6"><span>{r.clicks} clicks</span><span>{r.checkouts} checkouts</span><span>{r.donor_count} donors</span><span>{conversion}% conversion</span><span>{money(Number(r.average_donation),campaign.currency_code)} avg. donation</span><span>{money(Number(r.amount_raised),campaign.currency_code)} raised</span></div>{r.is_active&&<div className="mt-4"><ReferralShare token={r.token} tokenRoute="cr" noun="referral link" title={`${campaign.title} — ${r.label}`}/></div>}</div>})}{!referralRows.length&&<p className="text-muted">No campaign referral links yet.</p>}</div>
   </Card>}
-  <Card title="Fundraisers"><div className="space-y-3">{fundraisers?.map(f=>{const total=byFundraiser.get(f.id);return <Link key={f.id} href={`/fundraising/${f.slug}`} className="block rounded-xl border border-line p-4 hover:border-gold"><p className="text-gold">{f.title} · {f.kind==='team'?'Team':'Personal'}</p><p className="my-2 text-xs">By {actors.get(f.actor_id)?.name}</p><Progress amount={Number(total?.amount_raised??0)} count={Number(total?.donor_count??0)} goal={Number(f.goal_amount)} currency={campaign.currency_code}/></Link>})}{!fundraisers?.length&&<p>No fundraisers yet.</p>}</div></Card>
+
  </div>;
 }
