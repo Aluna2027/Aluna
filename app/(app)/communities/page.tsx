@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search, Wifi } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { cities } from '@/lib/cities';
 import { metric } from '@/lib/communities';
@@ -28,11 +28,63 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
  const membershipsByCommunity=new Map<string,Set<string>>();
  for(const m of ownMemberships){const set=membershipsByCommunity.get(m.community_id)??new Set<string>();set.add(m.actor_id);membershipsByCommunity.set(m.community_id,set);}
  const managedIds=new Set(ownMemberships.filter(m=>m.member_role==='steward').map(m=>m.community_id));
- return <div className="space-y-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="deck-label">PHYSICAL PLACES · COMMUNITY-OWNED CONNECTIVITY</p><h1 className="mt-2 text-4xl">Wi-Fi Mesh Communities</h1><p className="mt-3 text-sm text-muted">{selectedCity?`Communities in ${selectedCity.name}`:'Explore physical Wi-Fi mesh communities and their members.'}</p></div><Link href={selectedCity?`/communities/new?city=${selectedCity.id}`:'/communities/new'} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Add a community</Link></div>
- <form method="get" className="glass rounded-2xl p-4">{selectedCity&&<input type="hidden" name="city" value={selectedCity.id}/>}<label className="block text-sm">Search Mesh Communities<div className="mt-2 flex flex-col gap-2 sm:flex-row"><input name="q" defaultValue={queryText} placeholder="Search by community name, city or country" className="w-full rounded-xl border border-line bg-panel-raised p-3"/><button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Search</button>{queryText&&<Link href={selectedCity?`/communities?city=${selectedCity.id}`:'/communities'} className="rounded-xl border border-line px-5 py-3 text-center text-gold">Clear</Link>}</div></label></form>
- {(selectedCity||queryText)&&<Link href="/communities" className="text-sm text-gold">Show all communities →</Link>}
- <div className="grid gap-4 md:grid-cols-2">{communities?.map(item=>{const place=item.places as unknown as {name:string;country_code:string;source_key:string}|null;const cityInfo=place?.source_key?cities.find(c=>c.id===place.source_key):null;return <Link key={item.id} href={`/communities/${item.id}`} className="glass rounded-2xl p-6 hover:border-gold"><p className="text-sm font-semibold text-gold">{cityInfo?.name||place?.name||'City'} · {cityInfo?.country||place?.country_code}</p><p className="mt-2 text-sm text-ink">SDG 9: Industry, Innovation and Infrastructure</p><h2 className="mt-2 text-xl text-gold">{item.name}</h2><p className="mt-2 text-sm text-ink">{item.location_text}</p><p className="mt-4 text-sm text-gold">People connected: {metric(item.people_connected)} · Nodes: {metric(item.nodes)}</p><p className="mt-2 text-xs text-ink">{item.is_verified?'Verified':'Community details not verified by Aluna'}</p></Link>})}</div>
- {!communities?.length&&<p className="glass rounded-2xl p-6 text-muted">{queryText?'No communities match your search.':'No communities have been added here yet.'}</p>}
- {communities?.length===20&&<Link href={`/communities?${selectedCity?`city=${selectedCity.id}&`:''}${queryText?`q=${encodeURIComponent(queryText)}&`:''}page=${pageNumber+1}`} className="text-gold">More communities →</Link>}
+
+ return <div className="space-y-6">
+  <div className="text-center xl:hidden"><p className="deck-label">PHYSICAL PLACES · COMMUNITY-OWNED CONNECTIVITY</p><h1 className="mt-1 text-3xl">Wi-Fi Mesh Communities</h1></div>
+  {status==='joined'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">You joined the Wi-Fi Mesh Community.</p>}
+  {actionError&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the community. Please try again.</p>}
+  {membershipError&&<p role="alert" className="text-red-300">Could not load your memberships.</p>}
+  <nav aria-label="Wi-Fi Mesh Communities categories" className="flex flex-wrap items-center justify-between gap-3">
+   <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+    {([['All','all'],['Joined','joined'],['Managed','managed']] as const).map(([label,value])=><Link key={value} href={directoryUrl(value,selectedCity?.id,queryText)} aria-current={view===value?'page':undefined} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${view===value?'bg-gold font-semibold text-navy':'glass'}`}>{label}</Link>)}
+   </div>
+   <div className="flex shrink-0 gap-2">
+    <Link href={selectedCity?`/communities/new?city=${selectedCity.id}`:'/communities/new'} className="rounded-full border border-gold px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10">+ Create</Link>
+    <Link href={directoryUrl(view,selectedCity?.id,queryText,0,true)+'#communities-search'} aria-label="Search Wi-Fi Mesh Communities" className="rounded-full border border-line bg-panel-raised p-2 text-gold hover:border-gold"><Search size={18}/></Link>
+   </div>
+  </nav>
+  <details id="communities-search" className="glass rounded-2xl p-4" open={Boolean(queryText)||searchOpen==='1'}>
+   <summary className="cursor-pointer text-sm font-semibold text-gold">Search Wi-Fi Mesh Communities</summary>
+   <form method="get" className="mt-3 flex flex-wrap gap-2">
+    {view!=='all'&&<input type="hidden" name="view" value={view}/>}
+    {selectedCity&&<input type="hidden" name="city" value={selectedCity.id}/>}
+    <label className="sr-only" htmlFor="communities-query">Search by community name, city or country</label>
+    <input id="communities-query" name="q" defaultValue={queryText} placeholder="Search by community name, city or country" className="min-w-0 flex-1 rounded-xl border border-line bg-panel-raised p-3"/>
+    <button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy">Search</button>
+    {queryText&&<Link href={directoryUrl(view,selectedCity?.id)} className="rounded-xl border border-line px-4 py-3 text-gold">Clear</Link>}
+   </form>
+  </details>
+  {selectedCity&&<p className="text-sm text-muted">Communities in {selectedCity.name} · <Link href={directoryUrl(view)} className="text-gold">Show all cities</Link></p>}
+  {communitiesError&&<p role="alert" className="text-red-300">Communities could not be loaded.</p>}
+  <div className="grid gap-4 md:grid-cols-2">
+   {communities?.map(item=>{
+    const place=item.places as unknown as {name:string;country_code:string;source_key:string}|null;
+    const cityInfo=place?.source_key?cities.find(c=>c.id===place.source_key):null;
+    const joinedActorIds=membershipsByCommunity.get(item.id)??new Set<string>();
+    const availableActors=actors.filter(actor=>!joinedActorIds.has(actor.id));
+    const joined=joinedActorIds.size>0;
+    return <article key={item.id} className="glass rounded-2xl p-6">
+     <Link href={`/communities/${item.id}`} className="group block hover:text-gold">
+      <p className="text-sm font-semibold text-gold">{cityInfo?.name||place?.name||'City'} · {cityInfo?.country||place?.country_code}</p>
+      <p className="mt-2 text-sm text-ink">SDG 9: Industry, Innovation and Infrastructure</p>
+      <h2 className="mt-2 text-xl text-gold group-hover:underline">{item.name}</h2>
+      <p className="mt-2 text-sm text-ink">{item.location_text}</p>
+      <p className="mt-4 text-sm text-gold">People connected: {metric(item.people_connected)} · Nodes: {metric(item.nodes)}</p>
+      <p className="mt-2 text-xs text-ink">{item.is_verified?'Verified':'Community details not verified by Aluna'}</p>
+     </Link>
+     <div className="mt-4 border-t border-line pt-3">
+      {joined&&<p className="mb-2 text-sm font-semibold text-[#26E7D4]">{managedIds.has(item.id)?'Managed · ':''}Joined</p>}
+      {availableActors.length>0&&<form action={joinCommunityFromDirectory} className="flex flex-wrap items-center gap-2">
+       <input type="hidden" name="community_id" value={item.id}/>
+       {availableActors.length===1?<input type="hidden" name="actor_id" value={availableActors[0].id}/>:<select name="actor_id" aria-label={`Join ${item.name} as`} className="min-w-0 flex-1 rounded-lg border border-line bg-panel-raised p-2 text-sm">{availableActors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select>}
+       <button type="submit" className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-navy hover:bg-gold-soft">Join Community</button>
+      </form>}
+      <Link href={`/communities/${item.id}`} className="mt-2 inline-block text-sm text-gold hover:underline">View details →</Link>
+     </div>
+    </article>;
+   })}
+  </div>
+  {!communitiesError&&!communities?.length&&<p className="glass rounded-2xl p-6 text-muted">{queryText?'No communities match your search.':view==='managed'?'You do not manage any communities yet.':view==='joined'?'You have not joined any communities yet.':'No communities have been added here yet.'}</p>}
+  {communities?.length===20&&<Link href={directoryUrl(view,selectedCity?.id,queryText,pageNumber+1)} className="text-gold">More communities →</Link>}
  </div>;
 }
