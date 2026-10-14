@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { safeUrl } from '@/lib/profiles';
 
 type Score = { label: string; value: number | null | undefined };
@@ -13,7 +14,7 @@ function scoreWidth(value: number | null | undefined) {
     : Math.max(0, Math.min(100, Number(value) * 10));
 }
 
-function WbaScorePanel({ scores }: { scores: Score[] }) {
+export function WbaScorePanel({ scores }: { scores: Score[] }) {
   const [total, ...categories] = scores;
 
   return (
@@ -61,7 +62,7 @@ function WbaScorePanel({ scores }: { scores: Score[] }) {
 }
 
 export function ProfileHeader({
-  name, kind, country, location, website, imageUrl, editHref, unverified = false, scores = [],
+  name, kind, country, location, website, imageUrl, editHref, unverified = false, scores = [], children,
 }: {
   name: string;
   kind: string;
@@ -72,6 +73,7 @@ export function ProfileHeader({
   editHref?: string;
   unverified?: boolean;
   scores?: Score[];
+  children?: ReactNode;
 }) {
   const href = safeUrl(website);
   const image = safeUrl(imageUrl);
@@ -93,6 +95,7 @@ export function ProfileHeader({
             {country && <> · <span className="text-gold">{country}</span></>}
           </p>
           <h1 className="mt-5 text-4xl sm:text-5xl">{name}</h1>
+          {children && <div className="mt-4">{children}</div>}
           {unverified && <p className="mt-2 text-xs text-muted">Organization details have not been verified by Aluna.</p>}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { participationOptions } from '@/lib/missions';
 import { countrySet } from '@/lib/countries';
+import { ownedActors } from '@/lib/social';
 function amount(form:FormData,key:string){const raw=String(form.get(key)??'').trim();if(!raw)return null;const n=Number(raw);if(!/^\d+(\.\d{1,2})?$/.test(raw)||!Number.isFinite(n)||n>999_999_999_999.99)throw new Error('Invalid amount');return n;}
 function date(form:FormData,key:string){const v=String(form.get(key)??'').trim();if(!v)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||Number.isNaN(Date.parse(v)))throw new Error('Invalid date');return v;}
 function selectedSdgs(form:FormData){const values=form.getAll('sdg_numbers').map(v=>Number(String(v))).filter(Number.isInteger);const unique=[...new Set(values)];if(!unique.length||unique.some(n=>n<1||n>17))throw new Error('Invalid SDGs');return unique;}
@@ -35,11 +36,24 @@ export async function updateMission(form:FormData) {
 }
 export async function joinMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??''),kind=String(form.get('participation_kind')??'');
- if(!/^[0-9a-f-]{36}$/i.test(id)||!participationOptions.some(option=>option.value===kind))redirect('/missions');
- const {error}=await client.from('mission_participations').insert({mission_id:id,actor_id,participation_kind:kind});
- if(error)redirect(`/missions/${id}?tab=participants&error=join`);revalidatePath(`/missions/${id}`);redirect(`/missions/${id}?tab=participants`);
+ const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
+ const kinds=[...new Set(form.getAll('participation_kind').map(value=>String(value)))];
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(id)||!uuid.test(actor)||!kinds.length||kinds.some(kind=>!participationOptions.some(option=>option.value===kind)))redirect(`/missions/${id}?tab=participants&error=join`);
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect(`/missions/${id}?tab=participants&error=join`);
+ const {data:mission,error:missionError}=await client.from('missions').select('id').eq('id',id).is('removed_at',null).maybeSingle();
+ if(missionError||!mission)redirect('/missions');
+ const {data:existing,error:existingError}=await client.from('mission_participations').select('participation_kind').eq('mission_id',id).eq('actor_id',actor);
+ if(existingError)redirect(`/missions/${id}?tab=participants&error=join`);
+ const current=new Set((existing??[]).map(p=>p.participation_kind));
+ const missing=kinds.filter(kind=>!current.has(kind));
+ if(!missing.length)redirect(`/missions/${id}?tab=participants&status=already-joined`);
+ const {error}=await client.from('mission_participations').insert(missing.map(participation_kind=>({mission_id:id,actor_id:actor,participation_kind})));
+ if(error)redirect(`/missions/${id}?tab=participants&error=join`);
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);
+ redirect(`/missions/${id}?tab=participants&status=joined`);
 }
+
 export async function leaveMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??''),kind=String(form.get('participation_kind')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
@@ -54,4 +68,63 @@ export async function removeMission(form:FormData) {
  const {error}=await client.rpc('remove_mission',{p_mission:id});
  if(error)redirect(`/missions/${id}?error=delete`);
  revalidatePath('/missions');revalidatePath('/fundraising');redirect('/missions');
+}
+
+export async function joinMissionFromDirectory(form:FormData){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
+ const kinds=[...new Set(form.getAll('participation_kind').map(v=>String(v)))];
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(id)||!uuid.test(actor)||!kinds.length||kinds.some(k=>!participationOptions.some(o=>o.value===k)))redirect('/missions?error=join');
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect('/missions?error=join');
+ const {data:mission,error:missionError}=await client.from('missions').select('id').eq('id',id).is('removed_at',null).maybeSingle();
+ if(missionError||!mission)redirect('/missions?error=join');
+ const {data:existing,error:existingError}=await client.from('mission_participations').select('participation_kind').eq('mission_id',id).eq('actor_id',actor);
+ if(existingError)redirect('/missions?error=join');
+ const current=new Set((existing??[]).map(p=>p.participation_kind));
+ const missing=kinds.filter(k=>!current.has(k));
+ if(missing.length){
+  const {error}=await client.from('mission_participations').insert(missing.map(k=>({mission_id:id,actor_id:actor,participation_kind:k})));
+  if(error)redirect('/missions?error=join');
+ }
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);
+ redirect('/missions?view=participating&status=joined');
+}
+
+const directoryMissionUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Replace only this owned actor's selection; never touch another actor's participation. */
+export async function saveMissionParticipationFromDirectory(form:FormData){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
+ const kinds=[...new Set(form.getAll('participation_kind').map(v=>String(v)))];
+ if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor)||!kinds.length||kinds.some(k=>!participationOptions.some(o=>o.value===k)))redirect('/missions?error=participation');
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect('/missions?error=participation');
+ const {data:mission,error:missionError}=await client.from('missions').select('id').eq('id',id).is('removed_at',null).maybeSingle();
+ if(missionError||!mission)redirect('/missions?error=participation');
+ const {data:existing,error:loadError}=await client.from('mission_participations').select('participation_kind').eq('mission_id',id).eq('actor_id',actor);
+ if(loadError)redirect('/missions?error=participation');
+ const prior=new Set((existing??[]).map(p=>p.participation_kind));
+ const toAdd=kinds.filter(k=>!prior.has(k)),toRemove=[...prior].filter(k=>!kinds.includes(k));
+ if(toAdd.length){
+  const {error}=await client.from('mission_participations').insert(toAdd.map(participation_kind=>({mission_id:id,actor_id:actor,participation_kind})));
+  if(error)redirect('/missions?error=participation');
+ }
+ if(toRemove.length){
+  const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor).in('participation_kind',toRemove);
+  if(error)redirect('/missions?error=participation');
+ }
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);
+ redirect('/missions?status=joined');
+}
+
+export async function leaveMissionFromDirectory(form:FormData){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
+ if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor))redirect('/missions?error=leave');
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect('/missions?error=leave');
+ const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor);
+ if(error)redirect('/missions?error=leave');
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);
+ redirect('/missions?status=left');
 }

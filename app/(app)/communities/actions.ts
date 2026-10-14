@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { ownedActors } from '@/lib/social';
 
 export async function createCommunity(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
@@ -44,7 +45,44 @@ export async function leaveCommunity(form:FormData) {
 export async function removeCommunity(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/communities');
+ const owned=await ownedActors();
+ const {data:stewards,error:membershipError}=await client.from('mesh_community_members').select('actor_id').eq('community_id',id).eq('member_role','steward');
+ if(membershipError||!stewards?.some(s=>owned.some(actor=>actor.id===s.actor_id)))redirect('/communities?error=delete');
  const {error}=await client.rpc('remove_mesh_community',{p_community:id});
  if(error)redirect(`/communities/${id}?error=delete`);
  revalidatePath('/communities');revalidatePath('/world-map');redirect('/communities');
+}
+
+export async function joinCommunityFromDirectory(form:FormData) {
+ const client=await createClient();
+ const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const communityId=String(form.get('community_id')??''),actorId=String(form.get('actor_id')??'');
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(communityId)||!uuid.test(actorId))redirect('/communities?error=join');
+ const actors=await ownedActors();
+ if(!actors.some(actor=>actor.id===actorId))redirect('/communities?error=join');
+ const {data:community,error:communityError}=await client.from('mesh_communities').select('id').eq('id',communityId).is('removed_at',null).maybeSingle();
+ if(communityError||!community)redirect('/communities?error=join');
+ const {data:existing,error:lookupError}=await client.from('mesh_community_members').select('actor_id').eq('community_id',communityId).eq('actor_id',actorId).maybeSingle();
+ if(lookupError)redirect('/communities?error=join');
+ if(!existing){
+  const {error}=await client.from('mesh_community_members').insert({community_id:communityId,actor_id:actorId,member_role:'member'});
+  if(error)redirect('/communities?error=join');
+ }
+ revalidatePath('/communities');revalidatePath(`/communities/${communityId}`);
+ redirect('/communities?view=joined&status=joined');
+}
+
+export async function leaveCommunityFromDirectory(form:FormData){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const communityId=String(form.get('community_id')??''),actorId=String(form.get('actor_id')??'');
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(communityId)||!uuid.test(actorId))redirect('/communities?error=leave');
+ const owned=await ownedActors();if(!owned.some(actor=>actor.id===actorId))redirect('/communities?error=leave');
+ const {data:membership,error:readError}=await client.from('mesh_community_members').select('member_role').eq('community_id',communityId).eq('actor_id',actorId).maybeSingle();
+ if(readError||!membership||membership.member_role!=='member')redirect('/communities?error=leave');
+ const {error}=await client.from('mesh_community_members').delete().eq('community_id',communityId).eq('actor_id',actorId).eq('member_role','member');
+ if(error)redirect('/communities?error=leave');
+ revalidatePath('/communities');revalidatePath(`/communities/${communityId}`);
+ redirect('/communities?status=left');
 }
