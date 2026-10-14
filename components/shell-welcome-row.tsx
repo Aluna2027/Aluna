@@ -6,8 +6,8 @@ import { ProfileHeaderControls } from '@/components/profile-header-controls';
 
 export function ShellWelcomeRow({ name }: { name: string }) {
   const pathname = usePathname();
-  // Mesh detail pages provide their own compact, server-rendered title row.
-  if (/^\/communities\/[^/]+\/?$/.test(pathname)) return null;
+  // Community and mission detail pages provide their own compact, server-rendered title row.
+  if (/^\/(?:communities|missions)\/[^/]+\/?$/.test(pathname)) return null;
 
   return <div className="relative mb-6 flex flex-wrap items-center gap-4">
     <div>
