@@ -155,7 +155,7 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
      {view==='fundraisers'&&relatedFundraisers.length>0&&<div className="mt-4 space-y-1 border-t border-line pt-3">{relatedFundraisers.map(f=><Link key={f.id} href={`/fundraising/${f.slug}`} className="block text-sm text-gold hover:underline">Your fundraiser: {f.title} →</Link>)}</div>}
      <div className="mt-5 flex flex-wrap items-start gap-2 border-t border-line pt-4">
       <Link href={`/fundraising/campaigns/${c.id}`} className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-navy hover:bg-gold-soft">Donate</Link>
-      <div className="min-w-0"><ReferralShare path={`/c/${c.id}`} title={c.title} noun="campaign" variant="secondary"/></div>
+      <div className="min-w-0"><ReferralShare path={`/c/${c.id}`} title={c.title} noun="campaign"/></div>
       <Link href={`/fundraising/campaigns/${c.id}`} className="rounded-xl border border-line px-4 py-2 text-sm text-gold hover:border-gold">View Campaign</Link>
      </div>
     </article>;
