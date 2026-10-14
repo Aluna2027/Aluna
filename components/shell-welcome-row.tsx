@@ -8,7 +8,8 @@ export function ShellWelcomeRow({ name }: { name: string }) {
   const pathname = usePathname();
   // Community, mission and fundraising detail pages render their own compact header.
   const fundraisingDetail=/^\/fundraising\/campaigns\/[^/]+\/?$/.test(pathname) || (/^\/fundraising\/[^/]+\/?$/.test(pathname) && !['/fundraising/new','/fundraising/performance'].includes(pathname));
-  if (/^\\/(?:communities|missions)\\/[^/]+\\/?$/.test(pathname) || fundraisingDetail) return null;
+  const detailSegments=pathname.split('/').filter(Boolean);
+  if ((detailSegments.length===2&&['communities','missions'].includes(detailSegments[0])) || fundraisingDetail) return null;
 
   // Keep the directory title in the same header row as the welcome label on wide screens.
   // A grid reserves separate space for each column so the centered title cannot cover either side.
