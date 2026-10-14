@@ -6,8 +6,9 @@ import { ProfileHeaderControls } from '@/components/profile-header-controls';
 
 export function ShellWelcomeRow({ name }: { name: string }) {
   const pathname = usePathname();
-  // Community and mission detail pages provide their own compact, server-rendered title row.
-  if (/^\/(?:communities|missions)\/[^/]+\/?$/.test(pathname)) return null;
+  // Community, mission and fundraising detail pages render their own compact header.
+  const fundraisingDetail=/^\/fundraising\/campaigns\/[^/]+\/?$/.test(pathname) || (/^\/fundraising\/[^/]+\/?$/.test(pathname) && !['/fundraising/new','/fundraising/performance'].includes(pathname));
+  if (/^\/(?:communities|missions)\/[^/]+\/?$/.test(pathname) || fundraisingDetail) return null;
 
   return <div className="relative mb-6 flex flex-wrap items-center gap-4">
     <div>
