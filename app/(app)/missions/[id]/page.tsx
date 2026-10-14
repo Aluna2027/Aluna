@@ -15,6 +15,7 @@ import { FeedList } from '@/components/feed-list';
 import { MissionFundraising } from '@/components/mission-fundraising';
 import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
 import { joinMission, leaveMission, removeMission } from '../actions';
+import { sdgColors, sdgLabel } from '@/lib/sdgs';
 export default async function MissionPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string;before?:string;before_id?:string}>}) {
  const {id}=await params;const {tab,status,error,before,before_id}=await searchParams;const client=await createClient();
  const {data:row}=await client.from('missions').select('*,places(name,source_key),mesh_communities(name)').eq('id',id).is('removed_at',null).maybeSingle();if(!row)notFound();
@@ -35,10 +36,35 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  const postIds=(missionPosts??[]).map(p=>p.id);
  const {data:comments}=active==='Comments'&&postIds.length?await client.from('comments').select('id,post_id,actor_id,body,created_at').in('post_id',postIds).order('created_at',{ascending:false}).limit(50):{data:null};
  const commentActors=active==='Comments'?await actorDetails((comments??[]).map(c=>c.actor_id)):new Map();
+ const {data:missionSdgs}=await client.from('mission_sdgs').select('sdg_number').eq('mission_id',id).order('sdg_number');
+ const {data:{user}}=await client.auth.getUser();
+ const {data:visitor}=user?await client.from('profiles').select('display_name').eq('id',user.id).maybeSingle():{data:null};
+ const visitorName=visitor?.display_name||user?.email?.split('@')[0]||'member';
  const base=`/missions/${id}`;
- return <div className="space-y-6"><Link href="/missions" className="text-sm text-gold">← Missions</Link>{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Mission saved.</p>}{error&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
- <header className="rounded-3xl border border-line bg-panel p-7 sm:p-10"><p className="deck-label">MISSION · {mission.places?.name||mission.manual_place||'CITY'}</p><h1 className="mt-4 text-4xl sm:text-5xl">{mission.title}</h1><p className="mt-3 text-muted">{mission.location_text}{city?` · ${city.country}`:manualPlace?` · ${manualPlace}`:''}</p><div className="mt-7 flex flex-wrap gap-3"><Link href={`${base}?tab=participants`} className="rounded-xl bg-gold px-4 py-2 font-semibold text-navy">Join Mission</Link><Link href={`/fundraising/campaigns/new?mission=${id}`} className="rounded-xl border border-line px-4 py-2 text-gold">Start Fundraising</Link><Link href={`${base}?tab=donate`} className="rounded-xl border border-line px-4 py-2 text-gold">Donate</Link>{canEdit&&<Link href={`${base}/edit`} className="rounded-xl border border-line px-4 py-2 text-muted">Edit</Link>}{canEdit&&<form action={removeMission}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this SDG Mission?" className="rounded-xl border border-red-700 px-4 py-2 text-red-300">Delete SDG Mission</ConfirmSubmitButton></form>}</div></header>
+ return <div className="space-y-6">
+ <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)] items-center gap-2">
+  <div className="min-w-0"><p className="deck-label !text-[.55rem] sm:!text-[.7rem]">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-xs text-muted sm:text-sm">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline">{visitorName}</Link></p></div>
+  <div className="min-w-0 text-center"><p className="text-[.55rem] font-semibold uppercase tracking-wider text-gold sm:text-xs">SDG MISSION</p><h1 className="break-words text-sm font-bold normal-case leading-tight text-ink sm:text-xl">{mission.title}</h1></div>
+  <Link href="/missions" className="min-w-0 text-right text-[.65rem] font-semibold text-gold hover:underline sm:text-sm">← SDG Missions</Link>
+ </div>
  <ProfileTabs base={base} tabs={missionTabs} active={tabSlug(active)}/>
+ {status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Mission saved.</p>}
+ {status==='joined'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Your mission participation has been saved.</p>}
+ {status==='already-joined'&&<p role="status" className="rounded-lg border border-line p-3 text-muted">You already participate with the selected types.</p>}
+ {error&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
+ {active==='Overview'&&<header className="rounded-3xl border border-line bg-panel p-7 sm:p-10">
+  <p className="deck-label">SDG MISSION · {mission.places?.name||mission.manual_place||'CITY'}</p>
+  <h2 className="mt-4 text-3xl sm:text-4xl">{mission.title}</h2>
+  <div className="mt-4 flex flex-wrap gap-2">{(missionSdgs??[]).map(sdg=><span key={sdg.sdg_number} className="rounded-lg border px-2 py-1 text-xs font-semibold" style={{borderColor:sdgColors[sdg.sdg_number],color:sdgColors[sdg.sdg_number]}}>{sdgLabel(sdg.sdg_number)}</span>)}</div>
+  <p className="mt-3 text-muted">{mission.location_text}{city?` · ${city.country}`:manualPlace?` · ${manualPlace}`:''}</p>
+  <div className="mt-7 flex flex-wrap gap-3">
+   <Link href={`${base}?tab=participants`} className="rounded-xl bg-gold px-4 py-2 font-semibold text-navy">Join Mission</Link>
+   <Link href={`/fundraising/campaigns/new?mission=${id}`} className="rounded-xl border border-line px-4 py-2 text-gold">Start Fundraising</Link>
+   <Link href={`${base}?tab=donate`} className="rounded-xl border border-line px-4 py-2 text-gold">Donate</Link>
+   {canEdit&&<Link href={`${base}/edit`} className="rounded-xl border border-line px-4 py-2 text-muted">Edit</Link>}
+   {canEdit&&<form action={removeMission}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this SDG Mission?" className="rounded-xl border border-red-700 px-4 py-2 text-red-300">Delete SDG Mission</ConfirmSubmitButton></form>}
+  </div>
+ </header>}
  {active==='Overview'&&<div className="grid gap-5 md:grid-cols-2"><Card title="Overview"><p className="whitespace-pre-wrap">{mission.overview}</p></Card><Card title="Goal"><p className="whitespace-pre-wrap">{mission.goal}</p></Card><Card title="Where"><p>{mission.location_text}</p>{city&&<Link href={`/cities/${city.id}?tab=missions`} className="mt-3 block text-gold">{city.name}, {city.country} →</Link>}{manualPlace&&<p className="mt-3 text-gold">{manualPlace}</p>}{mission.community_id&&<Link href={`/communities/${mission.community_id}?tab=missions`} className="mt-2 block text-gold">{mission.mesh_communities?.name} →</Link>}</Card><Card title="At a glance"><p>Timeline: {mission.starts_on||'Not set'} – {mission.ends_on||'Not set'}</p><p className="mt-2">Budget: {money(mission.budget_amount,mission.currency_code)}</p><p className="mt-2">Funding goal: {money(mission.funding_goal_amount,mission.currency_code)}</p></Card></div>}
  {active==='Location'&&<Card title="Location"><p>{mission.location_text}</p>{city&&<Link href={`/cities/${city.id}`} className="mt-3 block text-gold">{city.name}, {city.country} →</Link>}{manualPlace&&<p className="mt-3 text-gold">{manualPlace}</p>}{mission.community_id&&<Link href={`/communities/${mission.community_id}`} className="mt-2 block text-gold">Wi-Fi Mesh Community: {mission.mesh_communities?.name} →</Link>}</Card>}
  {active==='Goal'&&<Card title="Goal"><p className="whitespace-pre-wrap">{mission.goal}</p></Card>}
