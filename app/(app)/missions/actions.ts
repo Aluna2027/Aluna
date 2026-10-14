@@ -36,11 +36,24 @@ export async function updateMission(form:FormData) {
 }
 export async function joinMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
- const id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??''),kind=String(form.get('participation_kind')??'');
- if(!/^[0-9a-f-]{36}$/i.test(id)||!participationOptions.some(option=>option.value===kind))redirect('/missions');
- const {error}=await client.from('mission_participations').insert({mission_id:id,actor_id,participation_kind:kind});
- if(error)redirect(`/missions/${id}?tab=participants&error=join`);revalidatePath(`/missions/${id}`);redirect(`/missions/${id}?tab=participants`);
+ const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
+ const kinds=[...new Set(form.getAll('participation_kind').map(value=>String(value)))];
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(id)||!uuid.test(actor)||!kinds.length||kinds.some(kind=>!participationOptions.some(option=>option.value===kind)))redirect(`/missions/${id}?tab=participants&error=join`);
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect(`/missions/${id}?tab=participants&error=join`);
+ const {data:mission,error:missionError}=await client.from('missions').select('id').eq('id',id).is('removed_at',null).maybeSingle();
+ if(missionError||!mission)redirect('/missions');
+ const {data:existing,error:existingError}=await client.from('mission_participations').select('participation_kind').eq('mission_id',id).eq('actor_id',actor);
+ if(existingError)redirect(`/missions/${id}?tab=participants&error=join`);
+ const current=new Set((existing??[]).map(p=>p.participation_kind));
+ const missing=kinds.filter(kind=>!current.has(kind));
+ if(!missing.length)redirect(`/missions/${id}?tab=participants&status=already-joined`);
+ const {error}=await client.from('mission_participations').insert(missing.map(participation_kind=>({mission_id:id,actor_id:actor,participation_kind})));
+ if(error)redirect(`/missions/${id}?tab=participants&error=join`);
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);
+ redirect(`/missions/${id}?tab=participants&status=joined`);
 }
+
 export async function leaveMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??''),kind=String(form.get('participation_kind')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
