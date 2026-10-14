@@ -23,7 +23,7 @@ export function ShellWelcomeRow({ name }: { name: string }) {
       <p className="mt-1 text-sm text-muted">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline" aria-label="Open my profile">{name}</Link></p>
     </div>
     <div className="min-w-0 text-center sm:col-span-2 sm:row-start-2 xl:col-span-1 xl:col-start-2 xl:row-start-1">
-      <p className="whitespace-normal text-[.68rem] font-extrabold uppercase leading-tight tracking-[.07em] text-gold xl:whitespace-nowrap">{directoryHeading.label}</p>
+      <p className="whitespace-normal text-[.68rem] font-extrabold uppercase leading-tight tracking-[.07em] text-gold">{directoryHeading.label}</p>
       <h1 className="mt-1 break-words text-2xl text-ink sm:text-3xl xl:text-[1.7rem]">{directoryHeading.title}</h1>
     </div>
     <div className="min-w-0 justify-self-end sm:col-start-2 sm:row-start-1 xl:col-start-3"><ProfileHeaderControls/></div>
