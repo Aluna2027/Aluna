@@ -8,7 +8,7 @@ import { sdgs, sdgLabel, sdgColors } from '@/lib/sdgs';
 import { ReferralShare } from '@/components/referral-share';
 
 type View = 'all' | 'campaigns' | 'fundraisers';
-type FundraiserRow = {id:string;campaign_id:string;slug:string;title:string};
+type FundraiserRow = {id:string;campaign_id:string;slug:string;title:string;goal_amount:number};
 type MissionRelation = {
  title:string;
  manual_place:string|null;
@@ -39,7 +39,7 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
  const actors=await ownedActors();
  const actorIds=actors.map(actor=>actor.id);
  const {data:myFundraiserRows,error:fundraisersError}=actorIds.length
-  ?await client.from('fundraisers').select('id,campaign_id,slug,title').in('actor_id',actorIds).order('created_at',{ascending:false}).limit(2000)
+  ?await client.from('fundraisers').select('id,campaign_id,slug,title,goal_amount').in('actor_id',actorIds).order('created_at',{ascending:false}).limit(2000)
   :{data:[] as FundraiserRow[],error:null};
  const myFundraisers=(myFundraiserRows??[]) as FundraiserRow[];
  const fundraiserCampaignIds=[...new Set(myFundraisers.map(f=>f.campaign_id))];
@@ -91,9 +91,10 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
  }
  const totals=await Promise.all((campaigns??[]).map(async campaign=>{
   const {data}=await client.rpc('fundraising_totals',{p_campaign:campaign.id});
-  return [campaign.id,campaignTotal((data??[]) as Total[])] as const;
+  return [campaign.id,(data??[]) as Total[]] as const;
  }));
- const raised=new Map(totals);
+ const raised=new Map(totals.map(([campaignId,rows])=>[campaignId,campaignTotal(rows)] as const));
+ const byFundraiser=new Map(totals.flatMap(([,rows])=>rows.filter(row=>row.fundraiser_id!==null).map(row=>[row.fundraiser_id as string,row] as const)));
  const creatorDetails=await actorDetails((campaigns??[]).map(c=>c.actor_id));
 
  return <div className="space-y-6">
@@ -151,8 +152,9 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
      <h2 className="mt-2 text-xl text-ink">{c.title}</h2>
      <p className="mt-2 text-sm text-muted">Created by {creatorDetails.get(c.actor_id)?.name||'Member'}</p>
      <p className="my-4 line-clamp-2 text-sm text-ink">{c.story}</p>
+     {view==='fundraisers'&&<p className="mb-2 text-xs font-semibold text-muted">Campaign total</p>}
      <Progress amount={total.amount} count={total.count} goal={Number(c.goal_amount)} currency={c.currency_code}/>
-     {view==='fundraisers'&&relatedFundraisers.length>0&&<div className="mt-4 space-y-1 border-t border-line pt-3">{relatedFundraisers.map(f=><Link key={f.id} href={`/fundraising/${f.slug}`} className="block text-sm text-gold hover:underline">Your fundraiser: {f.title} →</Link>)}</div>}
+     {view==='fundraisers'&&relatedFundraisers.length>0&&<div className="mt-4 space-y-3 border-t border-line pt-3">{relatedFundraisers.map(f=>{const personal=byFundraiser.get(f.id);return <div key={f.id} className="rounded-xl border border-line p-3"><Link href={`/fundraising/${f.slug}`} className="mb-2 block text-sm font-semibold text-gold hover:underline">Your fundraiser: {f.title} →</Link><Progress amount={Number(personal?.amount_raised??0)} count={Number(personal?.donor_count??0)} goal={Number(f.goal_amount)} currency={c.currency_code}/></div>})}</div>}
      <div className="mt-5 flex flex-wrap items-start gap-2 border-t border-line pt-4">
       <Link href={`/fundraising/campaigns/${c.id}`} className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-navy hover:bg-gold-soft">Donate</Link>
       <div className="min-w-0"><ReferralShare path={`/c/${c.id}`} title={c.title} noun="campaign"/></div>
