@@ -73,7 +73,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const cityInfo=place?.source_key?getCity(place.source_key):null;
  const placeLabel=m.manual_place&&m.manual_country?`${m.manual_place}, ${m.manual_country}`:cityInfo?`${cityInfo.name}, ${cityInfo.country}`:place?.name??'City';
  const selected=sdgsByMission.get(m.id)??[];
- const owned=actorIdSet.has(m.created_by_actor_id);
+ const owned=actorIds.includes(m.created_by_actor_id);
  return <article key={m.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-5 text-ink sm:p-6">
   <Link href={`/missions/${m.id}`} className="group block">
    <div className="flex items-center justify-between gap-3">
