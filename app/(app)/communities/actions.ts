@@ -69,3 +69,17 @@ export async function joinCommunityFromDirectory(form:FormData) {
  revalidatePath('/communities');revalidatePath(`/communities/${communityId}`);
  redirect('/communities?view=joined&status=joined');
 }
+
+export async function leaveCommunityFromDirectory(form:FormData){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const communityId=String(form.get('community_id')??''),actorId=String(form.get('actor_id')??'');
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(communityId)||!uuid.test(actorId))redirect('/communities?error=leave');
+ const owned=await ownedActors();if(!owned.some(actor=>actor.id===actorId))redirect('/communities?error=leave');
+ const {data:membership,error:readError}=await client.from('mesh_community_members').select('member_role').eq('community_id',communityId).eq('actor_id',actorId).maybeSingle();
+ if(readError||!membership||membership.member_role!=='member')redirect('/communities?error=leave');
+ const {error}=await client.from('mesh_community_members').delete().eq('community_id',communityId).eq('actor_id',actorId).eq('member_role','member');
+ if(error)redirect('/communities?error=leave');
+ revalidatePath('/communities');revalidatePath(`/communities/${communityId}`);
+ redirect('/communities?status=left');
+}
