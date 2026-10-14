@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { cities, getCity } from '@/lib/cities';
-import { money,participationOptions } from '@/lib/missions';
-import { joinMissionFromDirectory } from './actions';
-import { Search, MapPin, Wallet, UserRoundPlus, UsersRound, HandHeart, Wrench, Clock, Lightbulb, Box, Check } from 'lucide-react';
+import { money } from '@/lib/missions';
+import { MissionParticipationControl } from '@/components/mission-participation-control';
+import { Search, MapPin, Wallet } from 'lucide-react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { actorDetails,ownedActors } from '@/lib/social';
 import { sdgLabel,sdgs,sdgColors } from '@/lib/sdgs';
@@ -48,6 +48,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
 
  return <div className="space-y-6">
  <div className="text-center xl:hidden"><p className="deck-label">PEOPLE · PLACES · PURPOSE</p><h1 className="mt-1 text-3xl">SDG Missions</h1></div>
+ {status==='left'&&<p role="status" className="rounded-xl border border-[#26E7D4] p-3 text-[#26E7D4]">Mission participation ended.</p>}
  {status==='joined'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Mission participation saved.</p>}
  {actionError&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the mission. Please try again.</p>}
  <nav aria-label="SDG Mission categories" className="flex flex-wrap items-center justify-between gap-3">
@@ -75,7 +76,6 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const placeLabel=m.manual_place&&m.manual_country?`${m.manual_place}, ${m.manual_country}`:cityInfo?`${cityInfo.name}, ${cityInfo.country}`:place?.name??'City';
  const selected=sdgsByMission.get(m.id)??[];
  const participated=new Set(participations.filter(p=>p.mission_id===m.id).map(p=>p.actor_id));
- const available=actors.filter(a=>!participated.has(a.id));
  const owned=actorIdSet.has(m.created_by_actor_id);
  return <article key={m.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-5 text-ink sm:p-6">
   <Link href={`/missions/${m.id}`} className="group block">
@@ -91,20 +91,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
   </Link>
   <div className="mt-auto pt-6">
    {owned&&<p className="mb-2 text-sm font-semibold text-gold">Created by you</p>}
-   {participated.size>0&&<p className="mb-2 text-sm font-semibold text-[#26E7D4]">Participating</p>}
-   {actors.length>0&&<details className="group rounded-xl">
-    <summary className="flex min-h-[65px] w-full cursor-pointer list-none items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy marker:hidden"><UserRoundPlus aria-hidden="true" size={21}/>Join Mission</summary>
-    <div className="mt-4 rounded-2xl border border-line bg-navy p-4">
-     <h3 className="text-xl font-bold normal-case text-ink [font-stretch:normal]">Join SDG Mission</h3>
-     <p className="mt-2 text-sm text-muted">Choose one or more ways to participate.</p>
-     <form action={joinMissionFromDirectory} className="mt-5 space-y-4">
-      <input type="hidden" name="mission_id" value={m.id}/>
-      <label className="block text-sm text-ink">Join as<select name="actor_id" required className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3">{actors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select></label>
-      <fieldset><legend className="sr-only">Choose one or more participation types</legend><div className="grid grid-cols-2 gap-3">{participationOptions.map((o,i)=>{const Icon=[UsersRound,HandHeart,Wrench,Clock,Lightbulb,Box][i];const color=['#FFC43D','#26E7D4','#8A4DFF','#35F3FF','#FF4FD8','#6A7CFF'][i];return <label key={o.value} className="relative flex min-h-28 cursor-pointer flex-col justify-between rounded-xl border border-line bg-panel-raised p-3 has-[:checked]:border-[var(--option-color)] has-[:checked]:bg-[#1B2331]" style={{'--option-color':color} as React.CSSProperties}><span className="flex items-start justify-between gap-2"><Icon aria-hidden="true" color={color} size={24}/><input type="checkbox" name="participation_kind" value={o.value} aria-label={o.label} className="size-4 accent-gold"/></span><span className="text-sm font-semibold text-ink">{o.label}</span></label>})}</div></fieldset>
-      <button className="flex min-h-[64px] w-full items-center justify-center gap-2 rounded-xl bg-gold text-base font-semibold text-navy"><Check aria-hidden="true" size={20}/>Confirm Participation</button>
-     </form>
-    </div>
-   </details>}
+   <MissionParticipationControl missionId={m.id} actors={actors} participations={participations.filter(p=>p.mission_id===m.id)}/>
   </div>
  </article>})}</div>
  {!missions?.length&&<p className="glass rounded-2xl p-6 text-muted">{queryText?'No SDG Missions match your search.':view==='participating'?'You have no mission participations yet.':view==='created'?'You have not created any missions yet.':'No SDG Missions have been added here yet.'}</p>}
