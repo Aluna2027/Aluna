@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, Wifi, MapPin, UsersRound, RadioTower, UserRoundPlus, CircleCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { cities } from '@/lib/cities';
 import { metric } from '@/lib/communities';
@@ -63,23 +63,27 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
     const joinedActorIds=membershipsByCommunity.get(item.id)??new Set<string>();
     const availableActors=actors.filter(actor=>!joinedActorIds.has(actor.id));
     const joined=joinedActorIds.size>0;
-    return <article key={item.id} className="glass rounded-2xl p-6">
-     <Link href={`/communities/${item.id}`} className="group block hover:text-gold">
-      <p className="text-sm font-semibold text-gold">{cityInfo?.name||place?.name||'City'} · {cityInfo?.country||place?.country_code}</p>
-      <p className="mt-2 text-sm text-ink">SDG 9: Industry, Innovation and Infrastructure</p>
-      <h2 className="mt-2 text-xl text-gold group-hover:underline">{item.name}</h2>
-      <p className="mt-2 text-sm text-ink">{item.location_text}</p>
-      <p className="mt-4 text-sm text-gold">People connected: {metric(item.people_connected)} · Nodes: {metric(item.nodes)}</p>
-      <p className="mt-2 text-xs text-ink">{item.is_verified?'Verified':'Community details not verified by Aluna'}</p>
+    return <article key={item.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink">
+     <Link href={`/communities/${item.id}`} className="group block min-w-0">
+      <div className="flex items-center justify-between"><Wifi aria-hidden="true" size={24} strokeWidth={2} className="text-[#26E7D4]"/><span className="text-xs font-normal uppercase text-muted">COMMUNITY</span></div>
+      <h2 className="mt-7 break-words text-xl font-bold normal-case leading-snug text-ink [font-stretch:normal] group-hover:underline">{item.name}</h2>
+      <p className="mt-6 flex items-center gap-2 text-base font-normal text-muted"><MapPin aria-hidden="true" size={18}/>{cityInfo?.name||place?.name||'City'} · {cityInfo?.country||place?.country_code||'Country'}</p>
+      <p className="mt-6 text-base font-semibold text-gold">SDG 9: Industry, Innovation and Infrastructure</p>
      </Link>
-     <div className="mt-4 border-t border-line pt-3">
-      {joined&&<p className="mb-2 text-sm font-semibold text-[#26E7D4]">{managedIds.has(item.id)?'Managed · ':''}Joined</p>}
-      {availableActors.length>0&&<form action={joinCommunityFromDirectory} className="flex flex-wrap items-center gap-2">
+     <div className="mt-7 border-t border-line pt-8">
+      <div className="space-y-5">
+       <p className="flex items-center gap-3 text-base text-muted"><UsersRound aria-hidden="true" size={19} className="shrink-0 text-[#26E7D4]"/><span>People connected: {metric(item.people_connected)}</span></p>
+       <p className="flex items-center gap-3 text-base text-muted"><RadioTower aria-hidden="true" size={19} className="shrink-0 text-[#A78BFA]"/><span>Wi-Fi nodes: {metric(item.nodes)}</span></p>
+      </div>
+     </div>
+     <div className="mt-auto pt-7">
+      {joined&&<div role="status" className="flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck aria-hidden="true" size={19}/>{managedIds.has(item.id)?'Managed · Joined':'Joined'}</div>}
+      {availableActors.length>0&&<form action={joinCommunityFromDirectory} className="space-y-2">
        <input type="hidden" name="community_id" value={item.id}/>
-       {availableActors.length===1?<input type="hidden" name="actor_id" value={availableActors[0].id}/>:<select name="actor_id" aria-label={`Join ${item.name} as`} className="min-w-0 flex-1 rounded-lg border border-line bg-panel-raised p-2 text-sm">{availableActors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select>}
-       <button type="submit" className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-navy hover:bg-gold-soft">Join Community</button>
+       {availableActors.length===1?<input type="hidden" name="actor_id" value={availableActors[0].id}/>:<select name="actor_id" aria-label={`Join ${item.name} as`} required className="w-full rounded-lg border border-line bg-panel-raised p-2 text-sm">{availableActors.map(actor=><option key={actor.id} value={actor.id}>{actor.name} · {actor.kind}</option>)}</select>}
+       <button type="submit" className="flex min-h-16 w-full items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy hover:bg-gold-soft"><UserRoundPlus aria-hidden="true" size={21}/>Join Community</button>
       </form>}
-      <Link href={`/communities/${item.id}`} className="mt-2 inline-block text-sm text-gold hover:underline">View details →</Link>
+      <Link href={`/communities/${item.id}`} className="mt-4 block text-center text-sm font-normal text-muted hover:text-gold">View community →</Link>
      </div>
     </article>;
    })}
