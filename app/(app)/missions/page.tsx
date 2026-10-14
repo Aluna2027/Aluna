@@ -5,7 +5,7 @@ import { money } from '@/lib/missions';
 import { MissionParticipationControl } from '@/components/mission-participation-control';
 import { Search, MapPin, Wallet } from 'lucide-react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
-import { actorDetails,ownedActors } from '@/lib/social';
+import { ownedActors } from '@/lib/social';
 import { sdgLabel,sdgs,sdgColors } from '@/lib/sdgs';
 export default async function Missions({searchParams}:{searchParams:Promise<{city?:string;community?:string;page?:string;q?:string;view?:string;sdg?:string;search?:string;status?:string;error?:string}>}) {
  const {city,community,page,q:rawQuery,view:rawView,sdg:rawSdg,search:searchOpen,status,error:actionError}=await searchParams;const client=await createClient();const selectedCity=cities.find(c=>c.id===city);const queryText=(rawQuery??'').trim().slice(0,120);
@@ -16,7 +16,6 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const {data:myParticipations}=actorIds.length?await client.from('mission_participations').select('mission_id,actor_id,participation_kind').in('actor_id',actorIds).limit(3000):{data:[]};
  const participations=myParticipations??[];
  const joinedIds=[...new Set(participations.map(p=>p.mission_id))];
- const actorIdSet=new Set(actorIds);
  const params=(nextView=view,nextSdg=selectedSdg,nextQuery=queryText,nextPage=0,showSearch=false)=>{
   const p=new URLSearchParams();
   if(nextView!=='all')p.set('view',nextView);
@@ -44,7 +43,6 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const missionIds=(missions??[]).map(m=>m.id);
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
  const sdgsByMission=new Map<string,number[]>();for(const row of sdgRows??[]){const values=sdgsByMission.get(row.mission_id)??[];values.push(row.sdg_number);sdgsByMission.set(row.mission_id,values);}
- const creatorDetails=await actorDetails((missions??[]).map(m=>m.created_by_actor_id));
 
  return <div className="space-y-6">
  <div className="text-center xl:hidden"><p className="deck-label">PEOPLE · PLACES · PURPOSE</p><h1 className="mt-1 text-3xl">SDG Missions</h1></div>
@@ -75,7 +73,6 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const cityInfo=place?.source_key?getCity(place.source_key):null;
  const placeLabel=m.manual_place&&m.manual_country?`${m.manual_place}, ${m.manual_country}`:cityInfo?`${cityInfo.name}, ${cityInfo.country}`:place?.name??'City';
  const selected=sdgsByMission.get(m.id)??[];
- const participated=new Set(participations.filter(p=>p.mission_id===m.id).map(p=>p.actor_id));
  const owned=actorIdSet.has(m.created_by_actor_id);
  return <article key={m.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-5 text-ink sm:p-6">
   <Link href={`/missions/${m.id}`} className="group block">
