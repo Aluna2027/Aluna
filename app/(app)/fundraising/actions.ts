@@ -55,6 +55,16 @@ export async function setCampaignReferralStatus(form:FormData){
 
 export async function removeOrArchiveCampaign(form:FormData){
  const client=await authenticated();const id=String(form.get('id')??'');if(!uuid(id))redirect('/fundraising');
+ // Fail closed when a Stripe Checkout or recurring subscription may still accept money.
+ // Financial records remain intact; the owner can retry after settlement/expiry.
+ const {data:checkouts,error:checkoutsError}=await client.from('donation_checkouts')
+  .select('stripe_session_id,status,frequency,stripe_subscription_id')
+  .eq('campaign_id',id);
+ if(checkoutsError)redirect(`/fundraising/campaigns/${id}?remove_error=1`);
+ if((checkouts??[]).some(row=>
+  (row.stripe_session_id&&['pending','checkout'].includes(row.status))||
+  (row.frequency==='monthly'&&row.stripe_subscription_id&&['checkout','paid','active','past_due'].includes(row.status))
+ ))redirect(`/fundraising/campaigns/${id}?remove_error=active_checkout`);
  const {data:result,error}=await client.rpc('remove_or_archive_campaign',{p_campaign:id});
  if(error)redirect(`/fundraising/campaigns/${id}?remove_error=1`);
  revalidatePath('/fundraising');revalidatePath('/fundraising/performance');
