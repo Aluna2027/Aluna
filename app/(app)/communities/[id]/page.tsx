@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { actorDetails, attachPostMedia, ownedActors, type FeedPost } from '@/lib/social';
 import { communityTabs, metric, type MeshCommunity } from '@/lib/communities';
 import { getCity } from '@/lib/cities';
-import { Card } from '@/components/ui';
+import { Card, Placeholder } from '@/components/ui';
 import { CircleCheck } from 'lucide-react';
 import { CommunityMissionCards, CommunityFundraisingCards } from '@/components/profile-directory-cards';
 import { ProfileTabs } from '@/components/profile-tabs';
