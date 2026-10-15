@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { CircleCheck, Heart, MapPin, RadioTower, UsersRound, Wallet, Wifi } from 'lucide-react';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { removeMission } from '@/app/(app)/missions/actions';
+import { removeOrArchiveCampaign } from '@/app/(app)/fundraising/actions';
 import { createClient } from '@/lib/supabase/server';
 import { ownedActors } from '@/lib/social';
 import { getCity } from '@/lib/cities';
@@ -52,16 +55,18 @@ export async function ProfileCommunityCards({actorId}:{actorId:string}){
  </section>;
 }
 
-export async function ProfileMissionCards({actorId}:{actorId:string}){
+export async function ProfileMissionCards({actorId,communityId,createHref}:{actorId?:string;communityId?:string;createHref?:string}){
  const client=await createClient();
- const [{data:created},{data:joined}]=await Promise.all([
+ const [createdResult,joinedResult]=actorId&&!communityId?await Promise.all([
   client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).limit(100),
   client.from('mission_participations').select('mission_id').eq('actor_id',actorId).limit(100)
- ]);
- const ids=[...new Set([...(created??[]).map(m=>m.id),...(joined??[]).map(m=>m.mission_id)])];
- const {data:items,error}=ids.length?await client.from('missions')
+ ]):[null,null];
+ const ids=[...new Set([...(createdResult?.data??[]).map(m=>m.id),...(joinedResult?.data??[]).map(m=>m.mission_id)])];
+ const query=client.from('missions')
   .select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,places(name,source_key)')
-  .in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
+  .is('removed_at',null).order('created_at',{ascending:false}).limit(100);
+ const {data:items,error}=communityId?await query.eq('community_id',communityId)
+  :ids.length?await query.in('id',ids):{data:[],error:null};
  const missionIds=(items??[]).map(m=>m.id);
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
  const sdgs=new Map<string,number[]>();
@@ -80,10 +85,20 @@ export async function ProfileMissionCards({actorId}:{actorId:string}){
    const selected=sdgs.get(m.id)??[];
    const owned=myActorIds.includes(m.created_by_actor_id);
    return <article key={m.id} className={card+' p-5 sm:p-6'}>
+    {communityId&&owned&&<details className="absolute right-4 top-4 z-20 text-sm">
+     <summary aria-label={`Manage mission ${m.title}`} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border border-line bg-panel-raised text-xl text-ink hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">⋯</summary>
+     <div className="absolute right-0 mt-2 w-48 rounded-xl border border-line bg-panel p-2 shadow-xl">
+      <Link href={`/missions/${m.id}/edit`} className="block rounded-lg px-3 py-2 text-gold hover:bg-panel-raised">Edit Mission</Link>
+      <form action={removeMission}>
+       <input type="hidden" name="id" value={m.id}/>
+       <ConfirmSubmitButton message="Delete this mission? Its unfunded fundraising campaigns will also be removed. Deletion is blocked when protected financial activity or proof exists." className="w-full rounded-lg px-3 py-2 text-left text-[#E49BA3] hover:bg-panel-raised">Delete Mission</ConfirmSubmitButton>
+      </form>
+     </div>
+    </details>}
     <Link href={'/missions/'+m.id} className="group block">
      <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-3"><span className="flex size-14 items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={selected[0]??9} size={29}/></span><span className="text-xs uppercase text-muted">PRIMARY SDG · {selected[0]??'—'}</span></div>
-      <div className="flex gap-2">{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
+      <div className={communityId&&owned?"flex gap-2 pr-10":"flex gap-2"}>{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
      </div>
      <h3 className="mt-6 break-words text-[23px] font-bold leading-tight text-ink group-hover:underline">{m.title}</h3>
      <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin size={18}/>{where}</p>
@@ -98,20 +113,29 @@ export async function ProfileMissionCards({actorId}:{actorId:string}){
     </div>
    </article>;
   })}</div>
-  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No SDG Missions connected to this profile yet.</p>}
+  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">{communityId?'No missions linked to this community yet.':'No SDG Missions connected to this profile yet.'}</p>}
+  {communityId&&createHref&&<Link href={createHref} className="mt-4 inline-block text-sm text-gold hover:underline">Create a mission →</Link>}
  </section>;
 }
 
-export async function ProfileFundraisingCards({actorId}:{actorId:string}){
+export async function ProfileFundraisingCards({actorId,communityId}:{actorId?:string;communityId?:string}){
  const client=await createClient();
- const [{data:created},{data:fundraisers}]=await Promise.all([
+ const [createdResult,fundraisersResult]=actorId&&!communityId?await Promise.all([
   client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
   client.from('fundraisers').select('campaign_id').eq('actor_id',actorId).limit(100)
- ]);
- const ids=[...new Set([...(created??[]).map(c=>c.id),...(fundraisers??[]).map(f=>f.campaign_id)])];
- const {data:items,error}=ids.length?await client.from('fundraising_campaigns')
-  .select('id,title,mission_id,goal_amount,currency_code,missions(title,manual_place,manual_country,places(name,source_key))')
-  .in('id',ids).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
+ ]):[null,null];
+ const ids=[...new Set([...(createdResult?.data??[]).map(c=>c.id),...(fundraisersResult?.data??[]).map(f=>f.campaign_id)])];
+ const {data:communityMissions,error:missionError}=communityId?await client.from('missions')
+  .select('id').eq('community_id',communityId).is('removed_at',null).limit(1000):{data:[],error:null};
+ const linkedIds=(communityMissions??[]).map(m=>m.id);
+ const query=client.from('fundraising_campaigns')
+  .select('id,title,mission_id,actor_id,goal_amount,currency_code,missions(title,manual_place,manual_country,places(name,source_key))')
+  .is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).limit(100);
+ const {data:items,error}=communityId
+  ?linkedIds.length?await query.in('mission_id',linkedIds):{data:[],error:null}
+  :ids.length?await query.in('id',ids):{data:[],error:null};
+ const controllers=communityId?await ownedActors():[];
+ const controlledIds=new Set(controllers.map(a=>a.id));
  const missionIds=[...new Set((items??[]).map(c=>c.mission_id))];
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
  const sdgs=new Map<string,number[]>();
@@ -123,9 +147,10 @@ export async function ProfileFundraisingCards({actorId}:{actorId:string}){
  const raised=new Map(totals);
  return <section>
   <SectionHeading title="SDG Fundraising" href="/fundraising" explore="Explore Fundraising"/>
-  {error&&<p role="alert" className="text-red-300">Could not load fundraising.</p>}
+  {(error||missionError)&&<p role="alert" className="text-red-300">Could not load fundraising.</p>}
   <div className="grid gap-4 md:grid-cols-2">{(items??[]).map(c=>{
    const sdg=sdgs.get(c.mission_id)??[];
+   const owned=communityId&&controlledIds.has(c.actor_id);
    const mission=c.missions as unknown as {manual_place:string|null;manual_country:string|null;places:{name:string;source_key:string}|null}|null;
    const city=mission?.places?.source_key?getCity(mission.places.source_key):null;
    const place=mission?.manual_place&&mission.manual_country?mission.manual_place+', '+mission.manual_country:city?city.name+', '+city.country:mission?.places?.name||'Location not specified';
@@ -133,9 +158,19 @@ export async function ProfileFundraisingCards({actorId}:{actorId:string}){
    const pct=Number(c.goal_amount)>0?Math.min(100,Math.round(total.amount/Number(c.goal_amount)*100)):0;
    const format=(value:number)=>new Intl.NumberFormat('en',{style:'currency',currency:c.currency_code,maximumFractionDigits:0}).format(value);
    return <article key={c.id} className={card}>
+    {owned&&<details className="absolute right-4 top-4 z-20 text-sm">
+     <summary aria-label={`Manage campaign ${c.title}`} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border border-line bg-panel-raised text-xl text-ink hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">⋯</summary>
+     <div className="absolute right-0 mt-2 w-52 rounded-xl border border-line bg-panel p-2 shadow-xl">
+      <Link href={`/fundraising/campaigns/${c.id}/edit`} className="block rounded-lg px-3 py-2 text-gold hover:bg-panel-raised">Edit Campaign</Link>
+      <form action={removeOrArchiveCampaign}>
+       <input type="hidden" name="id" value={c.id}/>
+       <ConfirmSubmitButton message="Remove this campaign if no financial activity exists? Campaigns with checkout or donation records will be archived instead; donation records remain preserved." className="w-full rounded-lg px-3 py-2 text-left text-[#E49BA3] hover:bg-panel-raised">Remove / Archive Campaign</ConfirmSubmitButton>
+      </form>
+     </div>
+    </details>}
     <div className="flex items-center justify-between gap-2">
      <span className="flex size-[54px] items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={sdg[0]??9} size={29}/></span>
-     <div className="flex items-center gap-3">{sdg.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
+     <div className={owned?"flex items-center gap-3 pr-10":"flex items-center gap-3"}>{sdg.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
     </div>
     <p className="mt-5 text-xs font-semibold uppercase text-gold">SDG MISSION CAMPAIGN</p>
     <Link href={'/fundraising/campaigns/'+c.id}><h3 className="mt-2 break-words text-[21px] font-bold leading-tight text-ink hover:underline">{c.title}</h3></Link>
@@ -155,6 +190,15 @@ export async function ProfileFundraisingCards({actorId}:{actorId:string}){
     </div>
    </article>;
   })}</div>
-  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No fundraising campaigns connected to this profile yet.</p>}
+  {!error&&!missionError&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">{communityId?'No fundraising campaigns linked to this community yet.':'No fundraising campaigns connected to this profile yet.'}</p>}
  </section>;
+}
+
+// These wrappers preserve the existing profile cards and their styling while
+// scoping each community tab to actual database relationships.
+export function CommunityMissionCards({communityId,createHref}:{communityId:string;createHref:string}){
+ return <ProfileMissionCards communityId={communityId} createHref={createHref}/>;
+}
+export function CommunityFundraisingCards({communityId}:{communityId:string}){
+ return <ProfileFundraisingCards communityId={communityId}/>;
 }
