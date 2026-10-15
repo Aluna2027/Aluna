@@ -2,6 +2,7 @@
 
 import { FormEvent, useRef, useState } from 'react';
 import { ComposerTools, allowedDocuments } from '@/components/composer-tools';
+import { PostScheduler } from '@/components/post-scheduler';
 import { useRouter } from 'next/navigation';
 import { createPost } from '@/app/(app)/feed/actions';
 import { createClient } from '@/lib/supabase/client';
@@ -43,6 +44,8 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
  const [uploadError,setUploadError]=useState<string|null>(null);
  const [file,setFile]=useState<File|null>(null);
  const [body,setBody]=useState('');
+ const [actorId,setActorId]=useState(actors[0]?.id??'');
+ const [visibility,setVisibility]=useState('public');
  const textarea=useRef<HTMLTextAreaElement>(null);
  const insertEmoji=(value:string)=>{const el=textarea.current;const start=el?.selectionStart??body.length,end=el?.selectionEnd??start;setBody(text=>text.slice(0,start)+value+text.slice(end));requestAnimationFrame(()=>{el?.focus();el?.setSelectionRange(start+value.length,start+value.length);});};
  if(!actors.length)return null;
@@ -128,7 +131,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
  }
 
  return <form action={createPost} onSubmit={handleSubmit} encType="multipart/form-data" className="glass space-y-4 rounded-2xl p-5"><h2 className="text-lg">{repostOf?'Share this post':'Create a post'}</h2><input type="hidden" name="return_to" value={returnTo}/>{repostOf&&<input type="hidden" name="repost_of_id" value={repostOf}/>} {communityId&&<input type="hidden" name="community_id" value={communityId}/>} {missionId&&<input type="hidden" name="mission_id" value={missionId}/>}
- <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={textarea} name="body" value={body} onChange={e=>setBody(e.target.value)} required maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full resize-y border-0 bg-transparent p-2 text-ink"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
+ <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={textarea} name="body" value={body} onChange={e=>setBody(e.target.value)} required maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full resize-y border-0 bg-transparent p-2 text-ink"/>{!repostOf&&<div className="relative"><ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/><div className="absolute bottom-0 right-10"><PostScheduler actors={actors} actorId={actorId} body={body} file={file} visibility={visibility} communityId={communityId} missionId={missionId} onSuccess={()=>{setBody('');setFile(null);router.refresh();}}/></div></div>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
  {uploadError&&<p role="alert" className="text-sm text-amber-300">{uploadError}</p>}
- <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!communityId&&!missionId&&<label className="text-sm text-muted">Audience <select name="visibility" className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}</div></form>;
+ <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" value={actorId} onChange={e=>setActorId(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!communityId&&!missionId&&<label className="text-sm text-muted">Audience <select name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}</div></form>;
 }
