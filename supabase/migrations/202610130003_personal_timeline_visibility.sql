@@ -1,5 +1,9 @@
 -- Public Global Feed; Personal Timeline = owned actors + followed actors.
 -- Keep posts RLS as an additional, mandatory visibility check.
+-- Fresh bootstrap: the earlier feed_page returns 10 columns; this version returns 12.
+-- PostgreSQL requires dropping the old function before changing its return type.
+drop function if exists public.feed_page(boolean,timestamptz,uuid,integer);
+
 create or replace function public.feed_page(
  p_following boolean default false,
  p_before timestamptz default null,
@@ -41,3 +45,7 @@ as $function$
  order by p.created_at desc,p.id desc
  limit least(greatest(p_limit,1),50)
 $function$;
+
+-- Preserve the original function access policy after replacing its signature.
+revoke all on function public.feed_page(boolean,timestamptz,uuid,integer) from public;
+grant execute on function public.feed_page(boolean,timestamptz,uuid,integer) to authenticated;
