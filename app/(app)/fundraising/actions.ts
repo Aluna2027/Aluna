@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ownedActors } from '@/lib/social';
-import { paymentAdmin } from '@/lib/payments';
 function uuid(value:string){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);}
 function content(form:FormData){const title=String(form.get('title')??'').trim(),story=String(form.get('story')??'').trim(),goal=String(form.get('goal')??'').trim();if(title.length<3||title.length>180||story.length<10||story.length>5000||!/^\d+(\.\d{1,2})?$/.test(goal)||Number(goal)<=0||Number(goal)>999_999_999_999.99)throw new Error('Invalid campaign');return {title,story,goal_amount:Number(goal)};}
 async function authenticated(){const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');return client;}
@@ -56,16 +55,8 @@ export async function setCampaignReferralStatus(form:FormData){
 
 export async function removeOrArchiveCampaign(form:FormData){
  const client=await authenticated();const id=String(form.get('id')??'');if(!uuid(id))redirect('/fundraising');
- // Fail closed when a Stripe Checkout or recurring subscription may still accept money.
- // Financial records remain intact; the owner can retry after settlement/expiry.
- const {data:checkouts,error:checkoutsError}=await paymentAdmin().from('donation_checkouts')
-  .select('stripe_session_id,status,frequency,stripe_subscription_id')
-  .eq('campaign_id',id);
- if(checkoutsError)redirect(`/fundraising/campaigns/${id}?remove_error=1`);
- if((checkouts??[]).some(row=>
-  (row.stripe_session_id&&['pending','checkout'].includes(row.status))||
-  (row.frequency==='monthly'&&row.stripe_subscription_id&&['checkout','paid','active','past_due'].includes(row.status))
- ))redirect(`/fundraising/campaigns/${id}?remove_error=active_checkout`);
+ // The database RPC holds the campaign lock and evaluates unsettled checkouts,
+ // including subscription_status, atomically with the archive decision.
  const {data:result,error}=await client.rpc('remove_or_archive_campaign',{p_campaign:id});
  if(error)redirect(`/fundraising/campaigns/${id}?remove_error=1`);
  revalidatePath('/fundraising');revalidatePath('/fundraising/performance');
