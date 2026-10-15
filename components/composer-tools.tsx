@@ -1,11 +1,11 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { FileText, Image as ImageIcon, Paperclip, Send, Smile, Video, X } from 'lucide-react';
 
 const options=[{label:'Photo',icon:ImageIcon,accept:'image/jpeg,image/png,image/webp,image/gif'},{label:'Video',icon:Video,accept:'video/mp4,video/webm,video/quicktime'},{label:'Document',icon:FileText,accept:'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation'}];
 const emoji=['😀','😄','😊','😍','🥰','😎','🤔','👏','🙌','👍','❤️','💚','🌍','🌱','♻️','🤝','✨','🔥','🎉','💪','🙏','🚀','💡','✅','📍','🌈','😂','😢','🎯','🌳','🌻'];
 export const allowedDocuments=new Set(['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
-export function ComposerTools({onFile,onEmoji,selectedFile,variant='message',submitDisabled=false,submitting=false}:{onFile:(file:File|null)=>void;onEmoji:(value:string)=>void;selectedFile:File|null;variant?:'message'|'post';submitDisabled?:boolean;submitting?:boolean}){
+export function ComposerTools({onFile,onEmoji,selectedFile,variant='message',submitDisabled=false,submitting=false,scheduler}:{onFile:(file:File|null)=>void;onEmoji:(value:string)=>void;selectedFile:File|null;variant?:'message'|'post';submitDisabled?:boolean;submitting?:boolean;scheduler?:ReactNode}){
  const isPostComposer=variant==='post';
  const [attachments,setAttachments]=useState(false),[emojis,setEmojis]=useState(false);
  const chooser=useRef<HTMLInputElement>(null);
@@ -17,6 +17,7 @@ export function ComposerTools({onFile,onEmoji,selectedFile,variant='message',sub
    <button type="button" aria-label="Choose emoji" aria-expanded={emojis} onClick={()=>{setEmojis(v=>!v);setAttachments(false);}} className={isPostComposer?"rounded-lg p-2 text-[#8A4DFF] transition hover:bg-panel hover:drop-shadow-[0_0_6px_#8A4DFF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8A4DFF]":"rounded-lg p-2 text-gold hover:bg-panel"}><Smile size={19}/></button>
    {attachments&&<div className="absolute bottom-full left-0 z-30 mb-2 grid grid-cols-3 gap-2 rounded-xl border border-line bg-panel p-3 shadow-xl">{options.map(({label,icon:Icon,accept:types})=><button key={label} type="button" onClick={()=>open(types)} className="flex flex-col items-center gap-2 rounded-lg px-3 py-2 text-xs text-ink hover:bg-panel-raised"><Icon size={22} className="text-gold"/>{label}</button>)}</div>}
    {emojis&&<div className="absolute bottom-full left-0 z-30 mb-2 grid w-64 grid-cols-6 gap-1 rounded-xl border border-line bg-panel p-3 shadow-xl" aria-label="Emojis">{emoji.map(e=><button key={e} type="button" aria-label={'Insert '+e} onClick={()=>{onEmoji(e);setEmojis(false);}} className="rounded-lg p-1 text-xl hover:bg-panel-raised">{e}</button>)}</div>}
+   {isPostComposer&&scheduler}
    {isPostComposer&&<button type={submitDisabled?"button":"submit"} aria-label={submitting?"Sending":submitDisabled?"Write a post to send":"Send"} title={submitting?"Sending":submitDisabled?"Write a post to send":"Send"} aria-disabled={submitDisabled} disabled={submitting} className="rounded-lg p-2 text-[#FF4FD8] drop-shadow-[0_0_7px_#FF4FD8] transition-[filter,background-color] hover:bg-panel hover:drop-shadow-[0_0_11px_#FF4FD8] active:drop-shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF4FD8] disabled:cursor-wait"><Send size={19} strokeWidth={2.4}/></button>}
    <input ref={chooser} aria-label="Choose attachment" type="file" accept={accept} className="hidden" onChange={e=>{onFile(e.target.files?.[0]??null);e.target.value='';}}/>
   </div>
