@@ -55,6 +55,8 @@ export async function setCampaignReferralStatus(form:FormData){
 
 export async function removeOrArchiveCampaign(form:FormData){
  const client=await authenticated();const id=String(form.get('id')??'');if(!uuid(id))redirect('/fundraising');
+ // The database RPC holds the campaign lock and evaluates unsettled checkouts,
+ // including subscription_status, atomically with the archive decision.
  const {data:result,error}=await client.rpc('remove_or_archive_campaign',{p_campaign:id});
  if(error)redirect(`/fundraising/campaigns/${id}?remove_error=1`);
  revalidatePath('/fundraising');revalidatePath('/fundraising/performance');

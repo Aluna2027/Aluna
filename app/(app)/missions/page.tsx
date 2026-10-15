@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { cities, getCity } from '@/lib/cities';
 import { money } from '@/lib/missions';
 import { MissionParticipationControl } from '@/components/mission-participation-control';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { removeMission } from './actions';
 import { MapPin, Wallet } from 'lucide-react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { ownedActors } from '@/lib/social';
@@ -74,11 +76,21 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const placeLabel=m.manual_place&&m.manual_country?`${m.manual_place}, ${m.manual_country}`:cityInfo?`${cityInfo.name}, ${cityInfo.country}`:place?.name??'City';
  const selected=sdgsByMission.get(m.id)??[];
  const owned=actorIds.includes(m.created_by_actor_id);
- return <article key={m.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-5 text-ink sm:p-6">
+ return <article key={m.id} className="relative flex h-full flex-col rounded-[18px] border border-line bg-panel p-5 text-ink sm:p-6">
+  {owned&&<details className="absolute right-4 top-4 z-20 text-sm">
+   <summary aria-label={`Manage mission ${m.title}`} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border border-line bg-panel-raised text-xl text-ink hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">⋯</summary>
+   <div className="absolute right-0 mt-2 w-48 rounded-xl border border-line bg-panel p-2 shadow-xl">
+    <Link href={`/missions/${m.id}/edit`} className="block rounded-lg px-3 py-2 text-gold hover:bg-panel-raised">Edit Mission</Link>
+    <form action={removeMission}>
+     <input type="hidden" name="id" value={m.id}/>
+     <ConfirmSubmitButton message="Delete this mission? Its unfunded fundraising campaigns will also be removed. Deletion is blocked when protected financial activity or proof exists." className="w-full rounded-lg px-3 py-2 text-left text-[#E49BA3] hover:bg-panel-raised">Delete Mission</ConfirmSubmitButton>
+    </form>
+   </div>
+  </details>}
   <Link href={`/missions/${m.id}`} className="group block">
    <div className="flex items-center justify-between gap-3">
     <div className="flex items-center gap-3"><span className="flex size-14 items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={selected[0]??9} size={29}/></span><span className="text-xs uppercase text-muted">PRIMARY SDG · {selected[0]??'—'}</span></div>
-    <div className="flex gap-3">{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
+    <div className={owned?"flex gap-3 pr-10":"flex gap-3"}>{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
    </div>
    <h2 className="mt-6 break-words text-[23px] font-bold normal-case leading-tight text-ink [font-stretch:normal] group-hover:underline">{m.title}</h2>
    <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin aria-hidden="true" size={18}/>{placeLabel}</p>

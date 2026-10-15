@@ -54,7 +54,7 @@ async function ActorRelations({actorId,section}:{actorId:string;section:Section}
   const {data}=await client.from('follows').select('follower_actor_id,followed_actor_id').eq(col,actorId).limit(100);
   const ids=(data??[]).map(row=>section==='Followers'?row.follower_actor_id:row.followed_actor_id);
   const details=await actorDetails(ids);
-  return <Card title={section}><div className="space-y-3">{ids.map(id=>{const actor=details.get(id);return actor&&<Link key={id} href={actor.href} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{actor.name} <span className="text-xs text-muted">· {actor.kind}</span></Link>})}{!ids.length&&<p>No {section.toLowerCase()} yet.</p>}</div></Card>;
+  return <Card title={section}><div className="space-y-3">{ids.map(id=>{const actor=details.get(id);return actor&&<Link key={id} href={actor.href} className="flex items-center gap-2 rounded-xl border border-line p-3 text-ink hover:border-gold"><span aria-label={section==='Followers'?'Follows this profile':'Followed by this profile'} className="text-[#26E7D4]">✓</span><span>{actor.name} <span className="text-xs text-muted">· {actor.kind}</span></span></Link>})}{!ids.length&&<p>No {section.toLowerCase()} yet.</p>}</div></Card>;
  }
  const {data:all}=await client.from('connections').select('actor_a,actor_b,requested_by,status,created_at').or(`actor_a.eq.${actorId},actor_b.eq.${actorId}`).order('created_at',{ascending:false}).limit(100);
  const incoming=isOwn?(all??[]).filter(c=>c.status==='pending'&&c.requested_by!==actorId):[];
