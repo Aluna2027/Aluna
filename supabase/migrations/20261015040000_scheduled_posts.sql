@@ -40,7 +40,8 @@ begin
    raise exception 'Choose a future date at least two minutes away (maximum one year)';
   end if;
  end if;
- if new.media_path is not null and (
+ if (tg_op='INSERT' or new.media_path is distinct from old.media_path)
+   and new.media_path is not null and (
    split_part(new.media_path,'/',1)<>auth.uid()::text
    or split_part(new.media_path,'/',2)<>new.id::text
  ) then
