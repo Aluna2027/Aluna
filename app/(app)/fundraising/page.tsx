@@ -7,6 +7,8 @@ import { cities, getCity } from '@/lib/cities';
 import { actorDetails, ownedActors } from '@/lib/social';
 import { sdgs, sdgLabel } from '@/lib/sdgs';
 import { ReferralShare } from '@/components/referral-share';
+import { ConfirmSubmitButton } from '@/components/confirm-submit-button';
+import { removeOrArchiveCampaign } from './actions';
 
 type View = 'all' | 'campaigns' | 'fundraisers';
 type FundraiserRow = {id:string;campaign_id:string;slug:string;title:string;goal_amount:number};
@@ -144,11 +146,22 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
     const placeLabel=mission?.manual_place&&mission.manual_country?`${mission.manual_place}, ${mission.manual_country}`:cityInfo?`${cityInfo.name}, ${cityInfo.country}`:mission?.places?.name??'Location not specified';
     const relatedFundraisers=myFundraisers.filter(f=>f.campaign_id===c.id);
     const selectedSdgs=sdgsByMission.get(c.mission_id)??[];
+    const owned=actorIds.includes(c.actor_id);
     const pct=Number(c.goal_amount)>0?Math.min(100,Math.round(total.amount/Number(c.goal_amount)*100)):0;
-    return <article key={c.id} className="flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink">
+    return <article key={c.id} className="relative flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink">
+     {owned&&<details className="absolute right-4 top-4 z-20 text-sm">
+      <summary aria-label={`Manage campaign ${c.title}`} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border border-line bg-panel-raised text-xl text-ink hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">⋯</summary>
+      <div className="absolute right-0 mt-2 w-52 rounded-xl border border-line bg-panel p-2 shadow-xl">
+       <Link href={`/fundraising/campaigns/${c.id}/edit`} className="block rounded-lg px-3 py-2 text-gold hover:bg-panel-raised">Edit Campaign</Link>
+       <form action={removeOrArchiveCampaign}>
+        <input type="hidden" name="id" value={c.id}/>
+        <ConfirmSubmitButton message="Remove this campaign if no financial activity exists? Campaigns with checkout or donation records will be archived instead; donation records remain preserved." className="w-full rounded-lg px-3 py-2 text-left text-[#E49BA3] hover:bg-panel-raised">Remove / Archive Campaign</ConfirmSubmitButton>
+       </form>
+      </div>
+     </details>}
      <div className="flex items-center justify-between gap-2">
       <span className="flex size-[54px] items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={selectedSdgs[0]??9} size={29}/></span>
-      <div className="flex items-center gap-3">{selectedSdgs.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
+      <div className={owned?"flex items-center gap-3 pr-10":"flex items-center gap-3"}>{selectedSdgs.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
      </div>
      <p className="mt-5 text-xs font-semibold uppercase text-gold">SDG MISSION CAMPAIGN</p>
      <h2 className="mt-2 break-words text-[21px] font-bold normal-case leading-tight text-ink [font-stretch:normal]">{c.title}</h2>
