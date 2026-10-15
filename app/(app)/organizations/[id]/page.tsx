@@ -18,7 +18,7 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  const {id}=await params;const {tab,status,error}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const {data:org}=await client.from('organizations').select('id,name,organization_type,country,description,is_verified,logo_url,location_text,website,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score,management_type').eq('id',id).is('removed_at',null).maybeSingle();if(!org)notFound();
  const organization=org as Organization;const tabs=organizationTabs[organization.organization_type];if(!tabs)notFound();
- const active=tabs.find(label=>tabSlug(label)===tab)??'About';
+ const active=tabs.find(label=>tabSlug(label)===(tab==='about'?'profile':tab))??'Profile';
  const {data:membership}=await client.from('organization_members').select('member_role').eq('organization_id',id).eq('profile_id',user.id).maybeSingle();
  const isAdmin=membership?.member_role==='admin';
  const {data:canArchive}=await client.rpc('can_archive_organization',{p_organization:id});
@@ -33,10 +33,12 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  return <div className="space-y-6">{status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization saved.</p>}{status==='archived'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Organization archived.</p>}{error==='archive'&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">This organization could not be archived. Nothing was changed.</p>}{['follow','connection'].includes(error??'')&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">Could not update your relationship. Please try again.</p>}
 
  <SocialProfileTabs base={`/organizations/${id}`} tabs={tabs} active={tabSlug(active)} actorId={actor?.id} tabsFirst/>
+
+ {active==='Profile'?<>
  <ProfileHeader name={organization.name} kind={organization.organization_type} country={organization.country} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} editHref={isAdmin?`/organizations/${id}/edit`:undefined}>
   {actor&&<ActorSocialActions actorId={actor.id} profilePath={`/organizations/${id}`}/>}
  </ProfileHeader>
- {active==='About'?<><Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{scores.length>0&&<WbaScorePanel scores={scores}/>}
+<Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{scores.length>0&&<WbaScorePanel scores={scores}/>}
  {canArchive&&<ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={organization.name} className="flex justify-end"><input type="hidden" name="id" value={id}/><input type="hidden" name="return_to" value="profile"/><button type="submit" className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Archive organization</button></form></ArchiveOrganizationConfirmation>}
  </>:active==='People'?<Card title="People"><div className="space-y-3">{people?.map(person=>{const profile=person.profiles as unknown as {display_name:string}|null;return <Link key={person.profile_id} href={`/people/${person.profile_id}`} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{profile?.display_name||'Member'} <span className="text-sm text-muted">· {person.member_role}</span></Link>})}{!people?.length&&<p>No members yet.</p>}</div></Card>:active==='Wi-Fi Mesh Communities'&&actor?<ActorCommunities actorId={actor.id}/>:active==='Missions'&&actor?<ActorMissions actorId={actor.id}/>:active==='Fundraising'&&actor?<ActorFundraising actorId={actor.id}/>:active==='Contributions'&&actor?<ContributionList actorId={actor.id}/>:active==='Proofs'&&actor?<ProofList actorId={actor.id}/>:actor&&['Posts','Connections','Following'].includes(active)?<ActorSocial actorId={actor.id} section={active}/>:<Placeholder title={active} description={`${active} for ${organization.name} will appear here in a later phase.`}/>}
  </div>;
