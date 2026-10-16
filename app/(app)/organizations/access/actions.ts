@@ -45,20 +45,23 @@ export async function decideClaim(form:FormData){
  const identity=await verifiedIdentity();if(!identity)redirect('/login');
  if(!await superAdmin(identity.client))redirect('/organizations');
  const id=String(form.get('claim_id')??''),decision=String(form.get('decision')??'');
- if(!idPattern.test(id)||!['approve','reject'].includes(decision))redirect('/aluna-admin');
+ const returnTo='/aluna-admin/organization-access';
+ if(!idPattern.test(id)||!['approve','reject'].includes(decision))redirect(returnTo+'?error=validation');
+ if(decision==='approve'&&form.get('evidence_confirmed')!=='yes')redirect(returnTo+'?error=verification-required');
  const db=adminDb();
- const {data:claim}=await db.from('organization_claim_requests').select('*').eq('id',id).in('status',['needs_review','dns_pending']).maybeSingle();
- if(!claim)redirect('/aluna-admin?error=claim');
+ const {data:claim,error:claimError}=await db.from('organization_claim_requests').select('id,organization_id,requester_id,status').eq('id',id).in('status',['needs_review','dns_pending']).maybeSingle();
+ if(claimError||!claim)redirect(returnTo+'?error=claim');
  if(decision==='approve'){
   const {data,error}=await db.rpc('approve_first_organization_claim',{p_claim:id,p_actor:identity.user.id});
-  if(error||!data)redirect('/aluna-admin?error=claim');
+  if(error||!data)redirect(returnTo+'?error=claim');
  }else{
-  const {error}=await db.from('organization_claim_requests').update({status:'rejected',decided_at:new Date().toISOString(),decided_by:identity.user.id}).eq('id',id).in('status',['needs_review','dns_pending']);
-  if(error)redirect('/aluna-admin?error=claim');
+  const {data:rejected,error}=await db.from('organization_claim_requests').update({status:'rejected',decided_at:new Date().toISOString(),decided_by:identity.user.id}).eq('id',id).in('status',['needs_review','dns_pending']).select('id').maybeSingle();
+  if(error||!rejected)redirect(returnTo+'?error=claim');
   await db.from('organization_access_audit').insert({organization_id:claim.organization_id,actor_id:identity.user.id,subject_id:claim.requester_id,action:'claim_rejected'});
  }
- revalidatePath('/aluna-admin');
- redirect('/aluna-admin?status=claim-reviewed');
+ revalidatePath(returnTo);
+ revalidatePath('/organizations/'+claim.organization_id);
+ redirect(returnTo+'?status=claim-reviewed');
 }
 export async function createInvitation(form:FormData){
  const identity=await verifiedIdentity();if(!identity)redirect('/login');
