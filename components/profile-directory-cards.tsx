@@ -18,9 +18,10 @@ function SectionHeading({title,href,explore}:{title:string;href:string;explore:s
 }
 const card='relative flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink';
 
-export async function ProfileCommunityCards({actorId,createdOnly=false}:{actorId:string;createdOnly?:boolean}){
+export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,paginationBase}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string}){
  const client=await createClient();
- const {data:memberships,error:membershipError}=await client.from('mesh_community_members').select('community_id,member_role').eq('actor_id',actorId).limit(1000);
+ const membershipQuery=client.from('mesh_community_members').select('community_id,member_role').eq('actor_id',actorId);
+ const {data:memberships,error:membershipError}=await (createdOnly?membershipQuery.eq('member_role','steward').order('joined_at',{ascending:false}).range(page*20,page*20+19):membershipQuery.limit(100));
  const ids=[...new Set((memberships??[]).filter(m=>!createdOnly||m.member_role==='steward').map(m=>m.community_id))];
  const {data:items,error}=ids.length
  ?await client.from('mesh_communities').select('id,name,city_id,location_text,people_connected,nodes,places(name,country_code,source_key)').in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100)
@@ -49,13 +50,14 @@ export async function ProfileCommunityCards({actorId,createdOnly=false}:{actorId
    </article>;
   })}</div>
   {!error&&!membershipError&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No physical mesh community memberships yet.</p>}
+  {createdOnly&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{memberships?.length===20&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
  </section>;
 }
 
-export async function ProfileMissionCards({actorId,createdOnly=false}:{actorId:string;createdOnly?:boolean}){
+export async function ProfileMissionCards({actorId,createdOnly=false,page=0,paginationBase}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string}){
  const client=await createClient();
  const [{data:created},{data:joined}]=await Promise.all([
-  client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).limit(100),
+  createdOnly?client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).limit(100),
   createdOnly?Promise.resolve({data:[]}):client.from('mission_participations').select('mission_id').eq('actor_id',actorId).limit(100)
  ]);
  const ids=[...new Set([...(created??[]).map(m=>m.id),...(joined??[]).map(m=>m.mission_id)])];
@@ -99,13 +101,14 @@ export async function ProfileMissionCards({actorId,createdOnly=false}:{actorId:s
    </article>;
   })}</div>
   {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No SDG Missions connected to this profile yet.</p>}
+  {createdOnly&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{created?.length===20&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
  </section>;
 }
 
-export async function ProfileFundraisingCards({actorId,createdOnly=false}:{actorId:string;createdOnly?:boolean}){
+export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,paginationBase}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string}){
  const client=await createClient();
  const [{data:created},{data:fundraisers}]=await Promise.all([
-  client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
+  createdOnly?client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
   createdOnly?Promise.resolve({data:[]}):client.from('fundraisers').select('campaign_id').eq('actor_id',actorId).limit(100)
  ]);
  const ids=[...new Set([...(created??[]).map(c=>c.id),...(fundraisers??[]).map(f=>f.campaign_id)])];
@@ -156,5 +159,6 @@ export async function ProfileFundraisingCards({actorId,createdOnly=false}:{actor
    </article>;
   })}</div>
   {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No fundraising campaigns connected to this profile yet.</p>}
+  {createdOnly&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{created?.length===20&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
  </section>;
 }
