@@ -19,8 +19,8 @@ import { ArchiveOrganizationConfirmation } from '@/components/archive-organizati
 import { claimOrganization, verifyClaimDns } from '../access/actions';
 import { adminDb } from '@/lib/org-access';
 
-export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string;manage?:string}>}) {
- const {id}=await params;const {tab,status,error,manage}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string;manage?:string;page?:string}>}) {
+ const {id}=await params;const {tab,status,error,manage,page}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const {data:org}=await client.from('organizations').select('id,name,organization_type,country,description,is_verified,logo_url,location_text,website,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score,management_type').eq('id',id).is('removed_at',null).maybeSingle();if(!org)notFound();
  const organization=org as Organization;const tabs=organizationTabs[organization.organization_type];if(!tabs)notFound();
  const legacyAliases:Record<string,string>={about:'profile',people:'members','wi-fi-mesh-communities':'wi-fi-mesh',contributions:'impact',proofs:'impact',research:'profile',projects:'missions',funding:'fundraising',sponsorship:'connections',partnerships:'connections'};
@@ -29,6 +29,7 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  const {data:membership}=await client.from('organization_members').select('member_role').eq('organization_id',id).eq('profile_id',user.id).maybeSingle();
  const isAdmin=membership?.member_role==='admin';
  const isManaging=isAdmin&&manage==='1';
+ const pageNumber=Math.min(1000,Math.max(0,Number.parseInt(page||'0',10)||0));
  const {data:canArchive}=await client.rpc('can_archive_organization',{p_organization:id});
  const {data:admins}=await client.from('organization_members').select('profile_id').eq('organization_id',id).eq('member_role','admin').limit(1);
  const accessDb=adminDb();
@@ -67,9 +68,9 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
 <Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{scores.length>0&&<WbaScorePanel scores={scores}/>}
  {canArchive&&<ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={organization.name} className="flex justify-end"><input type="hidden" name="id" value={id}/><input type="hidden" name="return_to" value="profile"/><button type="submit" className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Archive organization</button></form></ArchiveOrganizationConfirmation>}
  </>:active==='Members'?<OrganizationMembers organizationId={id} isAdmin={isAdmin} managing={isManaging}/>
- :active==='Wi-Fi Mesh'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/communities/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><Wifi size={18}/>Create Wi-Fi Mesh Community</Link>}<ProfileCommunityCards actorId={actor.id} createdOnly/></section>
- :active==='Missions'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/missions/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><Target size={18}/>Create SDG Mission</Link>}<ProfileMissionCards actorId={actor.id} createdOnly/></section>
- :active==='Fundraising'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/fundraising/campaigns/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><HandCoins size={18}/>Create Campaign</Link>}<ProfileFundraisingCards actorId={actor.id} createdOnly/></section>
+ :active==='Wi-Fi Mesh'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/communities/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><Wifi size={18}/>Create Wi-Fi Mesh Community</Link>}<ProfileCommunityCards actorId={actor.id} createdOnly page={pageNumber} paginationBase={`/organizations/${id}?tab=wi-fi-mesh${isManaging?'&manage=1':''}`}/></section>
+ :active==='Missions'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/missions/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><Target size={18}/>Create SDG Mission</Link>}<ProfileMissionCards actorId={actor.id} createdOnly page={pageNumber} paginationBase={`/organizations/${id}?tab=missions${isManaging?'&manage=1':''}`}/></section>
+ :active==='Fundraising'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/fundraising/campaigns/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><HandCoins size={18}/>Create Campaign</Link>}<ProfileFundraisingCards actorId={actor.id} createdOnly page={pageNumber} paginationBase={`/organizations/${id}?tab=fundraising${isManaging?'&manage=1':''}`}/></section>
  :active==='Posts'&&actor?<OrganizationPosts actorId={actor.id} name={organization.name} kind={organization.organization_type} isAdmin={isAdmin} organizationId={id}/>
  :active==='Connections'&&actor?<div className="space-y-5"><ActorSocial actorId={actor.id} section="Connections"/>{organization.organization_type==='company'&&<OrganizationRelationshipCards organizationId={id} isAdmin={isAdmin} managing={isManaging}/>}</div>
  :active==='Following'&&actor?<ActorSocial actorId={actor.id} section="Following"/>
