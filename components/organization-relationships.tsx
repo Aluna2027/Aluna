@@ -1,9 +1,21 @@
 import { Handshake, HandHeart } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui';
+import { saveOrganizationRelationship,deleteOrganizationRelationship } from '@/app/(app)/organizations/membership-actions';
 
 export async function OrganizationRelationshipCards({organizationId,isAdmin,managing}:{organizationId:string;isAdmin:boolean;managing:boolean}) {
- return <section className="grid gap-4 md:grid-cols-2">
-  <Card title="Partnerships"><div className="mb-3 text-[#26E7D4]"><Handshake size={25}/></div><p className="text-sm text-muted">Organization partnerships.</p></Card>
-  <Card title="Sponsorships"><div className="mb-3 text-[#26E7D4]"><HandHeart size={25}/></div><p className="text-sm text-muted">Organization sponsorships.</p></Card>
- </section>;
+ const client=await createClient();
+ const {data:rows}=await client.from('organization_relationships').select('id,name,kind,organization_relationship_actors(actor_id)').eq('organization_id',organizationId).order('created_at',{ascending:false}).limit(100);
+ const actorIds=[...new Set((rows??[]).flatMap(r=>((r.organization_relationship_actors as unknown as {actor_id:string}[])??[]).map(a=>a.actor_id)))];
+ const {data:actors}=actorIds.length?await client.from('actors').select('id,profile_id,organization_id,profiles(display_name),organizations(name)').in('id',actorIds):{data:[]};
+ const names=new Map((actors??[]).map(a=>[a.id,(a.profiles as unknown as {display_name:string}|null)?.display_name||(a.organizations as unknown as {name:string}|null)?.name||'Participant']));
+ const categories=[{kind:'partnership',title:'Partnerships',icon:<Handshake size={25}/>},{kind:'sponsorship',title:'Sponsorships',icon:<HandHeart size={25}/>}];
+ return <section className="grid gap-4 md:grid-cols-2">{categories.map(category=><Card key={category.kind} title={category.title}>
+  <div className="mb-3 text-[#26E7D4]">{category.icon}</div>
+  <div className="space-y-4">{rows?.filter(r=>r.kind===category.kind).map(r=><div key={r.id} className="rounded-xl border border-line p-3"><h3 className="font-semibold">{r.name}</h3><p className="mt-2 text-sm text-muted">{((r.organization_relationship_actors as unknown as {actor_id:string}[])??[]).map(a=>names.get(a.actor_id)||'Participant').join(', ')||'No participants listed'}</p>
+   {isAdmin&&managing&&<details className="mt-3"><summary className="cursor-pointer text-sm text-gold">Edit</summary><form action={saveOrganizationRelationship} className="mt-3 space-y-2"><input type="hidden" name="organization_id" value={organizationId}/><input type="hidden" name="kind" value={category.kind}/><input type="hidden" name="id" value={r.id}/><label className="block text-sm">Name<input name="name" required minLength={2} maxLength={160} defaultValue={r.name} className="mt-1 w-full rounded-lg border border-line bg-panel-raised p-2"/></label><label className="block text-sm">Participant IDs (comma-separated)<textarea name="participants" defaultValue={((r.organization_relationship_actors as unknown as {actor_id:string}[])??[]).map(a=>a.actor_id).join(', ')} className="mt-1 w-full rounded-lg border border-line bg-panel-raised p-2"/></label><button className="text-gold">Save changes</button></form><form action={deleteOrganizationRelationship} className="mt-3"><input type="hidden" name="organization_id" value={organizationId}/><input type="hidden" name="id" value={r.id}/><button className="text-red-300">Delete</button></form></details>}
+  </div>)}</div>
+  {isAdmin&&managing&&<details className="mt-4"><summary className="cursor-pointer text-gold">+ Create {category.kind}</summary><form action={saveOrganizationRelationship} className="mt-3 space-y-3"><input type="hidden" name="organization_id" value={organizationId}/><input type="hidden" name="kind" value={category.kind}/><label className="block text-sm">Name<input name="name" required minLength={2} maxLength={160} className="mt-1 w-full rounded-lg border border-line bg-panel-raised p-2"/></label><label className="block text-sm">Participant IDs (comma-separated)<textarea name="participants" className="mt-1 w-full rounded-lg border border-line bg-panel-raised p-2"/></label><button className="rounded-lg bg-gold px-4 py-2 text-navy">Create</button></form></details>}
+  {!rows?.some(r=>r.kind===category.kind)&&<p className="text-sm text-muted">No {category.title.toLowerCase()} yet.</p>}
+ </Card>)}</section>;
 }
