@@ -13,6 +13,8 @@ import { ActorSocial, ActorSocialActions } from '@/components/actor-social';
 import { type Organization, organizationTabs, tabSlug } from '@/lib/profiles';
 import { removeOrganization } from '../actions';
 import { ArchiveOrganizationConfirmation } from '@/components/archive-organization-confirmation';
+import { claimOrganization, verifyClaimDns } from '../access/actions';
+import { adminDb } from '@/lib/org-access';
 
 export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string}>}) {
  const {id}=await params;const {tab,status,error}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
@@ -22,6 +24,10 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  const {data:membership}=await client.from('organization_members').select('member_role').eq('organization_id',id).eq('profile_id',user.id).maybeSingle();
  const isAdmin=membership?.member_role==='admin';
  const {data:canArchive}=await client.rpc('can_archive_organization',{p_organization:id});
+ const {data:admins}=await client.from('organization_members').select('profile_id').eq('organization_id',id).eq('member_role','admin').limit(1);
+ const accessDb=adminDb();
+ const {data:requests}=await accessDb.from('organization_claim_requests').select('id,status,domain,challenge').eq('organization_id',id).eq('requester_id',user.id).in('status',['needs_review','dns_pending']).order('created_at',{ascending:false}).limit(1);
+ const pendingClaim=requests?.[0];
  const {data:actor}=await client.from('actors').select('id').eq('organization_id',id).maybeSingle();
  const {data:people}=active==='People'?await client.from('organization_members').select('profile_id,member_role,profiles(display_name)').eq('organization_id',id):{data:null};
  const scores=organization.organization_type==='company'?[
@@ -35,9 +41,22 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  <SocialProfileTabs base={`/organizations/${id}`} tabs={tabs} active={tabSlug(active)} actorId={actor?.id} tabsFirst/>
 
  {active==='Profile'?<>
- <ProfileHeader name={organization.name} kind={organization.organization_type} country={organization.country} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} editHref={isAdmin?`/organizations/${id}/edit`:undefined}>
+ <ProfileHeader name={organization.name} kind={organization.organization_type} country={organization.country} location={organization.location_text} website={organization.website} imageUrl={organization.logo_url} editHref={undefined}>
   {actor&&<ActorSocialActions actorId={actor.id} profilePath={`/organizations/${id}`}/>}
  </ProfileHeader>
+ <Card title="Organization access"><div className="space-y-3">
+ {status==='claim-pending'&&<p role="status" className="text-gold">Your claim request has been submitted.</p>}
+ {status==='claim-approved'&&<p role="status" className="text-gold">Organization access granted.</p>}
+ {status==='invitation-accepted'&&<p role="status" className="text-gold">Invitation accepted. You can manage this organization.</p>}
+ {error==='claim'&&<p role="alert" className="text-red-300">Unable to submit or approve this claim.</p>}
+ {error==='dns'&&<p role="alert" className="text-red-300">DNS verification is not complete. Check the TXT record and try again.</p>}
+ {isAdmin?<Link className="inline-block rounded-lg border border-gold px-4 py-2 text-gold" href={`/organizations/${id}/manage`}>Manage Organization</Link>
+ :pendingClaim?<><p className="text-sm text-muted">Request Pending — verification in progress.</p>
+ {pendingClaim.status==='dns_pending'&&pendingClaim.challenge&&<div className="space-y-3"><p className="text-sm">To prove control of the approved domain, ask its DNS administrator to publish this TXT record:</p><code className="block break-all rounded-lg bg-panel-raised p-3 text-xs">_aluna-claim.{pendingClaim.domain} TXT &quot;aluna-claim={pendingClaim.challenge}&quot;</code><form action={verifyClaimDns}><input type="hidden" name="claim_id" value={pendingClaim.id}/><button className="rounded-lg bg-gold px-4 py-2 font-semibold text-navy">Verify DNS</button></form></div>}
+ </>
+ :admins?.length?<p className="text-sm text-muted">This organization is already managed. Please contact its administrators to request an invitation.</p>
+ :<details><summary className="cursor-pointer text-gold">Claim Organization</summary><p className="my-3 text-sm text-muted">Use a verified Aluna account with your official organization email address. Domain ownership or a manual authorization review is required before management access can be granted.</p><form action={claimOrganization}><input type="hidden" name="organization_id" value={id}/><button className="rounded-lg bg-gold px-4 py-2 font-semibold text-navy">Submit Claim Request</button></form></details>}
+ </div></Card>
 <Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{scores.length>0&&<WbaScorePanel scores={scores}/>}
  {canArchive&&<ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={organization.name} className="flex justify-end"><input type="hidden" name="id" value={id}/><input type="hidden" name="return_to" value="profile"/><button type="submit" className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Archive organization</button></form></ArchiveOrganizationConfirmation>}
  </>:active==='People'?<Card title="People"><div className="space-y-3">{people?.map(person=>{const profile=person.profiles as unknown as {display_name:string}|null;return <Link key={person.profile_id} href={`/people/${person.profile_id}`} className="block rounded-xl border border-line p-3 text-ink hover:border-gold">{profile?.display_name||'Member'} <span className="text-sm text-muted">· {person.member_role}</span></Link>})}{!people?.length&&<p>No members yet.</p>}</div></Card>:active==='Wi-Fi Mesh Communities'&&actor?<ActorCommunities actorId={actor.id}/>:active==='Missions'&&actor?<ActorMissions actorId={actor.id}/>:active==='Fundraising'&&actor?<ActorFundraising actorId={actor.id}/>:active==='Contributions'&&actor?<ContributionList actorId={actor.id}/>:active==='Proofs'&&actor?<ProofList actorId={actor.id}/>:actor&&['Posts','Connections','Following'].includes(active)?<ActorSocial actorId={actor.id} section={active}/>:<Placeholder title={active} description={`${active} for ${organization.name} will appear here in a later phase.`}/>}
