@@ -1,4 +1,5 @@
 import { Newspaper } from 'lucide-react';
+import { iconColors } from '@/lib/icon-colors';
 import { createClient } from '@/lib/supabase/server';
 import { ownedActors, attachPostMedia, attachVoteCounts, type FeedPost } from '@/lib/social';
 import { PostComposer } from '@/components/post-composer';
@@ -18,7 +19,7 @@ export async function OrganizationPosts({actorId,name,kind,isAdmin,organizationI
  const feed=(data??[]).map(p=>({...p,author_name:name,author_kind:kind,comment_count:counts.get(p.id)??0,reaction_count:0})) as FeedPost[];
  const posts=await attachPostMedia(await attachVoteCounts(feed,actors));
  return <section className="space-y-4">
-  <div className="flex items-center gap-3 rounded-xl border border-line bg-panel p-4"><Newspaper size={24} className="text-[#26E7D4]"/><h2 className="text-xl font-semibold">Posts</h2></div>
+  <div className="flex items-center gap-3 rounded-xl border border-line bg-panel p-4"><Newspaper size={24} color={iconColors.posts}/><h2 className="text-xl font-semibold">Posts</h2></div>
   {isAdmin&&<PostComposer actors={authorActors} returnTo={`/organizations/${organizationId}?tab=posts`}/>}
   {error?<p role="alert">Could not load posts.</p>:<FeedList posts={posts} actors={actors} returnTo={`/organizations/${organizationId}?tab=posts`}/>}
  </section>;
