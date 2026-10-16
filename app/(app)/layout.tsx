@@ -21,5 +21,7 @@ export default async function AppLayout({ children }: {children:React.ReactNode}
 
   if (!isOnboardingComplete(profile)) redirect('/onboarding');
 
-  return <Shell name={profile.display_name || user.email?.split('@')[0] || 'member'}>{children}</Shell>;
+  // Reuse the same database permission check as /aluna-admin; fail closed on error.
+  const { data: isAdmin, error: adminError } = await client.rpc('is_aluna_super_admin');
+  return <Shell name={profile.display_name || user.email?.split('@')[0] || 'member'} isAlunaSuperAdmin={!adminError && isAdmin === true}>{children}</Shell>;
 }
