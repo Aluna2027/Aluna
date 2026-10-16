@@ -48,6 +48,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
  const [visibility,setVisibility]=useState('public');
  const textarea=useRef<HTMLTextAreaElement>(null);
  const insertEmoji=(value:string)=>{const el=textarea.current;const start=el?.selectionStart??body.length,end=el?.selectionEnd??start;setBody(text=>text.slice(0,start)+value+text.slice(end));requestAnimationFrame(()=>{el?.focus();el?.setSelectionRange(start+value.length,start+value.length);});};
+ const hasPhotoOrVideo=!!file&&(imageTypes.has(file.type)||videoTypes.has(file.type));
  if(!actors.length)return null;
 
  async function handleSubmit(event:FormEvent<HTMLFormElement>){
@@ -78,8 +79,8 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    const body=String(data.get('body')??'').trim();
    const actorId=String(data.get('actor_id')??'');
    const visibility=data.get('visibility')==='followers'?'followers':'public';
-   if(!body||body.length>5000||!actorId){
-     setUploadError('Add post text and try again.');
+   if((!body&&mediaType!=='image'&&mediaType!=='video')||body.length>5000||!actorId){
+     setUploadError('Add post text or choose a photo or video.');
      setSubmitting(false);
      return;
    }
@@ -91,36 +92,53 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
      return;
    }
 
-   const {data:post,error:postError}=await client.from('posts').insert({
-     actor_id:actorId,
-     body,
-     visibility:communityId||missionId?'public':visibility,
-     repost_of_id:repostOf||null,
-     community_id:communityId||null,
-     mission_id:missionId||null,
-   }).select('id').single();
-
-   if(postError||!post){
-     setUploadError('Could not create the post. Please try again.');
-     setSubmitting(false);
-     return;
-   }
-
-   const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
-   const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
-   if(storageError){
-     await client.from('posts').delete().eq('id',post.id);
-     setUploadError('Could not upload the attachment. Please try again.');
-     setSubmitting(false);
-     return;
-   }
-
-   const {error:updateError}=await client.from('posts').update({media_path:path,media_type:mediaType}).eq('id',post.id);
-   if(updateError){
-     await client.from('posts').delete().eq('id',post.id);
-     setUploadError('Could not attach the file to the post.');
-     setSubmitting(false);
-     return;
+   if(!body){
+     // Do not expose a placeholder post in the feed before its file is uploaded.
+     const postId=crypto.randomUUID();
+     const path=`${user.id}/${postId}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
+     const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
+     if(storageError){
+       setUploadError('Could not upload the attachment. Please try again.');
+       setSubmitting(false);
+       return;
+     }
+     const {error:postError}=await client.from('posts').insert({
+       id:postId,actor_id:actorId,body:'',
+       visibility:communityId||missionId?'public':visibility,
+       repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
+       media_path:path,media_type:mediaType,
+     });
+     if(postError){
+       setUploadError('Could not create the post. Please try again.');
+       setSubmitting(false);
+       return;
+     }
+   }else{
+     // Preserve existing text + attachment behavior.
+     const {data:post,error:postError}=await client.from('posts').insert({
+       actor_id:actorId,body,visibility:communityId||missionId?'public':visibility,
+       repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
+     }).select('id').single();
+     if(postError||!post){
+       setUploadError('Could not create the post. Please try again.');
+       setSubmitting(false);
+       return;
+     }
+     const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
+     const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
+     if(storageError){
+       await client.from('posts').delete().eq('id',post.id);
+       setUploadError('Could not upload the attachment. Please try again.');
+       setSubmitting(false);
+       return;
+     }
+     const {error:updateError}=await client.from('posts').update({media_path:path,media_type:mediaType}).eq('id',post.id);
+     if(updateError){
+       await client.from('posts').delete().eq('id',post.id);
+       setUploadError('Could not attach the file to the post.');
+       setSubmitting(false);
+       return;
+     }
    }
 
    form.reset();setFile(null);setBody('');
@@ -131,7 +149,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
  }
 
  return <form action={createPost} onSubmit={handleSubmit} encType="multipart/form-data" className="glass space-y-4 rounded-2xl p-5"><h2 className="text-lg">{repostOf?'Share this post':'Create a post'}</h2><input type="hidden" name="return_to" value={returnTo}/>{repostOf&&<input type="hidden" name="repost_of_id" value={repostOf}/>} {communityId&&<input type="hidden" name="community_id" value={communityId}/>} {missionId&&<input type="hidden" name="mission_id" value={missionId}/>}
- <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={textarea} name="body" value={body} onChange={e=>setBody(e.target.value)} required maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full resize-y border-0 bg-transparent p-2 text-ink"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting} scheduler={<PostScheduler actors={actors} actorId={actorId} body={body} file={file} visibility={visibility} communityId={communityId} missionId={missionId} onSuccess={()=>{setBody('');setFile(null);router.refresh();}}/>}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
+ <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={textarea} name="body" value={body} onChange={e=>setBody(e.target.value)} required={!hasPhotoOrVideo} maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full resize-y border-0 bg-transparent p-2 text-ink"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={(!body.trim()&&!hasPhotoOrVideo)||submitting} submitting={submitting} scheduler={<PostScheduler actors={actors} actorId={actorId} body={body} file={file} visibility={visibility} communityId={communityId} missionId={missionId} onSuccess={()=>{setBody('');setFile(null);router.refresh();}}/>}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
  {uploadError&&<p role="alert" className="text-sm text-amber-300">{uploadError}</p>}
  <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" value={actorId} onChange={e=>setActorId(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!communityId&&!missionId&&<label className="text-sm text-muted">Audience <select name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}</div></form>;
 }

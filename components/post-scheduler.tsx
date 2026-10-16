@@ -5,7 +5,7 @@ import {createClient} from '@/lib/supabase/client';
 import {allowedDocuments} from '@/components/composer-tools';
 import type {Actor} from '@/lib/social';
 
-type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string};
+type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null};
 type Props={actors:Actor[];actorId:string;body:string;file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
 const pad=(n:number)=>String(n).padStart(2,'0');
 function localValues(when:Date){return {day:when.getFullYear()+'-'+pad(when.getMonth()+1)+'-'+pad(when.getDate()),time:pad(when.getHours())+':'+pad(when.getMinutes())};}
@@ -19,13 +19,13 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
  const [working,setWorking]=useState(false),[error,setError]=useState('');
  async function load(){
   setError('');setPanel('list');
-  const {data,error}=await createClient().from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+  const {data,error}=await createClient().from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
   if(error)setError('Unable to load scheduled posts.');setRows((data??[]) as Item[]);
  }
  async function schedule(){
   setError('');const when=futureDate(day,time);
   if(!when){setError('Select a future date (at least 30 seconds away, within one year).');return;}
-  if(!body.trim()||body.trim().length>5000||!actors.some(a=>a.id===actorId)){setError('Enter a post and choose your posting profile.');return;}
+  if((!body.trim()&&(!file||!['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'].includes(file.type)))||body.trim().length>5000||!actors.some(a=>a.id===actorId)){setError('Enter post text or attach a photo or video, and choose your posting profile.');return;}
   if(file&&(file.size>50*1024*1024||!(['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'].includes(file.type)||allowedDocuments.has(file.type)))){setError('Unsupported attachment or file larger than 50 MB.');return;}
   setWorking(true);let id:string|null=null;
   try{
@@ -50,7 +50,8 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
  function edit(row:Item){const v=localValues(new Date(row.scheduled_for));setEditing(row.id);setDraft(row.body);setEditDay(v.day);setEditTime(v.time);setEditVisibility(row.visibility);setError('');}
  async function save(){
   const when=futureDate(editDay,editTime);
-  if(!when||!draft.trim()){setError('Enter text and a valid future date.');return;}
+  const item=rows.find(row=>row.id===editing);
+  if(!when||(!draft.trim()&&!['image','video'].includes(item?.media_type??''))||draft.length>5000){setError('Enter text or keep an attached photo or video, and choose a valid future date.');return;}
   setWorking(true);
   const r=await createClient().rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility});
   setWorking(false);
@@ -72,7 +73,7 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
     <label className="mb-3 block text-xs text-muted">Month / Day / Year <span className="flex items-center gap-2"><input aria-label="Publication date" type="date" value={day} onChange={e=>setDay(e.target.value)} className="mt-1 min-w-0 flex-1 rounded-lg border border-line bg-panel-raised p-2 text-ink"/><CalendarDays size={20} className="text-gold"/></span></label>
     <label className="mb-3 block text-xs text-muted">Hours : Minutes <span className="flex items-center gap-2"><input aria-label="Publication time" type="time" value={time} onChange={e=>setTime(e.target.value)} className="mt-1 min-w-0 flex-1 rounded-lg border border-line bg-panel-raised p-2 text-ink"/><Clock3 size={20} className="text-[#26E7D4]"/></span></label>
     <p className="mb-3 text-xs text-muted">Time is based on your device’s time zone.</p>
-    <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" onClick={load} className="text-sm text-[#26E7D4]">Scheduled Posts →</button><button type="button" onClick={schedule} disabled={working||!body.trim()} className="rounded-lg bg-gold px-3 py-2 font-semibold text-navy disabled:opacity-40">{working?'Saving…':'Schedule'}</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" onClick={load} className="text-sm text-[#26E7D4]">Scheduled Posts →</button><button type="button" onClick={schedule} disabled={working||(!body.trim()&&!file)||(!body.trim()&&!!file&&!["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","video/quicktime"].includes(file.type))} className="rounded-lg bg-gold px-3 py-2 font-semibold text-navy disabled:opacity-40">{working?'Saving…':'Schedule'}</button></div>
    </>:<>
     {!rows.length&&<p className="text-sm text-muted">No upcoming posts.</p>}
     <div className="space-y-3">{rows.map(item=><div key={item.id} className="rounded-lg border border-line bg-panel-raised p-3 text-sm">
@@ -83,7 +84,7 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
        <select aria-label="Audience" value={editVisibility} onChange={e=>setEditVisibility(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select>
        <div className="flex gap-3"><button type="button" disabled={working} onClick={save} className="text-gold">Save changes</button><button type="button" onClick={()=>setEditing(null)}>Back</button></div>
       </div>:<>
-       <p className="line-clamp-3 whitespace-pre-wrap">{item.body}</p>
+       <p className="line-clamp-3 whitespace-pre-wrap">{item.body|| (item.media_type==="image"?"Photo":item.media_type==="video"?"Video":"")}</p>
        <p className="mt-2 text-xs text-muted">{new Date(item.scheduled_for).toLocaleString()} · {actors.find(a=>a.id===item.actor_id)?.name??'Account'} · {item.status}</p>
        <div className="mt-2 flex gap-4">{item.status==='pending'&&<button type="button" onClick={()=>edit(item)} className="text-gold">Edit</button>}<button type="button" disabled={working} onClick={()=>cancel(item.id)} className="text-red-300">Cancel</button></div>
       </>}
