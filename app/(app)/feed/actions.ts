@@ -86,8 +86,10 @@ export async function respondConnection(form:FormData) {
  if(error)redirect(withError(returnTo,'connection'));revalidatePath(returnTo.split('?')[0]);redirect(returnTo);
 }
 export async function editPost(form:FormData) {
- const client=await current();const id=String(form.get('id')??'');const body=bodyText(form,'body',5000);
- if(!body)redirect(`/posts/${id}/edit?error=validation`);
+ const client=await current();const id=String(form.get('id')??'');const body=String(form.get('body')??'').trim();
+ const {data:post}=await client.from('posts').select('media_path,media_type').eq('id',id).maybeSingle();
+ const hasMedia=!!post?.media_path&&(post.media_type==='image'||post.media_type==='video');
+ if(!post||body.length>5000||(!body&&!hasMedia))redirect(`/posts/${id}/edit?error=validation`);
  const {error}=await client.from('posts').update({body,updated_at:new Date().toISOString()}).eq('id',id);
  if(error)redirect(`/posts/${id}/edit?error=save`);
  revalidatePath(`/posts/${id}`);revalidatePath('/feed');redirect(`/posts/${id}`);
