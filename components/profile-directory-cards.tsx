@@ -18,10 +18,10 @@ function SectionHeading({title,href,explore}:{title:string;href:string;explore:s
 }
 const card='relative flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink';
 
-export async function ProfileCommunityCards({actorId}:{actorId:string}){
+export async function ProfileCommunityCards({actorId,createdOnly=false}:{actorId:string;createdOnly?:boolean}){
  const client=await createClient();
- const {data:memberships,error:membershipError}=await client.from('mesh_community_members').select('community_id,member_role').eq('actor_id',actorId).limit(100);
- const ids=[...new Set((memberships??[]).map(m=>m.community_id))];
+ const {data:memberships,error:membershipError}=await client.from('mesh_community_members').select('community_id,member_role').eq('actor_id',actorId).limit(1000);
+ const ids=[...new Set((memberships??[]).filter(m=>!createdOnly||m.member_role==='steward').map(m=>m.community_id))];
  const {data:items,error}=ids.length
  ?await client.from('mesh_communities').select('id,name,city_id,location_text,people_connected,nodes,places(name,country_code,source_key)').in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100)
  :{data:[],error:null};
@@ -43,7 +43,7 @@ export async function ProfileCommunityCards({actorId}:{actorId:string}){
      <p className="flex items-center gap-3 text-base text-muted"><RadioTower size={19} className="text-[#A78BFA]"/>Wi-Fi nodes: {Number(item.nodes??0).toLocaleString('en-US')}</p>
     </div>
     <div className="mt-auto pt-7">
-     <div className="flex min-h-16 items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck size={19}/>Member</div>
+     <div className="flex min-h-16 items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck size={19}/>{createdOnly?'Organization community':'Member'}</div>
      <Link href={'/communities/'+item.id} className="mt-4 block text-center text-sm text-muted hover:text-gold">View Community →</Link>
     </div>
    </article>;
@@ -52,11 +52,11 @@ export async function ProfileCommunityCards({actorId}:{actorId:string}){
  </section>;
 }
 
-export async function ProfileMissionCards({actorId}:{actorId:string}){
+export async function ProfileMissionCards({actorId,createdOnly=false}:{actorId:string;createdOnly?:boolean}){
  const client=await createClient();
  const [{data:created},{data:joined}]=await Promise.all([
   client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).limit(100),
-  client.from('mission_participations').select('mission_id').eq('actor_id',actorId).limit(100)
+  createdOnly?Promise.resolve({data:[]}):client.from('mission_participations').select('mission_id').eq('actor_id',actorId).limit(100)
  ]);
  const ids=[...new Set([...(created??[]).map(m=>m.id),...(joined??[]).map(m=>m.mission_id)])];
  const {data:items,error}=ids.length?await client.from('missions')
@@ -102,11 +102,11 @@ export async function ProfileMissionCards({actorId}:{actorId:string}){
  </section>;
 }
 
-export async function ProfileFundraisingCards({actorId}:{actorId:string}){
+export async function ProfileFundraisingCards({actorId,createdOnly=false}:{actorId:string;createdOnly?:boolean}){
  const client=await createClient();
  const [{data:created},{data:fundraisers}]=await Promise.all([
   client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
-  client.from('fundraisers').select('campaign_id').eq('actor_id',actorId).limit(100)
+  createdOnly?Promise.resolve({data:[]}):client.from('fundraisers').select('campaign_id').eq('actor_id',actorId).limit(100)
  ]);
  const ids=[...new Set([...(created??[]).map(c=>c.id),...(fundraisers??[]).map(f=>f.campaign_id)])];
  const {data:items,error}=ids.length?await client.from('fundraising_campaigns')
