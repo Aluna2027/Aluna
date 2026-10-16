@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Search, X, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { saveOrganizationRelationship } from '@/app/(app)/organizations/membership-actions';
 type Choice={id:string;name:string;kind:'Person'|'Organization'};
 export function RelationshipEditor({organizationId,kind,existing}:{organizationId:string;kind:'partnership'|'sponsorship';existing?:{id:string;name:string;participants:Choice[]}}){
  const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[results,setResults]=useState<Choice[]>([]);
@@ -24,8 +25,8 @@ export function RelationshipEditor({organizationId,kind,existing}:{organizationI
    const personNames=new Map((people.data??[]).map(x=>[x.id,x.display_name]));
    const orgNames=new Map((orgs.data??[]).map(x=>[x.id,x.name]));
    setResults([
-    ...(pa.data??[]).map(x=>({id:x.id,name:personNames.get(x.profile_id)??'Person',kind:'Person' as const})),
-    ...(oa.data??[]).map(x=>({id:x.id,name:orgNames.get(x.organization_id)??'Organization',kind:'Organization' as const}))
+    ...(pa.data??[]).map(x=>({id:x.id,name:personNames.get(x.profile_id??'')??'Person',kind:'Person' as const})),
+    ...(oa.data??[]).map(x=>({id:x.id,name:orgNames.get(x.organization_id??'')??'Organization',kind:'Organization' as const}))
    ]);
   }finally{setBusy(false);}
  }
@@ -35,7 +36,7 @@ export function RelationshipEditor({organizationId,kind,existing}:{organizationI
   {open&&<div role="presentation" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={()=>setOpen(false)}>
    <div role="dialog" aria-modal="true" aria-label={`Manage ${kind}`} onClick={e=>e.stopPropagation()} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-line bg-panel p-5 shadow-2xl">
     <div className="mb-5 flex items-center justify-between"><h3 className="text-lg font-semibold">{existing?'Edit':'Create'} {kind}</h3><button type="button" onClick={()=>setOpen(false)} aria-label="Close"><X size={22}/></button></div>
-    <form action={async(data)=>{const {saveOrganizationRelationship}=await import('@/app/(app)/organizations/membership-actions');await saveOrganizationRelationship(data);}} className="space-y-4">
+    <form action={saveOrganizationRelationship} className="space-y-4">
      <input type="hidden" name="organization_id" value={organizationId}/><input type="hidden" name="kind" value={kind}/>
      {existing&&<input type="hidden" name="id" value={existing.id}/>}
      <input type="hidden" name="participants" value={selected.map(c=>c.id).join(',')}/>
