@@ -26,10 +26,11 @@ function missionLocation(mission:MissionOption){
  return city?`${city.name}, ${city.country}`:mission.places?.name??'Location not specified';
 }
 
-export default async function NewCampaign({searchParams}:{searchParams:Promise<{mission?:string;error?:string}>}) {
- const {mission,error}=await searchParams;
+export default async function NewCampaign({searchParams}:{searchParams:Promise<{mission?:string;error?:string;organization?:string}>}) {
+ const {mission,error,organization}=await searchParams;
  const client=await createClient();
- const actors=await ownedActors();
+ const allActors=await ownedActors();
+ const actors=organization?allActors.filter(a=>a.href===`/organizations/${organization}`):allActors;
  const ids=actors.map(a=>a.id);
  const lockedMissionId=mission&&/^[0-9a-f-]{36}$/i.test(mission)?mission:null;
 
@@ -50,7 +51,7 @@ export default async function NewCampaign({searchParams}:{searchParams:Promise<{
   <Link href="/fundraising" className="text-sm text-gold">← Fundraising</Link>
   <Card title="Create SDG mission fundraising campaign">
    <p className="mb-5">A campaign belongs to a SDG mission. You can create a fundraising campaign for any SDG mission you open from its SDG Mission page.</p>
-   <form action={createCampaign} className="max-w-2xl space-y-5">
+   <form action={createCampaign} className="max-w-2xl space-y-5">{organization&&<input type="hidden" name="organization_id" value={organization}/>}
     {error&&<p role="alert" className="text-amber-300">Could not create the campaign. Check the details, mission and campaign owner.</p>}
 
     <CampaignMissionSelector missions={missionChoices} lockedMissionId={selectedMission?.id??null}/>
