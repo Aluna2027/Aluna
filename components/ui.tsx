@@ -1,4 +1,4 @@
-export function Card({ title, children, className = '' }: {title:string;children:React.ReactNode;className?:string}) {
+export function Card({ title, children, className = '' }: {title:React.ReactNode;children:React.ReactNode;className?:string}) {
   return <section className={`glass rounded-3xl p-6 sm:p-8 ${className}`}><h2 className="text-lg font-semibold">{title}</h2><div className="mt-4 text-muted">{children}</div></section>;
 }
 export function Placeholder({ title, description }: {title:string;description:string}) {
