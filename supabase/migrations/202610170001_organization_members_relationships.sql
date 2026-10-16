@@ -148,7 +148,7 @@ begin
  ) then raise exception 'Not permitted'; end if;
  select coalesce(array_agg(distinct u.actor),array[]::uuid[]) into v_unique
  from unnest(coalesce(p_actors,array[]::uuid[])) as u(actor);
- if cardinality(v_unique)>30
+ if cardinality(v_unique)<1 or cardinality(v_unique)>30
     or exists (
       select 1 from unnest(v_unique) as a(actor)
       where a.actor is null or not exists(select 1 from public.actors b where b.id=a.actor)
