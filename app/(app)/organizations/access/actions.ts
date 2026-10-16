@@ -1,0 +1,106 @@
+'use server';
+import {redirect} from 'next/navigation';
+import {revalidatePath} from 'next/cache';
+import {adminDb,verifiedIdentity,superAdmin,newToken,tokenHash,idPattern} from '@/lib/org-access';
+import {resolveTxt} from 'node:dns/promises';
+
+export async function claimOrganization(form:FormData){
+ const identity=await verifiedIdentity();if(!identity)redirect('/login');
+ const id=String(form.get('organization_id')??'');
+ if(!idPattern.test(id))redirect('/organizations');
+ const db=adminDb();
+ const {data:org}=await db.from('organizations').select('id,removed_at').eq('id',id).maybeSingle();
+ if(!org||org.removed_at)redirect('/organizations');
+ const domain=identity.email.split('@')[1]??'';
+ const {data:known}=await db.from('organization_verified_domains').select('domain').eq('organization_id',id).eq('domain',domain).maybeSingle();
+ const {data:existingAdmin}=await db.from('organization_members').select('profile_id').eq('organization_id',id).eq('member_role','admin').limit(1);
+ const status=known&&!existingAdmin?.length?'dns_pending':'needs_review';
+ const challenge=status==='dns_pending'?newToken():null;
+ const {error}=await db.from('organization_claim_requests').insert({
+   organization_id:id,requester_id:identity.user.id,requester_email:identity.email,domain,
+   status,challenge,challenge_expires_at:challenge?new Date(Date.now()+86400000).toISOString():null
+ });
+ if(error)redirect('/organizations/'+id+'?tab=profile&error=claim');
+ revalidatePath('/organizations/'+id);
+ redirect('/organizations/'+id+'?tab=profile&status=claim-pending');
+}
+export async function verifyClaimDns(form:FormData){
+ const identity=await verifiedIdentity();if(!identity)redirect('/login');
+ const claimId=String(form.get('claim_id')??'');if(!idPattern.test(claimId))redirect('/organizations');
+ const db=adminDb();
+ const {data:claim}=await db.from('organization_claim_requests').select('*').eq('id',claimId).eq('requester_id',identity.user.id).eq('status','dns_pending').maybeSingle();
+ if(!claim||claim.requester_email!==identity.email||!claim.challenge||!claim.challenge_expires_at||new Date(claim.challenge_expires_at).getTime()<Date.now())redirect('/organizations');
+ let validated=false;
+ try{
+   const txt=(await resolveTxt('_aluna-claim.'+claim.domain)).map(parts=>parts.join(''));
+   validated=txt.includes('aluna-claim='+claim.challenge);
+ }catch{return redirect('/organizations/'+claim.organization_id+'?tab=profile&error=dns');}
+ if(!validated)redirect('/organizations/'+claim.organization_id+'?tab=profile&error=dns');
+ const {data:granted,error}=await db.rpc('approve_first_organization_claim',{p_claim:claim.id,p_actor:identity.user.id});
+ if(error||!granted)redirect('/organizations/'+claim.organization_id+'?tab=profile&error=claim');
+ revalidatePath('/organizations/'+claim.organization_id);
+ redirect('/organizations/'+claim.organization_id+'?tab=profile&status=claim-approved');
+}
+export async function decideClaim(form:FormData){
+ const identity=await verifiedIdentity();if(!identity)redirect('/login');
+ if(!await superAdmin(identity.client))redirect('/organizations');
+ const id=String(form.get('claim_id')??''),decision=String(form.get('decision')??'');
+ if(!idPattern.test(id)||!['approve','reject'].includes(decision))redirect('/aluna-admin');
+ const db=adminDb();
+ const {data:claim}=await db.from('organization_claim_requests').select('*').eq('id',id).in('status',['needs_review','dns_pending']).maybeSingle();
+ if(!claim)redirect('/aluna-admin?error=claim');
+ if(decision==='approve'){
+  const {data,error}=await db.rpc('approve_first_organization_claim',{p_claim:id,p_actor:identity.user.id});
+  if(error||!data)redirect('/aluna-admin?error=claim');
+ }else{
+  const {error}=await db.from('organization_claim_requests').update({status:'rejected',decided_at:new Date().toISOString(),decided_by:identity.user.id}).eq('id',id).in('status',['needs_review','dns_pending']);
+  if(error)redirect('/aluna-admin?error=claim');
+  await db.from('organization_access_audit').insert({organization_id:claim.organization_id,actor_id:identity.user.id,subject_id:claim.requester_id,action:'claim_rejected'});
+ }
+ revalidatePath('/aluna-admin');
+ redirect('/aluna-admin?status=claim-reviewed');
+}
+export async function createInvitation(form:FormData){
+ const identity=await verifiedIdentity();if(!identity)redirect('/login');
+ const org=String(form.get('organization_id')??''),email=String(form.get('email')??'').trim().toLowerCase();
+ if(!idPattern.test(org)||email.length>254||! /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))redirect('/aluna-admin?error=validation');
+ const isSuper=await superAdmin(identity.client);
+ const {data:member}=await identity.client.from('organization_members').select('member_role').eq('organization_id',org).eq('profile_id',identity.user.id).maybeSingle();
+ if(!isSuper&&member?.member_role!=='admin')redirect('/organizations');
+ const db=adminDb();
+ const {data:organization}=await db.from('organizations').select('id').eq('id',org).is('removed_at',null).maybeSingle();
+ if(!organization)redirect('/aluna-admin?error=organization');
+ const token=newToken();
+ const {error}=await db.from('organization_invitations').insert({organization_id:org,recipient_email:email,token_hash:tokenHash(token),invited_by:identity.user.id,expires_at:new Date(Date.now()+7*86400000).toISOString()});
+ if(error)redirect('/aluna-admin?error=invitation');
+ const site=process.env.ALUNA_SITE_URL;
+ const apiKey=process.env.RESEND_API_KEY,from=process.env.ALUNA_ORG_EMAIL_FROM;
+ if(!site||!apiKey||!from){
+  // Do not pretend an invitation was delivered; revoke it if outbound mail is not configured.
+  await db.from('organization_invitations').update({revoked_at:new Date().toISOString()}).eq('token_hash',tokenHash(token));
+  redirect('/aluna-admin?error=email-config');
+ }
+ const link=new URL('/organizations/invite/'+token,site).toString();
+ let sent=false;
+ try {
+  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({from,to:email,subject:'Your Aluna organization invitation',text:'You have been invited to represent an organization on Aluna. Accept your invitation: '+link})});
+  sent=res.ok;
+ }catch{/* revoked below */}
+ if(!sent){
+  await db.from('organization_invitations').update({revoked_at:new Date().toISOString()}).eq('token_hash',tokenHash(token));
+  redirect('/aluna-admin?error=invitation-email');
+ }
+ await db.from('organization_access_audit').insert({organization_id:org,actor_id:identity.user.id,action:'invitation_sent',details:{recipient:email}});
+ revalidatePath('/aluna-admin');
+ redirect('/aluna-admin?status=invitation-sent');
+}
+export async function acceptInvitation(form:FormData){
+ const identity=await verifiedIdentity();if(!identity)redirect('/login');
+ const token=String(form.get('token')??'');
+ if(!/^[0-9a-f]{64}$/.test(token))redirect('/organizations');
+ const db=adminDb();
+ const {data,error}=await db.rpc('redeem_organization_invitation',{p_hash:tokenHash(token),p_profile:identity.user.id,p_email:identity.email});
+ if(error||!data)redirect('/organizations?error=invitation');
+ revalidatePath('/organizations/'+data);
+ redirect('/organizations/'+data+'?tab=profile&status=invitation-accepted');
+}
