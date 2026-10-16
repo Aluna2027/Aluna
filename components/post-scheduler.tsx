@@ -22,8 +22,8 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
   const {data,error}=await createClient().from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
   if(error)setError('Unable to load scheduled posts.');setRows((data??[]) as Item[]);
  }
- async function schedule(inTwoMinutes=false){
-  setError('');const when=inTwoMinutes?new Date(Date.now()+120000):futureDate(day,time);
+ async function schedule(){
+  setError('');const when=futureDate(day,time);
   if(!when){setError('Select a future date (at least 30 seconds away, within one year).');return;}
   if(!body.trim()||body.trim().length>5000||!actors.some(a=>a.id===actorId)){setError('Enter a post and choose your posting profile.');return;}
   if(file&&(file.size>50*1024*1024||!(['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'].includes(file.type)||allowedDocuments.has(file.type)))){setError('Unsupported attachment or file larger than 50 MB.');return;}
@@ -72,7 +72,7 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
     <label className="mb-3 block text-xs text-muted">Month / Day / Year <span className="flex items-center gap-2"><input aria-label="Publication date" type="date" value={day} onChange={e=>setDay(e.target.value)} className="mt-1 min-w-0 flex-1 rounded-lg border border-line bg-panel-raised p-2 text-ink"/><CalendarDays size={20} className="text-gold"/></span></label>
     <label className="mb-3 block text-xs text-muted">Hours : Minutes <span className="flex items-center gap-2"><input aria-label="Publication time" type="time" value={time} onChange={e=>setTime(e.target.value)} className="mt-1 min-w-0 flex-1 rounded-lg border border-line bg-panel-raised p-2 text-ink"/><Clock3 size={20} className="text-[#26E7D4]"/></span></label>
     <p className="mb-3 text-xs text-muted">Time is based on your device’s time zone.</p>
-    <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" onClick={load} className="text-sm text-[#26E7D4]">Scheduled Posts →</button><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={()=>schedule(true)} disabled={working||!body.trim()} className="rounded-lg border border-[#26E7D4] bg-[#142F2E] px-3 py-2 text-sm font-semibold text-[#26E7D4] disabled:opacity-40">In 2 minutes</button><button type="button" onClick={()=>schedule()} disabled={working||!body.trim()} className="rounded-lg bg-gold px-3 py-2 font-semibold text-navy disabled:opacity-40">{working?'Saving…':'Schedule'}</button></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><button type="button" onClick={load} className="text-sm text-[#26E7D4]">Scheduled Posts →</button><button type="button" onClick={schedule} disabled={working||!body.trim()} className="rounded-lg bg-gold px-3 py-2 font-semibold text-navy disabled:opacity-40">{working?'Saving…':'Schedule'}</button></div>
    </>:<>
     {!rows.length&&<p className="text-sm text-muted">No upcoming posts.</p>}
     <div className="space-y-3">{rows.map(item=><div key={item.id} className="rounded-lg border border-line bg-panel-raised p-3 text-sm">
