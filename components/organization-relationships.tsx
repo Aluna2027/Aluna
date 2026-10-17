@@ -1,6 +1,4 @@
-import { Handshake, HandHeart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { iconColors } from '@/lib/icon-colors';
 import { Card } from '@/components/ui';
 import { deleteOrganizationRelationship } from '@/app/(app)/organizations/membership-actions';
 import { RelationshipEditor } from '@/components/organization-relationship-editor';
@@ -14,9 +12,8 @@ export async function OrganizationRelationshipCards({organizationId,isAdmin,mana
   id:a.id,name:(a.profiles as unknown as {display_name:string}|null)?.display_name||(a.organizations as unknown as {name:string}|null)?.name||'Participant',
   kind:(a.profile_id?'Person':'Organization') as 'Person'|'Organization'
  }]));
- const categories=[{kind:'partnership' as const,title:'Partnerships',icon:<Handshake size={25} color={iconColors.partnerships}/>},{kind:'sponsorship' as const,title:'Sponsorships',icon:<HandHeart size={25} color={iconColors.sponsorships}/>}];
+ const categories=[{kind:'partnership' as const,title:'Partnerships'},{kind:'sponsorship' as const,title:'Sponsorships'}];
  return <section className="grid gap-4 md:grid-cols-2">{categories.map(category=><Card key={category.kind} title={category.title}>
-  <div className="mb-3 text-[#26E7D4]">{category.icon}</div>
   {error&&<p role="alert" className="text-red-300">Relationships unavailable until the organization migration is applied.</p>}
   <div className="space-y-4">{rows?.filter(r=>r.kind===category.kind).map(r=>{
    const people=((r.organization_relationship_actors as unknown as {actor_id:string}[])??[]).map(a=>names.get(a.actor_id)).filter((x):x is NonNullable<typeof x>=>!!x);
