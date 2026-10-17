@@ -39,12 +39,12 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
     <Link href={'/communities/'+item.id} className="group block min-w-0">
      <div className="flex items-center justify-between"><Wifi aria-hidden="true" size={24} className="text-[#26E7D4]"/><span className="text-xs uppercase text-muted">COMMUNITY</span></div>
      <h3 className="mt-7 break-words text-xl font-bold leading-snug text-ink group-hover:underline">{item.name}</h3>
-     <p className="mt-6 flex items-center gap-2 text-base text-muted"><MapPin size={18}/>{city?.name||place?.name||'City'} · {city?.country||place?.country_code||'Country'}</p>
+     <p className="mt-6 flex items-center gap-2 text-base text-muted">{!createdOnly&&<MapPin size={18}/>} {city?.name||place?.name||'City'} · {city?.country||place?.country_code||'Country'}</p>
      <p className="mt-6 text-base font-semibold text-gold">SDG 9: Industry, Innovation and Infrastructure</p>
     </Link>
     <div className="mt-7 space-y-5 border-t border-line pt-8">
-     <p className="flex items-center gap-3 text-base text-muted"><UsersRound size={19} className="text-[#26E7D4]"/>People connected: {Number(item.people_connected??0).toLocaleString('en-US')}</p>
-     <p className="flex items-center gap-3 text-base text-muted"><RadioTower size={19} className="text-[#A78BFA]"/>Wi-Fi nodes: {Number(item.nodes??0).toLocaleString('en-US')}</p>
+     <p className="flex items-center gap-3 text-base text-muted">{!createdOnly&&<UsersRound size={19} className="text-[#26E7D4]"/>}People connected: {Number(item.people_connected??0).toLocaleString('en-US')}</p>
+     <p className="flex items-center gap-3 text-base text-muted">{!createdOnly&&<RadioTower size={19} className="text-[#A78BFA]"/>}Wi-Fi nodes: {Number(item.nodes??0).toLocaleString('en-US')}</p>
     </div>
     <div className="mt-auto pt-7">
      <div className="flex min-h-16 items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck size={19}/>{createdOnly?'Organization community':'Member'}</div>
@@ -91,10 +91,10 @@ export async function ProfileMissionCards({actorId,createdOnly=false,page=0,pagi
       <div className="flex gap-2">{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
      </div>
      <h3 className="mt-6 break-words text-[23px] font-bold leading-tight text-ink group-hover:underline">{m.title}</h3>
-     <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin size={18}/>{where}</p>
+     <p className="mt-5 flex items-center gap-2 text-base text-muted">{!createdOnly&&<MapPin size={18}/>} {where}</p>
      <div className="mt-6 space-y-1">{selected.map((n,i)=><p key={n} className={i===0?'text-base text-gold':'text-base text-muted'}>{sdgLabel(n)}</p>)}</div>
      <div className="mt-7 border-t border-line pt-7"><p className="line-clamp-3 text-base leading-relaxed text-ink">{m.goal}</p></div>
-     <p className="mt-5 flex items-center gap-3 text-base text-ink"><Wallet size={21} className="text-[#26E7D4]"/>Funding goal: {money(m.funding_goal_amount,m.currency_code)}</p>
+     <p className="mt-5 flex items-center gap-3 text-base text-ink">{!createdOnly&&<Wallet size={21} className="text-[#26E7D4]"/>}Funding goal: {money(m.funding_goal_amount,m.currency_code)}</p>
     </Link>
     <div className="mt-auto pt-6">
      {owned&&<p className="mb-2 text-sm font-semibold text-gold">Created by you</p>}
@@ -145,7 +145,7 @@ export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,
     </div>
     <p className="mt-5 text-xs font-semibold uppercase text-gold">SDG MISSION CAMPAIGN</p>
     <Link href={'/fundraising/campaigns/'+c.id}><h3 className="mt-2 break-words text-[21px] font-bold leading-tight text-ink hover:underline">{c.title}</h3></Link>
-    <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin size={18}/>{place}</p>
+    <p className="mt-5 flex items-center gap-2 text-base text-muted">{!createdOnly&&<MapPin size={18}/>} {place}</p>
     <div className="mt-6 space-y-1">{sdg.map((n,i)=><p key={n} className={i===0?'text-sm text-ink':'text-sm text-muted'}>{sdgLabel(n)}</p>)}</div>
     <div className="mt-7 border-t border-line pt-8">
      <div className="flex flex-wrap items-baseline gap-3"><strong className="text-[27px] font-bold text-gold">{format(total.amount)}</strong><span className="text-sm text-muted">raised of {format(Number(c.goal_amount))}</span></div>
