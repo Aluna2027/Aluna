@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card, Placeholder } from '@/components/ui';
+import { iconColors } from '@/lib/icon-colors';
 import { UsersRound, Wifi, Target, HandCoins } from 'lucide-react';
 import { ProfileCommunityCards, ProfileMissionCards, ProfileFundraisingCards } from '@/components/profile-directory-cards';
 import { OrganizationPosts } from '@/components/organization-posts';
@@ -63,15 +64,15 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  :admins?.length?<p className="text-sm text-muted">This organization is already managed. Please contact its administrators to request an invitation.</p>
  :<details><summary className="cursor-pointer text-gold">Claim Organization</summary><p className="my-3 text-sm text-muted">Use a verified Aluna account with your official organization email address. Domain ownership or a manual authorization review is required before management access can be granted.</p><form action={claimOrganization}><input type="hidden" name="organization_id" value={id}/><button className="rounded-lg bg-gold px-4 py-2 font-semibold text-navy">Submit Claim Request</button></form></details>}
  </div></Card>
-<Card title="About"><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{scores.length>0&&<WbaScorePanel scores={scores}/>}
+<Card title="About" iconColor={iconColors.missions}><p className="whitespace-pre-wrap">{organization.description||'This organization has not added an introduction yet.'}</p></Card>{scores.length>0&&<WbaScorePanel scores={scores}/>}
  {canArchive&&<ArchiveOrganizationConfirmation><form action={removeOrganization} data-archive-organization data-organization-name={organization.name} className="flex justify-end"><input type="hidden" name="id" value={id}/><input type="hidden" name="return_to" value="profile"/><button type="submit" className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300">Archive organization</button></form></ArchiveOrganizationConfirmation>}
  </>:active==='Members'?<OrganizationMembers organizationId={id} isAdmin={isAdmin} managing={isManaging}/>
  :active==='Wi-Fi Mesh'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/communities/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><Wifi size={18}/>Create Wi-Fi Mesh Community</Link>}<ProfileCommunityCards actorId={actor.id} createdOnly page={pageNumber} paginationBase={`/organizations/${id}?tab=wi-fi-mesh${isManaging?'&manage=1':''}`}/></section>
  :active==='Missions'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/missions/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><Target size={18}/>Create SDG Mission</Link>}<ProfileMissionCards actorId={actor.id} createdOnly page={pageNumber} paginationBase={`/organizations/${id}?tab=missions${isManaging?'&manage=1':''}`}/></section>
  :active==='Fundraising'&&actor?<section className="space-y-4">{isManaging&&<Link href={`/fundraising/campaigns/new?organization=${id}`} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 font-semibold text-navy"><HandCoins size={18}/>Create Campaign</Link>}<ProfileFundraisingCards actorId={actor.id} createdOnly page={pageNumber} paginationBase={`/organizations/${id}?tab=fundraising${isManaging?'&manage=1':''}`}/></section>
  :active==='Posts'&&actor?<OrganizationPosts actorId={actor.id} name={organization.name} kind={organization.organization_type} isAdmin={isAdmin} organizationId={id}/>
- :active==='Connections'&&actor?<div className="space-y-5"><ActorSocial actorId={actor.id} section="Connections"/>{organization.organization_type==='company'&&<OrganizationRelationshipCards organizationId={id} isAdmin={isAdmin} managing={isManaging}/>}</div>
- :active==='Following'&&actor?<ActorSocial actorId={actor.id} section="Following"/>
+ :active==='Connections'&&actor?<div className="space-y-5"><ActorSocial actorId={actor.id} section="Connections" organizationView/>{organization.organization_type==='company'&&<OrganizationRelationshipCards organizationId={id} isAdmin={isAdmin} managing={isManaging}/>}</div>
+ :active==='Following'&&actor?<ActorSocial actorId={actor.id} section="Following" organizationView/>
  :active==='Impact'&&actor?<OrganizationImpact actorId={actor.id}/>
  :<Placeholder title={active} description={`${active} for ${organization.name} will appear here in a later phase.`}/>}
 
