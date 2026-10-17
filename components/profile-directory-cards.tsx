@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { CircleCheck, Heart, MapPin, RadioTower, UsersRound, Wallet, Wifi } from 'lucide-react';
+import { CircleCheck, Heart, MapPin, RadioTower, UsersRound, Wallet, Wifi, Target, HandCoins } from 'lucide-react';
+import { iconColors } from '@/lib/icon-colors';
 import { createClient } from '@/lib/supabase/server';
 import { ownedActors } from '@/lib/social';
 import { getCity } from '@/lib/cities';
@@ -10,9 +11,11 @@ import { campaignTotal, type Total } from '@/lib/fundraising';
 import { MissionParticipationControl } from '@/components/mission-participation-control';
 import { ReferralShare } from '@/components/referral-share';
 
-function SectionHeading({title,href,explore}:{title:string;href:string;explore:string}) {
+function SectionHeading({title,href,explore,icon}:{title:string;href:string;explore:string;icon?:'wifi'|'missions'|'fundraising'}) {
+ const Icon=icon==='wifi'?Wifi:icon==='missions'?Target:icon==='fundraising'?HandCoins:null;
+ const color=icon?iconColors[icon]:undefined;
  return <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-  <h2 className="text-xl font-bold text-ink">{title}</h2>
+  <h2 className="flex items-center gap-3 text-xl font-bold text-ink">{Icon&&<Icon size={24} color={color} aria-hidden="true"/>}{title}</h2>
   <Link href={href} className="text-sm font-medium text-gold hover:underline">{explore} →</Link>
  </div>;
 }
@@ -27,7 +30,7 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
  ?await client.from('mesh_communities').select('id,name,city_id,location_text,people_connected,nodes,places(name,country_code,source_key)').in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100)
  :{data:[],error:null};
  return <section>
-  <SectionHeading title="Wi-Fi Mesh Communities" href="/communities" explore="Explore Communities"/>
+  <SectionHeading title="Wi-Fi Mesh Communities" href="/communities" explore="Explore Communities" icon="wifi"/>
   {(membershipError||error)&&<p role="alert" className="text-red-300">Could not load communities.</p>}
   <div className="grid gap-4 md:grid-cols-2">{(items??[]).map(item=>{
    const place=item.places as unknown as {name:string;country_code:string;source_key:string}|null;
@@ -73,7 +76,7 @@ export async function ProfileMissionCards({actorId,createdOnly=false,page=0,pagi
  const {data:myParticipations}=myActorIds.length&&missionIds.length?await client.from('mission_participations')
   .select('mission_id,actor_id,participation_kind').in('mission_id',missionIds).in('actor_id',myActorIds).limit(2000):{data:[]};
  return <section>
-  <SectionHeading title="SDG Missions" href="/missions" explore="Explore Missions"/>
+  <SectionHeading title="SDG Missions" href="/missions" explore="Explore Missions" icon="missions"/>
   {error&&<p role="alert" className="text-red-300">Could not load missions.</p>}
   <div className="grid gap-4 md:grid-cols-2">{(items??[]).map(m=>{
    const place=m.places as unknown as {name:string;source_key:string}|null;
@@ -125,7 +128,7 @@ export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,
  }));
  const raised=new Map(totals);
  return <section>
-  <SectionHeading title="SDG Fundraising" href="/fundraising" explore="Explore Fundraising"/>
+  <SectionHeading title="SDG Fundraising" href="/fundraising" explore="Explore Fundraising" icon="fundraising"/>
   {error&&<p role="alert" className="text-red-300">Could not load fundraising.</p>}
   <div className="grid gap-4 md:grid-cols-2">{(items??[]).map(c=>{
    const sdg=sdgs.get(c.mission_id)??[];
