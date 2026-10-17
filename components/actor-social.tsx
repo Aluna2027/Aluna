@@ -8,8 +8,8 @@ import { ConnectionRequestActions } from '@/components/connection-request-action
 import { deletePost } from '@/app/(app)/feed/actions';
 
 type Section='Posts'|'Followers'|'Following'|'Connections';
-export async function ActorSocial({actorId,section}:{actorId:string;section:string}) {
- return section==='Posts'?<ActorPosts actorId={actorId}/>:['Followers','Following','Connections'].includes(section)?<ActorRelations actorId={actorId} section={section as Section}/>:null;
+export async function ActorSocial({actorId,section,organizationView=false}:{actorId:string;section:string;organizationView?:boolean}) {
+ return section==='Posts'?<ActorPosts actorId={actorId}/>:['Followers','Following','Connections'].includes(section)?<ActorRelations actorId={actorId} section={section as Section} organizationView={organizationView}/>:null;
 }
 export async function ActorSocialActions({actorId,profilePath}:{actorId:string;profilePath:string}) {
  const client=await createClient(),owned=await ownedActors();
@@ -46,7 +46,7 @@ async function ActorPosts({actorId}:{actorId:string}){
   <Link href={`/posts/${post.id}`} className="mt-3 inline-block text-sm text-gold hover:underline">View post →</Link>
  </article>;})}{!data?.length&&<p>No posts yet.</p>}</div></Card>;
 }
-async function ActorRelations({actorId,section}:{actorId:string;section:Section}){
+async function ActorRelations({actorId,section,organizationView=false}:{actorId:string;section:Section;organizationView?:boolean}){
  const client=await createClient();
  const owned=await ownedActors(),isOwn=owned.some(a=>a.id===actorId);
  if(section!=='Connections'){
@@ -65,8 +65,8 @@ async function ActorRelations({actorId,section}:{actorId:string;section:Section}
  const member=(id:string,showPosts=false)=>{const actor=names.get(id);return actor?<Link href={showPosts?`${actor.href}?tab=posts`:actor.href} className="font-medium text-gold hover:underline">{actor.name}</Link>:<span>Member</span>;};
  return <div className="space-y-5">
   <Card title={`My Connections (${accepted.length})`}><div className="space-y-3">{accepted.map(c=><div key={other(c)} className="flex items-center gap-2 rounded-xl border border-line p-3"><span aria-label="Connected" style={{color:"#26E7D4"}}>✓</span>{member(other(c),true)}</div>)}{!accepted.length&&<p>No connections yet.</p>}</div></Card>
-  {isOwn&&<Card title={`Connection requests (${incoming.length})`}><div className="space-y-3">{incoming.map(c=><div key={other(c)} className="space-y-3 rounded-xl border border-line bg-panel-raised p-4">{member(other(c))}<p className="text-sm text-muted">Wants to connect with you</p><ConnectionRequestActions actorId={actorId} actorA={c.actor_a} actorB={c.actor_b}/></div>)}{!incoming.length&&<p>No pending connection requests.</p>}</div></Card>}
-  {isOwn&&<Card title={`Sent requests (${sent.length})`}><div className="space-y-3">{sent.map(c=><div key={other(c)} className="rounded-xl border border-line p-3">{member(other(c))} <span className="text-xs text-muted">· Pending</span></div>)}{!sent.length&&<p>No sent requests pending.</p>}</div></Card>}
+  {isOwn&&<Card title={`Connection requests (${incoming.length})`} iconColor={organizationView?'#FB923C':undefined}><div className="space-y-3">{incoming.map(c=><div key={other(c)} className="space-y-3 rounded-xl border border-line bg-panel-raised p-4">{member(other(c))}<p className="text-sm text-muted">Wants to connect with you</p><ConnectionRequestActions actorId={actorId} actorA={c.actor_a} actorB={c.actor_b}/></div>)}{!incoming.length&&<p>No pending connection requests.</p>}</div></Card>}
+  {isOwn&&<Card title={`Sent requests (${sent.length})`} iconColor={organizationView?'#35F3FF':undefined}><div className="space-y-3">{sent.map(c=><div key={other(c)} className="rounded-xl border border-line p-3">{member(other(c))} <span className="text-xs text-muted">· Pending</span></div>)}{!sent.length&&<p>No sent requests pending.</p>}</div></Card>}
 
  </div>;
 }
