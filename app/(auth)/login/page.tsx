@@ -46,6 +46,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
 
       {params.status === 'password-updated' && <p role="status" className="mt-5 rounded-xl bg-panel-raised p-3 text-sm">Password updated. Please sign in again.</p>}
 
+      {params.error === 'suspended' && <p role="alert" className="mt-5 rounded-xl border border-red-700 p-3 text-sm text-red-300">This account is suspended. Contact Aluna support if you believe this is an error.</p>}
+
       <form action={signup?signUp:signIn} className="mt-8 space-y-4">
         <input type="hidden" name="next" value={params.next??''}/>
         <label className="block text-sm font-medium">Email<input required type="email" name="email" autoComplete="email" className="mt-2 w-full rounded-xl border border-line bg-panel p-3" /></label>
