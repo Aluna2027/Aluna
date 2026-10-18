@@ -24,6 +24,13 @@ export async function refreshSession(request: NextRequest) {
     if (safeAuthDestination(request.nextUrl.pathname)!=='/feed') url.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
+  // Auth.getUser() reads authoritative Auth user state, not merely local JWT claims.
+  // Avoid a login/feed redirect loop for suspended accounts.
+  if (user?.banned_until && new Date(user.banned_until).getTime() > Date.now()) {
+    if (request.nextUrl.pathname === '/login') return response;
+    const login = new URL('/login?error=suspended', request.url);
+    return NextResponse.redirect(login);
+  }
   if (user && request.nextUrl.pathname === '/login') {
     const next=request.nextUrl.searchParams.get('next')??'';
     const safeNext=safeAuthDestination(next);
