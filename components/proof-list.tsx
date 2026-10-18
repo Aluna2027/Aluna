@@ -3,7 +3,7 @@ import { Card } from '@/components/ui';
 import { verificationLevels } from '@/lib/proofs';
 import { createClient } from '@/lib/supabase/server';
 import { actorDetails } from '@/lib/social';
-export async function ProofList({actorId,missionId,communityId,contributionId,postId,iconColor}:{actorId?:string;missionId?:string;communityId?:string;contributionId?:string;postId?:string;iconColor?:string}){
+export async function ProofList({actorId,missionId,communityId,contributionId,postId,iconColor,titleIcon=false}:{actorId?:string;missionId?:string;communityId?:string;contributionId?:string;postId?:string;iconColor?:string;titleIcon?:boolean}){
  const client=await createClient();let query=client.from('proofs').select('id,actor_id,mission_id,contribution_id,verification_level,evidence_type,result_text,occurred_on').order('created_at',{ascending:false}).limit(30);
  if(actorId)query=query.eq('actor_id',actorId);if(missionId)query=query.eq('mission_id',missionId);if(contributionId)query=query.eq('contribution_id',contributionId);if(postId)query=query.eq('post_id',postId);
  if(communityId){const [{data:missions},{data:contributions}]=await Promise.all([client.from('missions').select('id').eq('community_id',communityId).limit(200),client.from('contributions').select('id').eq('community_id',communityId).limit(200)]);const missionIds=(missions??[]).map(m=>m.id);const contributionIds=(contributions??[]).map(c=>c.id);if(!missionIds.length&&!contributionIds.length)return <Card title="Proofs" iconColor={iconColor}><p>No proofs recorded here yet.</p></Card>;const filters=[missionIds.length&&`mission_id.in.(${missionIds.join(',')})`,contributionIds.length&&`contribution_id.in.(${contributionIds.join(',')})`].filter(Boolean).join(',');query=query.or(filters);}
