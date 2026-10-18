@@ -87,15 +87,13 @@ export async function createInvitation(form:FormData){
  const {error}=await db.from('organization_invitations').insert({organization_id:org,recipient_email:email,token_hash:tokenHash(token),invited_by:identity.user.id,expires_at:new Date(Date.now()+7*86400000).toISOString()});
  if(error)redirect(returnTo+'?error=invitation');
  async function markDeliveryFailure(reason:'email_config_missing'|'email_delivery_failed'|'resend_conflict'){
-  const {data:revoked,error:revokeError}=await db.from('organization_invitations')
-   .update({revoked_at:new Date().toISOString()}).eq('token_hash',tokenHash(token))
-   .is('revoked_at',null).is('redeemed_at',null).select('id').maybeSingle();
-  if(revokeError||!revoked)redirect(returnTo+'?error=invitation-revoke');
-  const {error:auditError}=await db.from('organization_access_audit').insert({
-   organization_id:org,actor_id:identity.user.id,action:'invitation_delivery_failed',
-   details:{invitation_id:revoked.id,reason}
+  const {data:invitation,error:lookupError}=await db.from('organization_invitations')
+   .select('id').eq('token_hash',tokenHash(token)).eq('organization_id',org).maybeSingle();
+  if(lookupError||!invitation)redirect(returnTo+'?error=invitation-revoke');
+  const {data:revokedOrg,error}=await db.rpc('aluna_audited_invitation_delivery_failure',{
+   p_invitation:invitation.id,p_actor:identity.user.id,p_reason:reason
   });
-  if(auditError)redirect(returnTo+'?error=audit');
+  if(error||revokedOrg!==org)redirect(returnTo+'?error=invitation-revoke');
  }
  const site=process.env.ALUNA_SITE_URL;
  const apiKey=process.env.RESEND_API_KEY,from=process.env.ALUNA_ORG_EMAIL_FROM;
