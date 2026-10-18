@@ -8,7 +8,7 @@ import { countryGroups } from '@/lib/countries';
 import { createMission } from '../actions';
 export default async function NewMission({searchParams}:{searchParams:Promise<{city?:string;community?:string;error?:string;organization?:string}>}) {
  const {city,community,error,organization}=await searchParams;const client=await createClient();const allActors=await ownedActors();const actors=organization?allActors.filter(a=>a.href===`/organizations/${organization}`):allActors;
- const {data:communities}=await client.from('mesh_communities').select('id,name,city_id,places(name,source_key)').order('name').limit(200);
+ const {data:communities}=await client.from('mesh_communities').select('id,name,city_id,places(name,source_key)').is('removed_at',null).order('name').limit(200);
  const sortedCities=[...cities].sort((a,b)=>a.name.localeCompare(b.name));
  return <div className="space-y-5"><Link href="/missions" className="text-sm text-gold">← SDG Missions</Link><Card title="Create SDG Mission"><form action={createMission} className="max-w-2xl space-y-5">{organization&&<input type="hidden" name="organization_id" value={organization}/>}{error&&<p role="alert" className="text-amber-300">Could not create the SDG Mission. Check dates, amounts and whether the community belongs to the selected city.</p>}
  <label className="block text-sm">City<select name="city" defaultValue={city??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"><option value="">Select a city</option>{sortedCities.map(c=><option key={c.id} value={c.id}>{c.name}, {c.country}</option>)}</select></label>
