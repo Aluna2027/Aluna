@@ -70,6 +70,10 @@ export async function createInvitation(form:FormData){
  const {data:member}=await identity.client.from('organization_members').select('member_role').eq('organization_id',org).eq('profile_id',identity.user.id).maybeSingle();
  if(!isSuper&&member?.member_role!=='admin')redirect('/organizations');
  const returnTo=String(form.get('return_to')??'')==='/aluna-admin/organization-access'&&isSuper?'/aluna-admin/organization-access':isSuper?'/aluna-admin':`/organizations/${org}/manage`;
+ const domain=email.split('@')[1]??'';
+ const personalEmailProviders=new Set(['gmail.com','googlemail.com','hotmail.com','hotmail.co.uk','outlook.com','live.com','msn.com','yahoo.com','yahoo.co.uk','icloud.com','me.com','aol.com','proton.me','protonmail.com']);
+ if(personalEmailProviders.has(domain)&&(!isSuper||form.get('personal_email_review_confirmed')!=='yes'))
+  redirect(returnTo+'?error=personal-email-review');
  const db=adminDb();
  const replacing=String(form.get('replace_invitation_id')??'');
  if(replacing){
