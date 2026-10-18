@@ -10,6 +10,7 @@ import { sdgLabel } from '@/lib/sdgs';
 import { campaignTotal, type Total } from '@/lib/fundraising';
 import { MissionParticipationControl } from '@/components/mission-participation-control';
 import { ReferralShare } from '@/components/referral-share';
+import { OrganizationCardMenu } from '@/components/organization-card-menu';
 
 function SectionHeading({title,href,explore,icon}:{title:string;href:string;explore:string;icon?:'wifi'|'missions'|'fundraising'}) {
  const Icon=icon==='wifi'?Wifi:icon==='missions'?Target:icon==='fundraising'?HandCoins:null;
@@ -21,7 +22,7 @@ function SectionHeading({title,href,explore,icon}:{title:string;href:string;expl
 }
 const card='relative flex h-full flex-col rounded-[18px] border border-line bg-panel p-[18px] text-ink';
 
-export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,paginationBase}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string}){
+export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
  const client=await createClient();
  const membershipQuery=client.from('mesh_community_members').select('community_id,member_role').eq('actor_id',actorId);
  const {data:memberships,error:membershipError}=await (createdOnly?membershipQuery.eq('member_role','steward').order('joined_at',{ascending:false}).range(page*20,page*20+19):membershipQuery.limit(100));
@@ -35,8 +36,8 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
   <div className="grid gap-4 md:grid-cols-2">{(items??[]).map(item=>{
    const place=item.places as unknown as {name:string;country_code:string;source_key:string}|null;
    const city=place?.source_key?getCity(place.source_key):null;
-   return <article key={item.id} className={card}>
-    <Link href={'/communities/'+item.id} className="group block min-w-0">
+   return <article key={item.id} className={card}>{manageOrganizationId&&<OrganizationCardMenu organizationId={manageOrganizationId} id={item.id} title={item.name} resource="community"/>}
+    <Link href={'/communities/'+item.id} className={manageOrganizationId?'group block min-w-0 pr-12':'group block min-w-0'}>
      <div className="flex items-center justify-between"><Wifi aria-hidden="true" size={24} className="text-[#26E7D4]"/><span className="text-xs uppercase text-muted">COMMUNITY</span></div>
      <h3 className="mt-7 break-words text-xl font-bold leading-snug text-ink group-hover:underline">{item.name}</h3>
      <p className="mt-6 flex items-center gap-2 text-base text-muted">{!createdOnly&&<MapPin size={18}/>} {city?.name||place?.name||'City'} · {city?.country||place?.country_code||'Country'}</p>
@@ -84,9 +85,9 @@ export async function ProfileMissionCards({actorId,createdOnly=false,page=0,pagi
    const where=m.manual_place&&m.manual_country?m.manual_place+', '+m.manual_country:city?city.name+', '+city.country:place?.name||m.location_text;
    const selected=sdgs.get(m.id)??[];
    const owned=myActorIds.includes(m.created_by_actor_id);
-   return <article key={m.id} className={card+' p-5 sm:p-6'}>
+   return <article key={m.id} className={card+' p-5 sm:p-6'}>{manageOrganizationId&&<OrganizationCardMenu organizationId={manageOrganizationId} id={m.id} title={m.title} resource="mission"/>}
     <Link href={'/missions/'+m.id} className="group block">
-     <div className="flex items-center justify-between gap-3">
+     <div className={manageOrganizationId?'flex items-center justify-between gap-3 pr-12':'flex items-center justify-between gap-3'}>
       <div className="flex items-center gap-3"><span className="flex size-14 items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={selected[0]??9} size={29}/></span><span className="text-xs uppercase text-muted">PRIMARY SDG · {selected[0]??'—'}</span></div>
       <div className="flex gap-2">{selected.slice(1,4).map(n=><span key={n} className="rounded-xl bg-panel-raised p-2"><DirectorySdgIcon number={n} size={23}/></span>)}</div>
      </div>
@@ -138,8 +139,8 @@ export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,
    const total=raised.get(c.id)??{amount:0,count:0};
    const pct=Number(c.goal_amount)>0?Math.min(100,Math.round(total.amount/Number(c.goal_amount)*100)):0;
    const format=(value:number)=>new Intl.NumberFormat('en',{style:'currency',currency:c.currency_code,maximumFractionDigits:0}).format(value);
-   return <article key={c.id} className={card}>
-    <div className="flex items-center justify-between gap-2">
+   return <article key={c.id} className={card}>{manageOrganizationId&&<OrganizationCardMenu organizationId={manageOrganizationId} id={c.id} title={c.title} resource="campaign"/>}
+    <div className={manageOrganizationId?'flex items-center justify-between gap-2 pr-12':'flex items-center justify-between gap-2'}>
      <span className="flex size-[54px] items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={sdg[0]??9} size={29}/></span>
      <div className="flex items-center gap-3">{sdg.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
     </div>
