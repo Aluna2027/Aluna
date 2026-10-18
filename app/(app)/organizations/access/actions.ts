@@ -57,7 +57,8 @@ export async function decideClaim(form:FormData){
  }else{
   const {data:rejected,error}=await db.from('organization_claim_requests').update({status:'rejected',decided_at:new Date().toISOString(),decided_by:identity.user.id}).eq('id',id).in('status',['needs_review','dns_pending']).select('id').maybeSingle();
   if(error||!rejected)redirect(returnTo+'?error=claim');
-  await db.from('organization_access_audit').insert({organization_id:claim.organization_id,actor_id:identity.user.id,subject_id:claim.requester_id,action:'claim_rejected'});
+  const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:claim.organization_id,actor_id:identity.user.id,subject_id:claim.requester_id,action:'claim_rejected'});
+  if(auditError)redirect(returnTo+'?error=audit');
  }
  revalidatePath(returnTo);
  revalidatePath('/organizations/'+claim.organization_id);
@@ -151,10 +152,11 @@ export async function revokeOrganizationInvitation(form:FormData){
   .update({revoked_at:new Date().toISOString()}).eq('id',id)
   .is('redeemed_at',null).is('revoked_at',null).select('id').maybeSingle();
  if(error||!changed)redirect(dest+'?error=invitation');
- await db.from('organization_access_audit').insert({
+ const {error:auditError}=await db.from('organization_access_audit').insert({
   organization_id:existing.organization_id,actor_id:identity.user.id,action:'invitation_revoked',
   details:{invitation_id:id}
  });
+ if(auditError)redirect(dest+'?error=audit');
  revalidatePath(dest);
  redirect(dest+'?status=invitation-revoked');
 }
