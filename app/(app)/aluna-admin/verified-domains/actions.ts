@@ -17,12 +17,8 @@ export async function requestDomainVerification(form:FormData){
  const {data:already,error:existingError}=await db.from('organization_verified_domains').select('organization_id').eq('domain',domain).limit(1);
  if(existingError||already?.length)redirect(dest+'?error=already-registered');
  const token=newToken();
- const {error}=await db.from('organization_domain_challenges').insert({
-  organization_id:org,domain,challenge_hash:tokenHash(token),requested_by:user.id,expires_at:new Date(Date.now()+24*3600000).toISOString()
- });
- if(error)redirect(dest+'?error=challenge');
- const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:org,actor_id:user.id,action:'domain_challenge_created',details:{domain}});
- if(auditError)redirect(dest+'?error=audit');
+ const {data:created,error}=await db.rpc('aluna_audited_create_domain_challenge',{p_org:org,p_domain:domain,p_hash:tokenHash(token),p_actor:user.id,p_expires:new Date(Date.now()+24*3600000).toISOString()});
+ if(error||!created)redirect(dest+'?error=challenge');
  // The one-time token is only shown at creation; only its hash is saved.
  // Display once via a short-lived secure, HTTP-only cookie, never via the URL.
  const jar=await cookies();
@@ -46,12 +42,8 @@ export async function verifyOrganizationDomain(form:FormData){
  if(!ok)redirect(dest+'?error=dns');
  const {data:existing}=await db.from('organization_verified_domains').select('organization_id').eq('domain',challenge.domain).limit(1);
  if(existing?.length)redirect(dest+'?error=already-registered');
- const {error:insertError}=await db.from('organization_verified_domains').insert({organization_id:challenge.organization_id,domain:challenge.domain,approved_by:user.id});
- if(insertError)redirect(dest+'?error=save');
- const {data:marked,error:markError}=await db.from('organization_domain_challenges').update({verified_at:new Date().toISOString()}).eq('id',challenge.id).is('verified_at',null).select('id').maybeSingle();
- if(markError||!marked)redirect(dest+'?error=challenge-update');
- const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:challenge.organization_id,actor_id:user.id,action:'domain_verified',details:{domain:challenge.domain}});
- if(auditError)redirect(dest+'?error=audit');
+ const {data:verified,error:verifyError}=await db.rpc('aluna_audited_verify_domain',{p_challenge:challenge.id,p_actor:user.id});
+ if(verifyError||verified!==challenge.domain)redirect(dest+'?error=save');
  revalidatePath(dest);
  redirect(dest+'?status=verified');
 }
@@ -59,10 +51,8 @@ export async function revokeVerifiedDomain(form:FormData){
  const org=String(form.get('organization_id')??''),domain=String(form.get('domain')??'').trim().toLowerCase(),reason=String(form.get('reason')??'').trim();
  if(!uuid.test(org)||!validDomain.test(domain)||reason.length<8||reason.length>500)redirect(dest+'?error=validation');
  const {user,db}=await requireAlunaSuperAdmin();
- const {data:deleted,error}=await db.from('organization_verified_domains').delete().eq('organization_id',org).eq('domain',domain).select('domain').maybeSingle();
- if(error||!deleted)redirect(dest+'?error=revoke');
- const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:org,actor_id:user.id,action:'domain_revoked',details:{domain,reason}});
- if(auditError)redirect(dest+'?error=audit');
+ const {data:revoked,error}=await db.rpc('aluna_audited_revoke_domain',{p_org:org,p_domain:domain,p_actor:user.id,p_reason:reason});
+ if(error||revoked!==domain)redirect(dest+'?error=revoke');
  revalidatePath(dest);
  redirect(dest+'?status=revoked');
 }
