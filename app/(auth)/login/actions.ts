@@ -18,6 +18,8 @@ export async function signIn(form: FormData) {
 export async function signUp(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
   const password = String(form.get('password') ?? '');
+  const confirmPassword = String(form.get('confirm_password') ?? '');
+  if(password!==confirmPassword) redirect('/login?mode=signup&error=password-mismatch');
 
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<12||password.length>128) {
     redirect('/login?mode=signup&error=validation');
