@@ -48,8 +48,10 @@ export async function verifyOrganizationDomain(form:FormData){
  if(existing?.length)redirect(dest+'?error=already-registered');
  const {error:insertError}=await db.from('organization_verified_domains').insert({organization_id:challenge.organization_id,domain:challenge.domain,approved_by:user.id});
  if(insertError)redirect(dest+'?error=save');
- await db.from('organization_domain_challenges').update({verified_at:new Date().toISOString()}).eq('id',challenge.id).is('verified_at',null);
- await db.from('organization_access_audit').insert({organization_id:challenge.organization_id,actor_id:user.id,action:'domain_verified',details:{domain:challenge.domain}});
+ const {data:marked,error:markError}=await db.from('organization_domain_challenges').update({verified_at:new Date().toISOString()}).eq('id',challenge.id).is('verified_at',null).select('id').maybeSingle();
+ if(markError||!marked)redirect(dest+'?error=challenge-update');
+ const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:challenge.organization_id,actor_id:user.id,action:'domain_verified',details:{domain:challenge.domain}});
+ if(auditError)redirect(dest+'?error=audit');
  revalidatePath(dest);
  redirect(dest+'?status=verified');
 }
@@ -59,7 +61,8 @@ export async function revokeVerifiedDomain(form:FormData){
  const {user,db}=await requireAlunaSuperAdmin();
  const {data:deleted,error}=await db.from('organization_verified_domains').delete().eq('organization_id',org).eq('domain',domain).select('domain').maybeSingle();
  if(error||!deleted)redirect(dest+'?error=revoke');
- await db.from('organization_access_audit').insert({organization_id:org,actor_id:user.id,action:'domain_revoked',details:{domain,reason}});
+ const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:org,actor_id:user.id,action:'domain_revoked',details:{domain,reason}});
+ if(auditError)redirect(dest+'?error=audit');
  revalidatePath(dest);
  redirect(dest+'?status=revoked');
 }
