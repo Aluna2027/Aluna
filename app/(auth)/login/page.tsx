@@ -9,6 +9,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
     ? 'Check your email and password.'
     : params.error === 'validation'
       ? 'Enter a valid email address and use a password of at least 12 characters.'
+      : params.error === 'password-mismatch'
+        ? 'Passwords do not match. Enter the same password twice.'
       : params.error === 'signup'
         ? 'Something went wrong while creating your account. Please try again.'
         : null;
@@ -52,6 +54,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <input type="hidden" name="next" value={params.next??''}/>
         <label className="block text-sm font-medium">Email<input required type="email" name="email" autoComplete="email" className="mt-2 w-full rounded-xl border border-line bg-panel p-3" /></label>
         <label className="block text-sm font-medium">Password<input required minLength={signup?12:6} maxLength={signup?128:undefined} type="password" name="password" autoComplete={signup?'new-password':'current-password'} className="mt-2 w-full rounded-xl border border-line bg-input p-3" />{signup && <span className="mt-2 block text-xs text-muted">Use at least 12 characters.</span>}</label>
+        {signup&&<label className="block text-sm font-medium">Confirm password<input required type="password" name="confirm_password" autoComplete="new-password" minLength={12} maxLength={128} className="mt-2 w-full rounded-xl border border-line bg-input p-3" /></label>}
         <SubmitButton signup={signup}/>
       </form>
 
