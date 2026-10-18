@@ -2,6 +2,7 @@
 import {redirect} from 'next/navigation';
 import {revalidatePath} from 'next/cache';
 import {resolveTxt} from 'node:dns/promises';
+import {cookies} from 'next/headers';
 import {requireAlunaSuperAdmin} from '@/lib/aluna-admin';
 import {newToken,tokenHash} from '@/lib/org-access';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,8 +24,13 @@ export async function requestDomainVerification(form:FormData){
  const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:org,actor_id:user.id,action:'domain_challenge_created',details:{domain}});
  if(auditError)redirect(dest+'?error=audit');
  // The one-time token is only shown at creation; only its hash is saved.
+ // Display once via a short-lived secure, HTTP-only cookie, never via the URL.
+ const jar=await cookies();
+ jar.set('aluna-domain-challenge-preview',JSON.stringify({domain,token}),{
+  httpOnly:true,secure:true,sameSite:'strict',path:dest,maxAge:300
+ });
  revalidatePath(dest);
- redirect(dest+'?status=challenge-created&domain='+encodeURIComponent(domain)+'&token='+token);
+ redirect(dest+'?status=challenge-created');
 }
 export async function verifyOrganizationDomain(form:FormData){
  const id=String(form.get('challenge_id')??'');
