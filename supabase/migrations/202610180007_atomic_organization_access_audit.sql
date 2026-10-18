@@ -1,4 +1,9 @@
 -- PR33: atomic audited organization access mutations; service-role RPC only.
+-- Keep repository migrations aligned with the verified Demo-only unique domain index.
+create unique index if not exists organization_verified_domains_unique_domain
+on public.organization_verified_domains(domain);
+
+
 create or replace function public.aluna_audited_reject_claim(p_claim uuid,p_actor uuid)
 returns uuid language plpgsql security invoker set search_path='' as $$
 declare v_org uuid; v_subject uuid;
