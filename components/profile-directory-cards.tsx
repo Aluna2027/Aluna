@@ -109,16 +109,26 @@ export async function ProfileMissionCards({actorId,createdOnly=false,page=0,pagi
  </section>;
 }
 
-export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
+export async function ProfileFundraisingCards({actorId='',communityId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId?:string;communityId?:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
  const client=await createClient();
- const [{data:created},{data:fundraisers}]=await Promise.all([
-  createdOnly?client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
-  createdOnly?Promise.resolve({data:[]}):client.from('fundraisers').select('campaign_id').eq('actor_id',actorId).limit(100)
- ]);
+ // A community can contain missions and campaigns from several organizations.
+ // Reuse the same cards; scope the source query through the canonical mission FK.
+ const [{data:created},{data:fundraisers}]=communityId
+  ?[{data:[]},{data:[]}]
+  :await Promise.all([
+   createdOnly?client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
+   createdOnly?Promise.resolve({data:[]}):client.from('fundraisers').select('campaign_id').eq('actor_id',actorId).limit(100)
+  ]);
  const ids=[...new Set([...(created??[]).map(c=>c.id),...(fundraisers??[]).map(f=>f.campaign_id)])];
- const {data:items,error}=ids.length?await client.from('fundraising_campaigns')
-  .select('id,title,mission_id,goal_amount,currency_code,missions(title,manual_place,manual_country,places(name,source_key))')
-  .in('id',ids).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
+ const {data:items,error}=communityId
+  ?await client.from('fundraising_campaigns')
+   .select('id,title,mission_id,goal_amount,currency_code,missions!inner(title,manual_place,manual_country,places(name,source_key))')
+   .eq('missions.community_id',communityId).is('missions.removed_at',null)
+   .is('removed_at',null).is('archived_at',null)
+   .order('created_at',{ascending:false}).range(page*20,page*20+19)
+  :ids.length?await client.from('fundraising_campaigns')
+   .select('id,title,mission_id,goal_amount,currency_code,missions(title,manual_place,manual_country,places(name,source_key))')
+   .in('id',ids).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
  const missionIds=[...new Set((items??[]).map(c=>c.mission_id))];
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
  const sdgs=new Map<string,number[]>();
@@ -162,7 +172,7 @@ export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,
     </div>
    </article>;
   })}</div>
-  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No fundraising campaigns connected to this profile yet.</p>}
-  {createdOnly&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{created?.length===20&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
+  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">{communityId?'No fundraising campaigns linked to this Wi-Fi Mesh Community yet.':'No fundraising campaigns connected to this profile yet.'}</p>}
+  {(createdOnly||Boolean(communityId))&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{(communityId?items?.length===20:created?.length===20)&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
  </section>;
 }
