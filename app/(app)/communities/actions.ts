@@ -12,6 +12,7 @@ export async function createCommunity(form:FormData) {
  const {data:city}=await client.from('places').select('id').eq('source_key',citySource).maybeSingle();if(!city)redirect('/communities/new?error=city');
  const {data:id,error}=await client.rpc('create_mesh_community',{p_city:city.id,p_name:name,p_location:location,p_actor:actor,p_description:description||null});
  if(error||!id)redirect('/communities/new?error=save');
+ const org=String(form.get('organization_id')??'');if(org&&/^[0-9a-f-]{36}$/i.test(org)){const {data:owner}=await client.from('actors').select('organization_id').eq('id',actor).maybeSingle();if(owner?.organization_id===org){revalidatePath(`/organizations/${org}`);redirect(`/organizations/${org}?tab=wi-fi-mesh&manage=1`);}}
  revalidatePath('/communities');revalidatePath(`/cities/${citySource}`);redirect(`/communities/${id}`);
 }
 function optionalCount(form:FormData,key:string){const text=String(form.get(key)??'').trim();if(!text)return null;const count=Number(text);if(!Number.isSafeInteger(count)||count<0||count>2_147_483_647)throw new Error('Invalid count');return count;}

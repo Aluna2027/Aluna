@@ -24,7 +24,8 @@ export async function createMission(form:FormData) {
  const community=String(form.get('community_id')??'')||null,actor=String(form.get('actor_id')??'');
  if(community&&!city)redirect('/missions/new?error=community');
  const {data:id,error}=await client.rpc('create_mission_v3',{p_city:city?.id??null,p_manual_place:manualPlace||null,p_manual_country:manualCountry||null,p_community:community,p_actor:actor,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
- if(error||!id)redirect('/missions/new?error=save');revalidatePath('/missions');redirect(`/missions/${id}`);
+ if(error||!id)redirect('/missions/new?error=save');const org=String(form.get('organization_id')??'');if(org&&/^[0-9a-f-]{36}$/i.test(org)){const {data:owner}=await client.from('actors').select('organization_id').eq('id',actor).maybeSingle();if(owner?.organization_id===org){revalidatePath(`/organizations/${org}`);revalidatePath('/missions');redirect(`/organizations/${org}?tab=missions&manage=1`);}}
+ revalidatePath('/missions');redirect(`/missions/${id}`);
 }
 export async function updateMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');

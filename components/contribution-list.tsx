@@ -4,10 +4,10 @@ import { actorDetails } from '@/lib/social';
 import { contributionLabel, type Contribution } from '@/lib/contributions';
 import { Card } from '@/components/ui';
 
-export async function ContributionList({actorId,missionId,communityId,cityKey,page=0}:{actorId?:string;missionId?:string;communityId?:string;cityKey?:string;page?:number}) {
+export async function ContributionList({actorId,missionId,communityId,cityKey,page=0,iconColor}:{actorId?:string;missionId?:string;communityId?:string;cityKey?:string;page?:number;iconColor?:string}) {
  const client=await createClient();
  let cityId:string|undefined;
- if(cityKey){const {data}=await client.from('places').select('id').eq('source_key',cityKey).maybeSingle();if(!data)return <Card title="Contributions"><p>City unavailable.</p></Card>;cityId=data.id;}
+ if(cityKey){const {data}=await client.from('places').select('id').eq('source_key',cityKey).maybeSingle();if(!data)return <Card title="Contributions" iconColor={iconColor}><p>City unavailable.</p></Card>;cityId=data.id;}
  let query=client.from('contributions').select('id,actor_id,contribution_type,title,description,contributed_on,created_at,mission_id,community_id,city_id,places(name,source_key),missions(title),mesh_communities(name)').order('created_at',{ascending:false}).order('id',{ascending:false}).range(page*20,page*20+19);
  if(actorId)query=query.eq('actor_id',actorId);
  if(missionId)query=query.eq('mission_id',missionId);

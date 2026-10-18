@@ -1,5 +1,6 @@
 import { MapPin, UserRoundPlus, HandCoins, Heart, BookOpen, Target, ChartNoAxesColumnIncreasing, Pencil, UserRound } from 'lucide-react';
 import { DetailPageHeader, DetailSectionCard, DetailSdgIcons, DetailSdgRows, featuredSdg } from '@/components/detail-design-elements';
+import { iconColors } from '@/lib/icon-colors';
 import { MissionParticipationControl } from '@/components/mission-participation-control';
 import { ContributionList } from '@/components/contribution-list';
 import { ProofList } from '@/components/proof-list';
@@ -67,10 +68,10 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
   </div>
  </header>
  <div className="grid gap-4 sm:grid-cols-2">
-  <DetailSectionCard title="OVERVIEW" icon={<BookOpen size={24} color="#8A4DFF"/>}><p className="whitespace-pre-wrap">{mission.overview}</p></DetailSectionCard>
-  <DetailSectionCard title="GOAL" icon={<Target size={24} color="#FFC43D"/>}><p className="whitespace-pre-wrap">{mission.goal}</p></DetailSectionCard>
-  <DetailSectionCard title="WHERE" icon={<MapPin size={24} color="#26E7D4"/>}><p>{manualPlace||(city?city.name+', '+city.country:mission.location_text)}</p>{city&&<Link href={'/cities/'+city.id+'?tab=missions'} className="mt-3 block text-base text-gold">View city →</Link>}{mission.community_id&&<Link href={'/communities/'+mission.community_id+'?tab=missions'} className="mt-3 block text-base text-gold">Linked Wi-Fi Mesh Community →</Link>}</DetailSectionCard>
-  <DetailSectionCard title="AT A GLANCE" icon={<ChartNoAxesColumnIncreasing size={24} color="#FF4FD8"/>}><div className="space-y-3 text-base"><div className="flex justify-between gap-2"><span>Timeline</span><span className="text-right text-ink">{mission.starts_on&&mission.ends_on?mission.starts_on+' – '+mission.ends_on:mission.starts_on||mission.ends_on||'Not set'}</span></div><div className="flex justify-between gap-2"><span>Budget</span><span className="text-right text-ink">{money(mission.budget_amount,mission.currency_code)}</span></div><div className="flex justify-between gap-2"><span>Funding goal</span><span className="text-right text-gold">{money(mission.funding_goal_amount,mission.currency_code)}</span></div></div></DetailSectionCard>
+  <DetailSectionCard title="OVERVIEW" icon={<BookOpen size={24} color={iconColors.profile}/>}><p className="whitespace-pre-wrap">{mission.overview}</p></DetailSectionCard>
+  <DetailSectionCard title="GOAL" icon={<Target size={24} color={iconColors.missions}/>}><p className="whitespace-pre-wrap">{mission.goal}</p></DetailSectionCard>
+  <DetailSectionCard title="WHERE" icon={<MapPin size={24} color={iconColors.wifi}/>}><p>{manualPlace||(city?city.name+', '+city.country:mission.location_text)}</p>{city&&<Link href={'/cities/'+city.id+'?tab=missions'} className="mt-3 block text-base text-gold">View city →</Link>}{mission.community_id&&<Link href={'/communities/'+mission.community_id+'?tab=missions'} className="mt-3 block text-base text-gold">Linked Wi-Fi Mesh Community →</Link>}</DetailSectionCard>
+  <DetailSectionCard title="AT A GLANCE" icon={<ChartNoAxesColumnIncreasing size={24} color={iconColors.connections}/>}><div className="space-y-3 text-base"><div className="flex justify-between gap-2"><span>Timeline</span><span className="text-right text-ink">{mission.starts_on&&mission.ends_on?mission.starts_on+' – '+mission.ends_on:mission.starts_on||mission.ends_on||'Not set'}</span></div><div className="flex justify-between gap-2"><span>Budget</span><span className="text-right text-ink">{money(mission.budget_amount,mission.currency_code)}</span></div><div className="flex justify-between gap-2"><span>Funding goal</span><span className="text-right text-gold">{money(mission.funding_goal_amount,mission.currency_code)}</span></div></div></DetailSectionCard>
  </div></>}
  {active==='Location'&&<Card title="Location"><p>{mission.location_text}</p>{city&&<Link href={`/cities/${city.id}`} className="mt-3 block text-gold">{city.name}, {city.country} →</Link>}{manualPlace&&<p className="mt-3 text-gold">{manualPlace}</p>}{mission.community_id&&<Link href={`/communities/${mission.community_id}`} className="mt-2 block text-gold">Wi-Fi Mesh Community: {mission.mesh_communities?.name} →</Link>}</Card>}
  {active==='Goal'&&<Card title="Goal"><p className="whitespace-pre-wrap">{mission.goal}</p></Card>}
