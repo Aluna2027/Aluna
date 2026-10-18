@@ -7,6 +7,8 @@ export default async function AppLayout({ children }: {children:React.ReactNode}
   const client = await createClient();
   const { data: { user } } = await client.auth.getUser();
   if (!user) redirect('/login');
+  // Reject suspended users on authenticated application page requests.
+  if (user.banned_until && new Date(user.banned_until).getTime()>Date.now()) redirect('/login?error=suspended');
 
   const { data: profile } = await client
     .from('profiles')
