@@ -92,6 +92,14 @@ export async function joinMissionFromDirectory(form:FormData){
  redirect('/missions?view=participating&status=joined');
 }
 
+function missionParticipationReturn(form:FormData,id:string){
+ const detail=`/missions/${id}?tab=overview`;
+ return String(form.get('return_to')??'')===detail?detail:'/missions';
+}
+function missionParticipationResult(base:string,result:string){
+ return `${base}${base.includes('?')?'&':'?'}${result}`;
+}
+
 const directoryMissionUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Replace only this owned actor's selection; never touch another actor's participation. */
@@ -99,33 +107,35 @@ export async function saveMissionParticipationFromDirectory(form:FormData){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
  const kinds=[...new Set(form.getAll('participation_kind').map(v=>String(v)))];
- if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor)||!kinds.length||kinds.some(k=>!participationOptions.some(o=>o.value===k)))redirect('/missions?error=participation');
- const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect('/missions?error=participation');
+ const destination=missionParticipationReturn(form,id);
+ if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor)||!kinds.length||kinds.some(k=>!participationOptions.some(o=>o.value===k)))redirect(missionParticipationResult(destination,'error=participation'));
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect(missionParticipationResult(destination,'error=participation'));
  const {data:mission,error:missionError}=await client.from('missions').select('id').eq('id',id).is('removed_at',null).maybeSingle();
- if(missionError||!mission)redirect('/missions?error=participation');
+ if(missionError||!mission)redirect(missionParticipationResult(destination,'error=participation'));
  const {data:existing,error:loadError}=await client.from('mission_participations').select('participation_kind').eq('mission_id',id).eq('actor_id',actor);
- if(loadError)redirect('/missions?error=participation');
+ if(loadError)redirect(missionParticipationResult(destination,'error=participation'));
  const prior=new Set((existing??[]).map(p=>p.participation_kind));
  const toAdd=kinds.filter(k=>!prior.has(k)),toRemove=[...prior].filter(k=>!kinds.includes(k));
  if(toAdd.length){
   const {error}=await client.from('mission_participations').insert(toAdd.map(participation_kind=>({mission_id:id,actor_id:actor,participation_kind})));
-  if(error)redirect('/missions?error=participation');
+  if(error)redirect(missionParticipationResult(destination,'error=participation'));
  }
  if(toRemove.length){
   const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor).in('participation_kind',toRemove);
-  if(error)redirect('/missions?error=participation');
+  if(error)redirect(missionParticipationResult(destination,'error=participation'));
  }
  revalidatePath('/missions');revalidatePath(`/missions/${id}`);
- redirect('/missions?status=joined');
+ redirect(missionParticipationResult(destination,'status=joined'));
 }
 
 export async function leaveMissionFromDirectory(form:FormData){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('mission_id')??''),actor=String(form.get('actor_id')??'');
- if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor))redirect('/missions?error=leave');
- const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect('/missions?error=leave');
+ const destination=missionParticipationReturn(form,id);
+ if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor))redirect(missionParticipationResult(destination,'error=leave'));
+ const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect(missionParticipationResult(destination,'error=leave'));
  const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor);
- if(error)redirect('/missions?error=leave');
+ if(error)redirect(missionParticipationResult(destination,'error=leave'));
  revalidatePath('/missions');revalidatePath(`/missions/${id}`);
- redirect('/missions?status=left');
+ redirect(missionParticipationResult(destination,'status=left'));
 }
