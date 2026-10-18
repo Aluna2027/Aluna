@@ -16,13 +16,14 @@ export default async function OrganizationAccessAdmin({searchParams}:{searchPara
  const [{data:claims,error:claimsError},{data:invitations,error:invitesError},{data:audit,error:auditError}] = await Promise.all([
   db.from('organization_claim_requests').select('id,organization_id,requester_id,requester_email,domain,status,created_at').in('status',['needs_review','dns_pending']).order('created_at',{ascending:true}).limit(100),
   db.from('organization_invitations').select('id,organization_id,recipient_email,created_at,expires_at,redeemed_at,revoked_at').order('created_at',{ascending:false}).limit(30),
-  db.from('organization_access_audit').select('id,organization_id,action,occurred_at').order('occurred_at',{ascending:false}).limit(30)
+  db.from('organization_access_audit').select('id,organization_id,action,occurred_at,details').order('occurred_at',{ascending:false}).limit(30)
  ]);
  const organizationIds=[...new Set([...(claims??[]).map(c=>c.organization_id),...(invitations??[]).map(i=>i.organization_id),...(audit??[]).map(a=>a.organization_id)])];
  const {data:organizations,error:orgError}=organizationIds.length
   ?await db.from('organizations').select('id,name,removed_at').in('id',organizationIds)
   :{data:[],error:null};
  const orgNames=new Map((organizations??[]).map(o=>[o.id,o.name]));
+ const deliveryFailures=new Set((audit??[]).filter(a=>a.action==='invitation_delivery_failed').map(a=>String((a.details as {invitation_id?:string}|null)?.invitation_id??'')));
  const blocked=!!claimsError||!!invitesError||!!auditError||!!orgError;
  return <div className="space-y-6">
   <header><p className="deck-label">ALUNA GLOBAL NETWORK · RESTRICTED</p><Link href="/aluna-admin" className="text-sm text-gold">← Aluna Administration</Link><h1 className="mt-3 text-3xl font-bold">Organization Access</h1><p className="mt-2 text-muted">Claim exceptions, verified-email invitations and audit history. Super Admin only.</p></header>
@@ -50,7 +51,7 @@ export default async function OrganizationAccessAdmin({searchParams}:{searchPara
     <label className="text-sm">Representative email<input name="email" type="email" required maxLength={254} placeholder="representative@organization.org" className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
     <button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy sm:col-span-2">Send invitation</button>
    </form></Card>
-   <Card title="Recent Invitations"><div className="space-y-2">{(invitations??[]).map(inv=><div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-2 text-sm"><p>{orgNames.get(inv.organization_id)??'Organization'} · {inv.recipient_email} · {inv.revoked_at?'Revoked':inv.redeemed_at?'Accepted':new Date(inv.expires_at)<new Date()?'Expired':'Pending'}</p>{!inv.revoked_at&&!inv.redeemed_at&&new Date(inv.expires_at)>new Date()&&<><form action={resendOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-gold px-3 py-2 text-gold">Resend</button></form><form action={revokeOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-red-700 px-3 py-2 text-red-300">Revoke</button></form></>}</div>)}{!invitations?.length&&<p>No invitations sent.</p>}</div></Card>
+   <Card title="Recent Invitations"><div className="space-y-2">{(invitations??[]).map(inv=><div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-2 text-sm"><p>{orgNames.get(inv.organization_id)??'Organization'} · {inv.recipient_email} · {inv.revoked_at?(deliveryFailures.has(inv.id)?'Delivery Failed':'Revoked'):inv.redeemed_at?'Accepted':new Date(inv.expires_at)<new Date()?'Expired':'Pending'}</p>{!inv.revoked_at&&!inv.redeemed_at&&new Date(inv.expires_at)>new Date()&&<><form action={resendOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-gold px-3 py-2 text-gold">Resend</button></form><form action={revokeOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-red-700 px-3 py-2 text-red-300">Revoke</button></form></>}</div>)}{!invitations?.length&&<p>No invitations sent.</p>}</div></Card>
    <Card title="Organization Access Audit"><div className="space-y-2">{(audit??[]).map(entry=><p className="border-b border-line py-2 text-sm" key={entry.id}>{orgNames.get(entry.organization_id)??'Organization'} · {entry.action} · {new Date(entry.occurred_at).toLocaleString('en-GB')}</p>)}{!audit?.length&&<p>No access decisions recorded.</p>}</div></Card>
   </>}
  </div>;
