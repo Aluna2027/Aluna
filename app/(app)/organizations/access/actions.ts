@@ -55,10 +55,8 @@ export async function decideClaim(form:FormData){
   const {data,error}=await db.rpc('approve_first_organization_claim',{p_claim:id,p_actor:identity.user.id});
   if(error||!data)redirect(returnTo+'?error=claim');
  }else{
-  const {data:rejected,error}=await db.from('organization_claim_requests').update({status:'rejected',decided_at:new Date().toISOString(),decided_by:identity.user.id}).eq('id',id).in('status',['needs_review','dns_pending']).select('id').maybeSingle();
-  if(error||!rejected)redirect(returnTo+'?error=claim');
-  const {error:auditError}=await db.from('organization_access_audit').insert({organization_id:claim.organization_id,actor_id:identity.user.id,subject_id:claim.requester_id,action:'claim_rejected'});
-  if(auditError)redirect(returnTo+'?error=audit');
+  const {data:rejectedOrg,error}=await db.rpc('aluna_audited_reject_claim',{p_claim:id,p_actor:identity.user.id});
+  if(error||rejectedOrg!==claim.organization_id)redirect(returnTo+'?error=claim');
  }
  revalidatePath(returnTo);
  revalidatePath('/organizations/'+claim.organization_id);
@@ -148,15 +146,8 @@ export async function revokeOrganizationInvitation(form:FormData){
  const {data:existing,error:lookupError}=await db.from('organization_invitations')
   .select('id,organization_id,redeemed_at,revoked_at').eq('id',id).maybeSingle();
  if(lookupError||!existing||existing.redeemed_at||existing.revoked_at)redirect(dest+'?error=invitation');
- const {data:changed,error}=await db.from('organization_invitations')
-  .update({revoked_at:new Date().toISOString()}).eq('id',id)
-  .is('redeemed_at',null).is('revoked_at',null).select('id').maybeSingle();
- if(error||!changed)redirect(dest+'?error=invitation');
- const {error:auditError}=await db.from('organization_access_audit').insert({
-  organization_id:existing.organization_id,actor_id:identity.user.id,action:'invitation_revoked',
-  details:{invitation_id:id}
- });
- if(auditError)redirect(dest+'?error=audit');
+ const {data:revokedOrg,error}=await db.rpc('aluna_audited_revoke_invitation',{p_invitation:id,p_actor:identity.user.id});
+ if(error||revokedOrg!==existing.organization_id)redirect(dest+'?error=invitation');
  revalidatePath(dest);
  redirect(dest+'?status=invitation-revoked');
 }
