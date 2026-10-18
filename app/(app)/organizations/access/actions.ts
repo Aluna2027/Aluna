@@ -87,6 +87,7 @@ export async function createInvitation(form:FormData){
  }
  const {data:organization}=await db.from('organizations').select('id').eq('id',org).is('removed_at',null).maybeSingle();
  if(!organization)redirect(returnTo+'?error=organization');
+ const actorId=identity.user.id;
  const token=newToken();
  const {error}=await db.from('organization_invitations').insert({organization_id:org,recipient_email:email,token_hash:tokenHash(token),invited_by:identity.user.id,expires_at:new Date(Date.now()+7*86400000).toISOString()});
  if(error)redirect(returnTo+'?error=invitation');
@@ -95,7 +96,7 @@ export async function createInvitation(form:FormData){
    .select('id').eq('token_hash',tokenHash(token)).eq('organization_id',org).maybeSingle();
   if(lookupError||!invitation)redirect(returnTo+'?error=invitation-revoke');
   const {data:revokedOrg,error}=await db.rpc('aluna_audited_invitation_delivery_failure',{
-   p_invitation:invitation.id,p_actor:identity.user.id,p_reason:reason
+   p_invitation:invitation.id,p_actor:actorId,p_reason:reason
   });
   if(error||revokedOrg!==org)redirect(returnTo+'?error=invitation-revoke');
  }
