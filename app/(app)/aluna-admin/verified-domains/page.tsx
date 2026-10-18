@@ -14,7 +14,7 @@ export default async function VerifiedDomains({searchParams}:{searchParams:Promi
  const {data:orgs,error:orgError}=ids.length?await db.from('organizations').select('id,name').in('id',ids):{data:[],error:null};
  const names=new Map((orgs??[]).map(o=>[o.id,o.name]));
  const blocked=!!error||!!challengesError||!!orgError;
- return <div className="space-y-5"><Link href="/aluna-admin" className="text-gold">← Aluna Administration</Link><h1 className="text-3xl font-bold">Verified Domains</h1><p className="text-muted">Only verify domains after confirming the organization's authority and a live DNS TXT proof. The 3,248-organization website enrichment project remains separate.</p>
+ return <div className="space-y-5"><Link href="/aluna-admin" className="text-gold">← Aluna Administration</Link><h1 className="text-3xl font-bold">Verified Domains</h1><p className="text-muted">Only verify domains after confirming the organization&apos;s authority and a live DNS TXT proof. The 3,248-organization website enrichment project remains separate.</p>
  {params.status&&<p role="status" className="text-gold">Domain action: {params.status}</p>}{params.error&&<p role="alert" className="text-red-300">Domain action failed: {params.error}</p>}
  {params.token&&params.domain&&<Card title="New DNS verification challenge"><p>Publish a TXT record at <strong>{'_aluna-verify.'+params.domain}</strong> with the exact value below. The challenge expires after 24 hours. Store the token securely; it is not displayed again.</p><code className="mt-3 block break-all rounded-lg border border-line p-3">{'aluna-verify='+params.token}</code></Card>}
  {blocked?<p role="alert" className="text-red-300">Cannot load domain records; management actions are unavailable.</p>:<>
