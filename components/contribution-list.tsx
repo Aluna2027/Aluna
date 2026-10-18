@@ -4,7 +4,7 @@ import { actorDetails } from '@/lib/social';
 import { contributionLabel, type Contribution } from '@/lib/contributions';
 import { Card } from '@/components/ui';
 
-export async function ContributionList({actorId,missionId,communityId,cityKey,page=0,iconColor}:{actorId?:string;missionId?:string;communityId?:string;cityKey?:string;page?:number;iconColor?:string}) {
+export async function ContributionList({actorId,missionId,communityId,cityKey,page=0,iconColor,titleIcon=false}:{actorId?:string;missionId?:string;communityId?:string;cityKey?:string;page?:number;iconColor?:string;titleIcon?:boolean}) {
  const client=await createClient();
  let cityId:string|undefined;
  if(cityKey){const {data}=await client.from('places').select('id').eq('source_key',cityKey).maybeSingle();if(!data)return <Card title="Contributions" iconColor={iconColor}><p>City unavailable.</p></Card>;cityId=data.id;}
