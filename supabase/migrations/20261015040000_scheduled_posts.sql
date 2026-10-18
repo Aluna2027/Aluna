@@ -35,9 +35,9 @@ language plpgsql set search_path='' as $$
 begin
  if tg_op='INSERT' or (tg_op='UPDATE' and
    (new.scheduled_for is distinct from old.scheduled_for or new.status='pending' and old.status='draft')) then
-  if new.scheduled_for <= now()+interval '2 minutes'
+  if new.scheduled_for <= now()+interval '30 seconds'
    or new.scheduled_for > now()+interval '365 days' then
-   raise exception 'Choose a future date at least two minutes away (maximum one year)';
+   raise exception 'Choose a future date at least thirty seconds away (maximum one year)';
   end if;
  end if;
  if (tg_op='INSERT' or new.media_path is distinct from old.media_path)
@@ -82,7 +82,7 @@ begin
  if not found or not public.can_act_as(v_row.actor_id) then raise exception 'Not permitted'; end if;
  if v_row.status='pending' then return true; end if;
  if v_row.status<>'draft' then raise exception 'Cannot activate this post'; end if;
- if v_row.scheduled_for<=now()+interval '2 minutes' then
+ if v_row.scheduled_for<=now()+interval '30 seconds' then
    raise exception 'Scheduled time is too close; choose a later time';
  end if;
  update public.scheduled_posts set status='pending',updated_at=now() where id=p_id;
