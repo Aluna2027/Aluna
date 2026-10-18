@@ -58,14 +58,14 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
  </section>;
 }
 
-export async function ProfileMissionCards({actorId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
+export async function ProfileMissionCards({actorId='',communityId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId?:string;communityId?:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
  const client=await createClient();
- const [{data:created},{data:joined}]=await Promise.all([
+ const [{data:created},{data:joined}]=communityId?[{data:[]},{data:[]}]:await Promise.all([
   createdOnly?client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).limit(100),
   createdOnly?Promise.resolve({data:[]}):client.from('mission_participations').select('mission_id').eq('actor_id',actorId).limit(100)
  ]);
  const ids=[...new Set([...(created??[]).map(m=>m.id),...(joined??[]).map(m=>m.mission_id)])];
- const {data:items,error}=ids.length?await client.from('missions')
+ const {data:items,error}=communityId?await client.from('missions').select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,places(name,source_key)').eq('community_id',communityId).is('removed_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):ids.length?await client.from('missions')
   .select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,places(name,source_key)')
   .in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
  const missionIds=(items??[]).map(m=>m.id);
@@ -104,8 +104,8 @@ export async function ProfileMissionCards({actorId,createdOnly=false,page=0,pagi
     </div>
    </article>;
   })}</div>
-  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">No SDG Missions connected to this profile yet.</p>}
-  {createdOnly&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{created?.length===20&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
+  {!error&&!items?.length&&<p className="glass rounded-2xl p-6 text-muted">{communityId?'No missions linked to this community yet.':'No SDG Missions connected to this profile yet.'}</p>}
+  {(createdOnly||Boolean(communityId))&&paginationBase&&<div className="mt-5 flex items-center justify-between text-sm">{page>0?<Link href={`${paginationBase}&page=${page-1}`} className="text-gold">← Previous</Link>:<span/>}{(communityId?items?.length===20:created?.length===20)&&<Link href={`${paginationBase}&page=${page+1}`} className="text-gold">Next →</Link>}</div>}
  </section>;
 }
 
