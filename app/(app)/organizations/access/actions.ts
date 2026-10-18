@@ -72,6 +72,16 @@ export async function createInvitation(form:FormData){
  if(!isSuper&&member?.member_role!=='admin')redirect('/organizations');
  const returnTo=String(form.get('return_to')??'')==='/aluna-admin/organization-access'&&isSuper?'/aluna-admin/organization-access':isSuper?'/aluna-admin':`/organizations/${org}/manage`;
  const db=adminDb();
+ const replacing=String(form.get('replace_invitation_id')??'');
+ if(replacing){
+  if(!isSuper||!idPattern.test(replacing))redirect(returnTo+'?error=invitation');
+  const {data:prior,error:priorError}=await db.from('organization_invitations')
+   .select('organization_id,recipient_email,redeemed_at,revoked_at,expires_at')
+   .eq('id',replacing).maybeSingle();
+  if(priorError||!prior||prior.organization_id!==org||prior.recipient_email.toLowerCase()!==email||
+   prior.redeemed_at||prior.revoked_at||new Date(prior.expires_at)<=new Date())
+    redirect(returnTo+'?error=invitation');
+ }
  const {data:organization}=await db.from('organizations').select('id').eq('id',org).is('removed_at',null).maybeSingle();
  if(!organization)redirect(returnTo+'?error=organization');
  const token=newToken();
@@ -94,7 +104,25 @@ export async function createInvitation(form:FormData){
   await db.from('organization_invitations').update({revoked_at:new Date().toISOString()}).eq('token_hash',tokenHash(token));
   redirect(returnTo+'?error=invitation-email');
  }
- await db.from('organization_access_audit').insert({organization_id:org,actor_id:identity.user.id,action:'invitation_sent',details:{recipient:email}});
+ if(replacing){
+  // Keep the old valid link until the mail provider accepts the new invitation.
+  const {data:oldRevoked,error:oldError}=await db.from('organization_invitations')
+   .update({revoked_at:new Date().toISOString()})
+   .eq('id',replacing).eq('organization_id',org).eq('recipient_email',email)
+   .is('redeemed_at',null).is('revoked_at',null)
+   .gt('expires_at',new Date().toISOString()).select('id').maybeSingle();
+  if(oldError||!oldRevoked){
+   await db.from('organization_invitations').update({revoked_at:new Date().toISOString()})
+    .eq('token_hash',tokenHash(token));
+   redirect(returnTo+'?error=resend-conflict');
+  }
+ }
+ const {error:auditError}=await db.from('organization_access_audit').insert({
+  organization_id:org,actor_id:identity.user.id,
+  action:replacing?'invitation_resent':'invitation_sent',
+  details:{recipient:email,...(replacing?{replaced_invitation_id:replacing}:{})}
+ });
+ if(auditError)redirect(returnTo+'?error=audit');
  revalidatePath(returnTo);
  redirect(returnTo+'?status=invitation-sent');
 }
@@ -143,18 +171,10 @@ export async function resendOrganizationInvitation(form:FormData){
   .eq('id',id).maybeSingle();
  if(lookupError||!original||original.redeemed_at||original.revoked_at)
   redirect(destination+'?error=invitation');
- const {data:revoked,error:revokeError}=await db.from('organization_invitations')
-  .update({revoked_at:new Date().toISOString()}).eq('id',id)
-  .is('redeemed_at',null).is('revoked_at',null).select('id').maybeSingle();
- if(revokeError||!revoked)redirect(destination+'?error=invitation');
- const {error:auditError}=await db.from('organization_access_audit').insert({
-   organization_id:original.organization_id,actor_id:identity.user.id,
-   action:'invitation_resend_requested',details:{previous_invitation_id:id}
- });
- if(auditError)redirect(destination+'?error=audit');
  const newInvitation=new FormData();
  newInvitation.set('organization_id',original.organization_id);
  newInvitation.set('email',original.recipient_email);
  newInvitation.set('return_to',destination);
+ newInvitation.set('replace_invitation_id',id);
  return createInvitation(newInvitation);
 }
