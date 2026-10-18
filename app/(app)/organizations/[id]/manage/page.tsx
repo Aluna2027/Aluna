@@ -11,10 +11,10 @@ export default async function ManageOrganization({params}:{params:Promise<{id:st
  const {data:org}=await client.from('organizations').select('name').eq('id',id).is('removed_at',null).maybeSingle();if(!org)notFound();
  const sections=[
   {label:'Organization Profile',text:'Name, logo, description, location and website',href:'/organizations/'+id+'/edit'},
-  {label:'People',text:'View representatives and people connected to the organization',href:'/organizations/'+id+'?tab=people'},
-  {label:'Wi-Fi Mesh Communities',text:'Manage existing communities and create new ones',href:'/organizations/'+id+'?tab=wi-fi-mesh-communities'},
-  {label:'Missions',text:'Manage the organization’s SDG missions',href:'/organizations/'+id+'?tab=missions'},
-  {label:'Fundraising',text:'Manage the organization’s fundraising activity',href:'/organizations/'+id+'?tab=fundraising'}
+  {label:'Members',text:'Review membership requests and approved members',href:'/organizations/'+id+'?tab=members&manage=1'},
+  {label:'Wi-Fi Mesh Communities',text:'Manage existing communities and create new ones',href:'/organizations/'+id+'?tab=wi-fi-mesh&manage=1'},
+  {label:'Missions',text:'Manage the organization’s SDG missions',href:'/organizations/'+id+'?tab=missions&manage=1'},
+  {label:'Fundraising',text:'Manage the organization’s fundraising activity',href:'/organizations/'+id+'?tab=fundraising&manage=1'}
  ];
  return <div className="space-y-5"><Link className="text-gold" href={'/organizations/'+id+'?tab=profile'}>← Organization Profile</Link><h1 className="text-3xl font-bold">Manage Organization</h1><p className="text-muted">{org.name} · Organization Admin</p>
  <div className="grid gap-4 sm:grid-cols-2">{sections.map(s=><Card key={s.label} title={s.label}><p className="mb-3 text-sm text-muted">{s.text}</p><Link className="text-gold" href={s.href}>Open →</Link></Card>)}</div>

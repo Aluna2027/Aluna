@@ -6,11 +6,11 @@ import { Card } from '@/components/ui';
 import { MissionFields } from '@/components/mission-fields';
 import { countryGroups } from '@/lib/countries';
 import { createMission } from '../actions';
-export default async function NewMission({searchParams}:{searchParams:Promise<{city?:string;community?:string;error?:string}>}) {
- const {city,community,error}=await searchParams;const client=await createClient();const actors=await ownedActors();
+export default async function NewMission({searchParams}:{searchParams:Promise<{city?:string;community?:string;error?:string;organization?:string}>}) {
+ const {city,community,error,organization}=await searchParams;const client=await createClient();const allActors=await ownedActors();const actors=organization?allActors.filter(a=>a.href===`/organizations/${organization}`):allActors;
  const {data:communities}=await client.from('mesh_communities').select('id,name,city_id,places(name,source_key)').order('name').limit(200);
  const sortedCities=[...cities].sort((a,b)=>a.name.localeCompare(b.name));
- return <div className="space-y-5"><Link href="/missions" className="text-sm text-gold">← SDG Missions</Link><Card title="Create SDG Mission"><form action={createMission} className="max-w-2xl space-y-5">{error&&<p role="alert" className="text-amber-300">Could not create the SDG Mission. Check dates, amounts and whether the community belongs to the selected city.</p>}
+ return <div className="space-y-5"><Link href="/missions" className="text-sm text-gold">← SDG Missions</Link><Card title="Create SDG Mission"><form action={createMission} className="max-w-2xl space-y-5">{organization&&<input type="hidden" name="organization_id" value={organization}/>}{error&&<p role="alert" className="text-amber-300">Could not create the SDG Mission. Check dates, amounts and whether the community belongs to the selected city.</p>}
  <label className="block text-sm">City<select name="city" defaultValue={city??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"><option value="">Select a city</option>{sortedCities.map(c=><option key={c.id} value={c.id}>{c.name}, {c.country}</option>)}</select></label>
  <p className="text-sm text-white">Or type a city or village and select the country it is in.</p>
  <label className="block text-sm">City or village<input name="manual_place" maxLength={160} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>

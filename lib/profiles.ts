@@ -1,8 +1,8 @@
 export const userTabs = ['About','Posts','Connections','Followers','Following','Wi-Fi Mesh Communities','Missions','Fundraising','Donations','Contributions','Proofs','Impact'] as const;
 export const organizationTabs = {
-  university:['Profile','People','Posts','Connections','Following','Wi-Fi Mesh Communities','Missions','Research','Fundraising','Funding','Contributions','Proofs','Impact'],
-  ngo:['Profile','People','Posts','Connections','Following','Wi-Fi Mesh Communities','Missions','Projects','Fundraising','Funding','Contributions','Proofs','Impact'],
-  company:['Profile','People','Posts','Connections','Following','Wi-Fi Mesh Communities','Missions','Partnerships','Sponsorship','Fundraising','Contributions','Proofs','Impact'],
+  university:['Profile','Members','Posts','Connections','Following','Wi-Fi Mesh','Missions','Fundraising','Impact'],
+  ngo:['Profile','Members','Posts','Connections','Following','Wi-Fi Mesh','Missions','Fundraising','Impact'],
+  company:['Profile','Members','Posts','Connections','Following','Wi-Fi Mesh','Missions','Fundraising','Impact'],
 } as const;
 export type OrganizationType = keyof typeof organizationTabs;
 export type AlunaRole = 'builder'|'explorer'|'rebel'|'creator';
