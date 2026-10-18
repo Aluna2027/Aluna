@@ -58,7 +58,7 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
  </section>;
 }
 
-export async function ProfileMissionCards({actorId,createdOnly=false,page=0,paginationBase}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string}){
+export async function ProfileMissionCards({actorId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
  const client=await createClient();
  const [{data:created},{data:joined}]=await Promise.all([
   createdOnly?client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('missions').select('id').eq('created_by_actor_id',actorId).is('removed_at',null).limit(100),
@@ -109,7 +109,7 @@ export async function ProfileMissionCards({actorId,createdOnly=false,page=0,pagi
  </section>;
 }
 
-export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,paginationBase}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string}){
+export async function ProfileFundraisingCards({actorId,createdOnly=false,page=0,paginationBase,manageOrganizationId}:{actorId:string;createdOnly?:boolean;page?:number;paginationBase?:string;manageOrganizationId?:string}){
  const client=await createClient();
  const [{data:created},{data:fundraisers}]=await Promise.all([
   createdOnly?client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):client.from('fundraising_campaigns').select('id').eq('actor_id',actorId).is('removed_at',null).is('archived_at',null).limit(100),
