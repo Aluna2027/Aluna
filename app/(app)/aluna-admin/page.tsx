@@ -39,6 +39,10 @@ export default async function AlunaAdmin({searchParams}:{searchParams:Promise<{s
     {status&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Action completed: {status}</p>}
     {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">The action could not be completed ({error}). No changes were confirmed.</p>}
     {loadError&&<p role="alert" className="text-red-300">Could not load organizations.</p>}
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Card title="User Profiles"><p className="mb-3 text-sm text-muted">Search member profiles and inspect organization memberships.</p><Link href="/aluna-admin/users" className="text-gold">Open User Profiles →</Link></Card>
+      <Card title="Organization Admins"><p className="mb-3 text-sm text-muted">Inspect administrator assignments and associated organizations.</p><Link href="/aluna-admin/organization-admins" className="text-gold">Open Organization Admins →</Link></Card>
+    </div>
     <Card title="Organization Access"><p className="mb-3 text-sm text-muted">Review exceptional organization claims, issue representative invitations, and inspect access audit records.</p><Link href="/aluna-admin/organization-access" className="inline-block rounded-lg border border-gold px-4 py-2 text-gold">Open Organization Access →</Link></Card>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Card title="Total organizations"><p className="metric-number text-4xl text-gold">{loadError?'—':organizations.length}</p></Card>
