@@ -3,7 +3,7 @@ import {redirect} from 'next/navigation';
 import {createClient} from '@/lib/supabase/server';
 import {adminDb} from '@/lib/org-access';
 import {Card} from '@/components/ui';
-import {createInvitation,decideClaim,revokeOrganizationInvitation} from '../../organizations/access/actions';
+import {createInvitation,decideClaim,revokeOrganizationInvitation,resendOrganizationInvitation} from '../../organizations/access/actions';
 
 export default async function OrganizationAccessAdmin({searchParams}:{searchParams:Promise<{status?:string;error?:string}>}){
  const client=await createClient();
@@ -45,12 +45,12 @@ export default async function OrganizationAccessAdmin({searchParams}:{searchPara
     </div>)}
     {!claims?.length&&<p>No claim requests awaiting manual review.</p>}
    </div></Card>
-   <Card title="Invite an Organization Representative"><p className="mb-4 text-sm text-muted">A recipient-bound, single-use invitation lasts seven days. Send only after verifying the intended organization and email address. Delivery requires the Aluna email provider configuration.</p><form action={createInvitation} className="grid max-w-2xl gap-3 sm:grid-cols-2">
+   <Card title="Invite an Organization Representative"><p className="mb-4 text-sm text-muted">A recipient-bound, single-use invitation lasts seven days. Send only after verifying the intended organization and email address. Delivery requires the Aluna email provider configuration.</p><form action={createInvitation} className="grid max-w-2xl gap-3 sm:grid-cols-2"><input type="hidden" name="return_to" value="/aluna-admin/organization-access"/>
     <label className="text-sm">Organization ID<input name="organization_id" required maxLength={36} placeholder="Organization UUID" className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
     <label className="text-sm">Representative email<input name="email" type="email" required maxLength={254} placeholder="representative@organization.org" className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
     <button className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy sm:col-span-2">Send invitation</button>
    </form></Card>
-   <Card title="Recent Invitations"><div className="space-y-2">{(invitations??[]).map(inv=><div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-2 text-sm"><p>{orgNames.get(inv.organization_id)??'Organization'} · {inv.recipient_email} · {inv.revoked_at?'Revoked':inv.redeemed_at?'Accepted':new Date(inv.expires_at)<new Date()?'Expired':'Pending'}</p>{!inv.revoked_at&&!inv.redeemed_at&&new Date(inv.expires_at)>new Date()&&<form action={revokeOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-red-700 px-3 py-2 text-red-300">Revoke</button></form>}</div>)}{!invitations?.length&&<p>No invitations sent.</p>}</div></Card>
+   <Card title="Recent Invitations"><div className="space-y-2">{(invitations??[]).map(inv=><div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-2 text-sm"><p>{orgNames.get(inv.organization_id)??'Organization'} · {inv.recipient_email} · {inv.revoked_at?'Revoked':inv.redeemed_at?'Accepted':new Date(inv.expires_at)<new Date()?'Expired':'Pending'}</p>{!inv.revoked_at&&!inv.redeemed_at&&new Date(inv.expires_at)>new Date()&&<form action={resendOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-gold px-3 py-2 text-gold">Resend</button></form><form action={revokeOrganizationInvitation}><input type="hidden" name="invitation_id" value={inv.id}/><button type="submit" className="rounded-lg border border-red-700 px-3 py-2 text-red-300">Revoke</button></form>}</div>)}{!invitations?.length&&<p>No invitations sent.</p>}</div></Card>
    <Card title="Organization Access Audit"><div className="space-y-2">{(audit??[]).map(entry=><p className="border-b border-line py-2 text-sm" key={entry.id}>{orgNames.get(entry.organization_id)??'Organization'} · {entry.action} · {new Date(entry.occurred_at).toLocaleString('en-GB')}</p>)}{!audit?.length&&<p>No access decisions recorded.</p>}</div></Card>
   </>}
  </div>;
