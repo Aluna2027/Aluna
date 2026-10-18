@@ -35,8 +35,8 @@ function cardIcon(title:string):{Icon:LucideIcon;color:string}|null{
  if(label.includes('invite'))return {Icon:BriefcaseBusiness,color:iconColors.invitation};
  return null;
 }
-export function Card({ title, children, className = '', iconColor }: {title:string;children:React.ReactNode;className?:string;iconColor?:string}) {
- const icon=cardIcon(title);
+export function Card({ title, children, className = '', iconColor }: {title:React.ReactNode;children:React.ReactNode;className?:string;iconColor?:string}) {
+ const icon=typeof title==='string'?cardIcon(title):null;
  return <section className={`glass rounded-3xl p-6 sm:p-8 ${className}`}><h2 className="flex items-center gap-3 text-lg font-semibold">{icon?<icon.Icon aria-hidden="true" size={24} color={iconColor??icon.color} className="shrink-0"/>:iconColor?<ChartNoAxesColumnIncreasing aria-hidden="true" size={24} color={iconColor} className="shrink-0"/>:null}{title}</h2><div className="mt-4 text-muted">{children}</div></section>;
 }
 export function Placeholder({ title, description }: {title:string;description:string}) {
