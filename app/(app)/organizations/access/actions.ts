@@ -107,3 +107,25 @@ export async function acceptInvitation(form:FormData){
  revalidatePath('/organizations/'+data);
  redirect('/organizations/'+data+'?tab=profile&status=invitation-accepted');
 }
+
+export async function revokeOrganizationInvitation(form:FormData){
+ const identity=await verifiedIdentity();if(!identity)redirect('/login');
+ if(!await superAdmin(identity.client))redirect('/organizations');
+ const id=String(form.get('invitation_id')??'');
+ const dest='/aluna-admin/organization-access';
+ if(!idPattern.test(id))redirect(dest+'?error=validation');
+ const db=adminDb();
+ const {data:existing,error:lookupError}=await db.from('organization_invitations')
+  .select('id,organization_id,redeemed_at,revoked_at').eq('id',id).maybeSingle();
+ if(lookupError||!existing||existing.redeemed_at||existing.revoked_at)redirect(dest+'?error=invitation');
+ const {data:changed,error}=await db.from('organization_invitations')
+  .update({revoked_at:new Date().toISOString()}).eq('id',id)
+  .is('redeemed_at',null).is('revoked_at',null).select('id').maybeSingle();
+ if(error||!changed)redirect(dest+'?error=invitation');
+ await db.from('organization_access_audit').insert({
+  organization_id:existing.organization_id,actor_id:identity.user.id,action:'invitation_revoked',
+  details:{invitation_id:id}
+ });
+ revalidatePath(dest);
+ redirect(dest+'?status=invitation-revoked');
+}
