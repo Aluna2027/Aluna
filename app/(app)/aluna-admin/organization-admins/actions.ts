@@ -2,7 +2,7 @@
 import {redirect} from 'next/navigation';
 import {revalidatePath} from 'next/cache';
 import {requireAlunaSuperAdmin} from '@/lib/aluna-admin';
-const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function changeOrganizationAdminRole(org:string,profile:string,role:string){
  const returnTo='/aluna-admin/organization-admins';
  if(!uuid.test(org)||!uuid.test(profile)||!['admin','member'].includes(role))redirect(returnTo+'?error=validation');
