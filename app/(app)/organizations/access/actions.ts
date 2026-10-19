@@ -1,5 +1,5 @@
-import {safeAuthDestination} from '@/lib/auth-next';
 'use server';
+import {safeAuthDestination} from '@/lib/auth-next';
 import {redirect} from 'next/navigation';
 import {revalidatePath} from 'next/cache';
 import {adminDb,verifiedIdentity,superAdmin,newToken,tokenHash,idPattern} from '@/lib/org-access';
