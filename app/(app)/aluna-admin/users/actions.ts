@@ -22,7 +22,15 @@ export async function moderateAlunaUser(form:FormData){
  const {error:updateError}=await db.auth.admin.updateUserById(id,{ban_duration:decision==='suspended'?'876000h':'none'});
  if(updateError)redirect(dest+'?error=moderation');
  const {error:auditError}=await db.from('aluna_profile_moderation_audit').insert({profile_id:id,actor_id:user.id,action:decision,reason});
- if(auditError)redirect(dest+'?error=audit');
+ if(auditError){
+  // Auth and Postgres are separate services: restore the previous ban when the audit write fails.
+  const remainingSeconds=currentlyBanned?Math.max(1,Math.ceil((new Date(target.user.banned_until!).getTime()-Date.now())/1000)):0;
+  const restoreDuration=remainingSeconds>0?`${remainingSeconds}s`:'none';
+  const {error:restoreError}=await db.auth.admin.updateUserById(id,{ban_duration:restoreDuration});
+  console.error('[PR33 moderation-audit-failed]',{audit_code:auditError.code,restore_code:restoreError?.code??null});
+  if(restoreError)redirect(dest+'?error=audit-restore-failed');
+  redirect(dest+'?error=audit-restored');
+ }
  revalidatePath(dest);
  redirect(dest+'?status='+decision);
 }
