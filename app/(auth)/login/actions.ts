@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeAuthDestination } from '@/lib/auth-next';
 import { siteOrigin } from '@/lib/payments';
+import { isOnboardingComplete } from '@/lib/onboarding';
 
 export async function signIn(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
@@ -12,6 +13,10 @@ export async function signIn(form: FormData) {
   const next=String(form.get('next')??'');
   const safeNext=safeAuthDestination(next);
   if (error) redirect(`/login?error=invalid${safeNext!=='/feed'?`&next=${encodeURIComponent(safeNext)}`:''}`);
+  const {data:{user}}=await client.auth.getUser();
+  if(!user)redirect('/login?error=invalid');
+  const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();
+  if(!isOnboardingComplete(profile))redirect('/onboarding'+(safeNext==='/feed'?'':'?next='+encodeURIComponent(safeNext)));
   redirect(safeNext);
 }
 
