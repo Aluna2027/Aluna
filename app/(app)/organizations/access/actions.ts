@@ -187,5 +187,16 @@ export async function resendOrganizationInvitation(form:FormData){
  newInvitation.set('email',original.recipient_email);
  newInvitation.set('return_to',destination);
  newInvitation.set('replace_invitation_id',id);
+ // Reuse the most recent recorded Super Admin review for this recipient when resending.
+ const {data:reviews,error:reviewError}=await db.from('organization_access_audit')
+  .select('details').eq('organization_id',original.organization_id)
+  .in('action',['invitation_sent','invitation_resent'])
+  .order('occurred_at',{ascending:false}).limit(100);
+ if(reviewError)redirect(destination+'?error=review-required');
+ const prior=(reviews??[]).map(row=>row.details as {recipient?:string;review_method?:string;review_notes?:string}|null)
+  .find(details=>details?.recipient===original.recipient_email&&details.review_method&&details.review_notes);
+ if(!prior)redirect(destination+'?error=review-required');
+ newInvitation.set('review_method',prior.review_method!);
+ newInvitation.set('review_notes',prior.review_notes!);
  return createInvitation(newInvitation);
 }
