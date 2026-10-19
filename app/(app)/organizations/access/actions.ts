@@ -1,3 +1,4 @@
+import {safeAuthDestination} from '@/lib/auth-next';
 'use server';
 import {redirect} from 'next/navigation';
 import {revalidatePath} from 'next/cache';
@@ -150,6 +151,11 @@ export async function acceptInvitation(form:FormData){
  const db=adminDb();
  const {data,error}=await db.rpc('redeem_organization_invitation',{p_hash:tokenHash(token),p_profile:identity.user.id,p_email:identity.email});
  if(error||!data)redirect('/organizations?error=invitation');
+ // A redeemed invitation must not remain the user's default post-login destination.
+ const saved=safeAuthDestination(String(identity.user.user_metadata?.aluna_invitation_next??''));
+ if(saved==='/organizations/invite/'+token){
+  await identity.client.auth.updateUser({data:{aluna_invitation_next:null}});
+ }
  revalidatePath('/organizations/'+data);
  redirect('/organizations/'+data+'?tab=profile&status=invitation-accepted');
 }
