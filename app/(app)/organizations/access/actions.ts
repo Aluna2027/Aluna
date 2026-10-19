@@ -107,7 +107,9 @@ export async function createInvitation(form:FormData){
   if(error||revokedOrg!==org)redirect(returnTo+'?error=invitation-revoke');
  }
  const site=process.env.ALUNA_SITE_URL;
- const apiKey=process.env.RESEND_API_KEY,from=process.env.ALUNA_ORG_EMAIL_FROM;
+ const apiKey=process.env.RESEND_API_KEY;
+ const from='Aluna <notifications@notify.aluna.org>';
+ const replyTo='frank@aluna.org';
  if(!site||!apiKey||!from){
   // Do not pretend an invitation was delivered; revoke it if outbound mail is not configured.
   await markDeliveryFailure('email_config_missing');
@@ -116,7 +118,7 @@ export async function createInvitation(form:FormData){
  const link=new URL('/organizations/invite/'+token,site).toString();
  let sent=false;
  try {
-  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({from,to:email,subject:'Your Aluna organization invitation',text:'You have been invited to represent an organization on Aluna. Accept your invitation: '+link})});
+  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({from,reply_to:replyTo,to:email,subject:'Your Aluna organization invitation',text:'You have been invited to represent an organization on Aluna. This invitation gives you the opportunity to manage the organization profile and its activities after signing in with this email address.\n\nOpen your invitation:\n'+link+'\n\nIf you were not expecting this invitation, you can ignore this email. For questions, reply to this message.\n\nAluna Global Network'})});
   sent=res.ok;
  }catch{/* revoked below */}
  if(!sent){
