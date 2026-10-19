@@ -32,6 +32,18 @@ export async function refreshSession(request: NextRequest) {
     const login = new URL('/login?error=suspended', request.url);
     return NextResponse.redirect(login);
   }
+  // Preserve the recipient-bound invitation while requiring personal onboarding.
+  // The generic authenticated layout otherwise redirects to /onboarding and loses the token path.
+  if(user && /^\/organizations\/invite\/[0-9a-f]{64}$/i.test(request.nextUrl.pathname)){
+    const {data:profile}=await client.from('profiles')
+      .select('display_name,first_name,last_name,onboarded_at,aluna_role')
+      .eq('id',user.id).maybeSingle();
+    if(!isOnboardingComplete(profile)){
+      const destination=new URL('/onboarding',request.url);
+      destination.searchParams.set('next',request.nextUrl.pathname);
+      return NextResponse.redirect(destination);
+    }
+  }
   if (user && request.nextUrl.pathname === '/login') {
     const next=request.nextUrl.searchParams.get('next')??'';
     const safeNext=safeAuthDestination(next);
