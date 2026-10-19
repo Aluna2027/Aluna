@@ -198,5 +198,6 @@ export async function resendOrganizationInvitation(form:FormData){
  if(!prior)redirect(destination+'?error=review-required');
  newInvitation.set('review_method',prior.review_method!);
  newInvitation.set('review_notes',prior.review_notes!);
+ newInvitation.set('personal_email_review_confirmed','yes');
  return createInvitation(newInvitation);
 }
