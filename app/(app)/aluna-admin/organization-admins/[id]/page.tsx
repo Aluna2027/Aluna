@@ -27,10 +27,7 @@ export default async function OrganizationAdminDetail({params}:{params:Promise<{
  <p className="mb-4 text-sm text-muted">{adminCount} Organization Admin{adminCount===1?'':'s'} · {members?.length??0} visible members{org.removed_at?' · Archived: roles cannot be changed':''}.</p>
  <div className="space-y-3">{(members??[]).map(member=><div key={member.profile_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
  <div><p className="font-semibold">{names.get(member.profile_id)||'Member'}</p><p className="text-xs text-muted">{member.member_role==='admin'?'Organization Admin':'Member'} · {member.profile_id}</p></div>
- {!org.removed_at&&<form action={changeOrganizationAdminRole}>
- <input type="hidden" name="organization_id" value={org.id}/>
- <input type="hidden" name="profile_id" value={member.profile_id}/>
- <input type="hidden" name="role" value={member.member_role==='admin'?'member':'admin'}/>
+ {!org.removed_at&&<form action={changeOrganizationAdminRole.bind(null,org.id,member.profile_id,member.member_role==='admin'?'member':'admin')}>
  {member.member_role==='admin'&&adminCount===1?<span className="text-xs text-muted">Last administrator — protected</span>:
  <ConfirmSubmitButton message={member.member_role==='admin'?'Demote this administrator to member?':'Promote this member to Organization Admin?'} className={member.member_role==='admin'?'rounded-lg border border-red-700 px-4 py-2 text-sm text-red-300':'rounded-lg border border-gold px-4 py-2 text-sm text-gold'}>{member.member_role==='admin'?'Demote to member':'Promote to admin'}</ConfirmSubmitButton>}
  </form>}
