@@ -7,7 +7,7 @@ begin
  end if;
  if (select count(*) from public.organizations where id in
    ('22222222-2222-4222-8222-222222222221','22222222-2222-4222-8222-222222222222')
-   and description like '%pre-upgrade row must survive')<>2 then
+   and lower(description) like '%pre-upgrade row must survive')<>2 then
    raise exception 'Pre-upgrade organization rows were altered or deleted';
  end if;
  if not exists(select 1 from public.profiles
