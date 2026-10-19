@@ -194,7 +194,7 @@ export async function resendOrganizationInvitation(form:FormData){
   .order('occurred_at',{ascending:false}).limit(100);
  if(reviewError)redirect(destination+'?error=review-required');
  const prior=(reviews??[]).map(row=>row.details as {recipient?:string;review_method?:string;review_notes?:string}|null)
-  .find(details=>details?.recipient===original.recipient_email&&details.review_method&&details.review_notes);
+  .find(details=>details !== null && details.recipient===original.recipient_email && !!details.review_method && !!details.review_notes);
  if(!prior)redirect(destination+'?error=review-required');
  newInvitation.set('review_method',prior.review_method!);
  newInvitation.set('review_notes',prior.review_notes!);
