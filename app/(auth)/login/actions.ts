@@ -25,6 +25,8 @@ export async function signUp(form: FormData) {
     redirect('/login?mode=signup&error=validation');
   }
 
+  const next=safeAuthDestination(String(form.get('next')??''));
+  const nextParam=next==='/feed'?'':'&next='+encodeURIComponent(next);
   const client = await createClient();
 
   // A signup must never inherit an already authenticated browser session.
@@ -33,17 +35,17 @@ export async function signUp(form: FormData) {
   const { error, data } = await client.auth.signUp({
     email,
     password,
-    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup`}
+    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup${nextParam}`}
   });
 
   if (error) {
     if (error.code === 'over_email_send_rate_limit') {
-      redirect('/login?mode=signup&status=verification-recent');
+      redirect('/login?mode=signup&status=verification-recent'+nextParam);
     }
-    redirect('/login?mode=signup&error=signup');
+    redirect('/login?mode=signup&error=signup'+nextParam);
   }
 
-  redirect(data.session ? '/onboarding' : '/login?status=verify');
+  redirect(data.session ? '/onboarding'+(next==='/feed'?'':'?next='+encodeURIComponent(next)) : '/login?status=verify'+nextParam);
 }
 
 export async function requestPasswordReset(form:FormData){
