@@ -74,6 +74,11 @@ export async function createInvitation(form:FormData){
  const personalEmailProviders=new Set(['gmail.com','googlemail.com','hotmail.com','hotmail.co.uk','outlook.com','live.com','msn.com','yahoo.com','yahoo.co.uk','icloud.com','me.com','aol.com','proton.me','protonmail.com']);
  if(personalEmailProviders.has(domain)&&(!isSuper||form.get('personal_email_review_confirmed')!=='yes'))
   redirect(returnTo+'?error=personal-email-review');
+ const reviewMethod=String(form.get('review_method')??'').trim();
+ const reviewNotes=String(form.get('review_notes')??'').trim();
+ const allowedReviewMethods=new Set(['official_contact','official_email','official_directory','other']);
+ if(isSuper&&(!allowedReviewMethods.has(reviewMethod)||reviewNotes.length<10||reviewNotes.length>1500))
+  redirect(returnTo+'?error=review-required');
  const db=adminDb();
  const replacing=String(form.get('replace_invitation_id')??'');
  if(replacing){
@@ -132,7 +137,7 @@ export async function createInvitation(form:FormData){
  const {error:auditError}=await db.from('organization_access_audit').insert({
   organization_id:org,actor_id:identity.user.id,
   action:replacing?'invitation_resent':'invitation_sent',
-  details:{recipient:email,...(replacing?{replaced_invitation_id:replacing}:{})}
+  details:{recipient:email,...(isSuper?{review_method:reviewMethod,review_notes:reviewNotes,reviewed_by:identity.user.id}:{}),...(replacing?{replaced_invitation_id:replacing}:{})}
  });
  if(auditError)redirect(returnTo+'?error=audit');
  revalidatePath(returnTo);
