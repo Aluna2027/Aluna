@@ -47,9 +47,11 @@ export async function refreshSession(request: NextRequest) {
   if (user && request.nextUrl.pathname === '/login') {
     const next=request.nextUrl.searchParams.get('next')??'';
     const safeNext=safeAuthDestination(next);
+    const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
+    const destination=safeNext!=='/feed'?safeNext:storedNext;
     const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();
-    if(!isOnboardingComplete(profile))return NextResponse.redirect(new URL('/onboarding'+(safeNext==='/feed'?'':'?next='+encodeURIComponent(safeNext)), request.url));
-    return NextResponse.redirect(new URL(safeNext, request.url));
+    if(!isOnboardingComplete(profile))return NextResponse.redirect(new URL('/onboarding'+(destination==='/feed'?'':'?next='+encodeURIComponent(destination)), request.url));
+    return NextResponse.redirect(new URL(destination, request.url));
   }
   return response;
 }
