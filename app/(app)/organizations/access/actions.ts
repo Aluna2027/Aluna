@@ -118,7 +118,7 @@ export async function createInvitation(form:FormData){
  const link=new URL('/organizations/invite/'+token,site).toString();
  let sent=false;
  try {
-  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({from,reply_to:replyTo,to:email,subject:'Your Aluna organization invitation',text:'You have been invited to represent an organization on Aluna. This invitation gives you the opportunity to manage the organization profile and its activities after signing in with this email address.\n\nOpen your invitation:\n'+link+'\n\nIf you were not expecting this invitation, you can ignore this email. For questions, reply to this message.\n\nAluna Global Network'})});
+  const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},body:JSON.stringify({from,reply_to:replyTo,to:email,subject:'Invitation from Aluna',text:'Hello,\n\nAn Aluna administrator invited this email address to help manage an organization in the Aluna Global Network.\n\nYou can review the invitation here:\n'+link+'\n\nThe invitation expires in seven days. If you did not request this, no action is needed.\n\nQuestions? Reply to this email.\n\nAluna Team'})});
   sent=res.ok;
  }catch{/* revoked below */}
  if(!sent){
