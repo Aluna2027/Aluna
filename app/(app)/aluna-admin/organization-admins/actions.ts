@@ -13,7 +13,8 @@ export async function changeOrganizationAdminRole(form:FormData){
  const {data,error}=await client.rpc('aluna_admin_set_organization_role',{p_organization:org,p_profile:profile,p_role:role});
  if(error||!data){
   console.error('[PR33 organization-role-change]',{code:error?.code??'empty_rpc_result',message:error?.message??'RPC returned no result',organization_id:org,requested_role:role});
-  redirect(returnTo+'?error=role');
+  const diagnosticCode=(error?.code??'EMPTY_RESULT').replace(/[^A-Za-z0-9_]/g,'').slice(0,30);
+  redirect(returnTo+'?error=role&code='+encodeURIComponent(diagnosticCode));
  }
  revalidatePath(returnTo);
  revalidatePath('/organizations/'+org);
