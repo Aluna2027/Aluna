@@ -3,6 +3,7 @@ type CookieUpdate = { name: string; value: string; options: CookieOptions };
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseConfig } from './config';
 import { safeAuthDestination } from '@/lib/auth-next';
+import { isOnboardingComplete } from '@/lib/onboarding';
 
 export async function refreshSession(request: NextRequest) {
   if (request.nextUrl.pathname === '/') return NextResponse.next({ request });
@@ -34,6 +35,8 @@ export async function refreshSession(request: NextRequest) {
   if (user && request.nextUrl.pathname === '/login') {
     const next=request.nextUrl.searchParams.get('next')??'';
     const safeNext=safeAuthDestination(next);
+    const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();
+    if(!isOnboardingComplete(profile))return NextResponse.redirect(new URL('/onboarding'+(safeNext==='/feed'?'':'?next='+encodeURIComponent(safeNext)), request.url));
     return NextResponse.redirect(new URL(safeNext, request.url));
   }
   return response;
