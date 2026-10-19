@@ -29,7 +29,7 @@ export async function signUp(form: FormData) {
   if(password!==confirmPassword) redirect('/login?mode=signup&error=password-mismatch'+signupNextParam);
 
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<12||password.length>128) {
-    redirect('/login?mode=signup&error=validation');
+    redirect('/login?mode=signup&error=validation'+signupNextParam);
   }
 
   const next=safeAuthDestination(String(form.get('next')??''));
