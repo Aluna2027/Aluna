@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { safeAuthDestination } from '@/lib/auth-next';
 
 function confirmationMessage(request: NextRequest) {
-  return NextResponse.redirect(new URL('/login?status=confirmation-link', request.url));
+  const next=safeAuthDestination(request.nextUrl.searchParams.get('next')??'');
+  const suffix=next==='/feed'?'':'&next='+encodeURIComponent(next);
+  return NextResponse.redirect(new URL('/login?status=confirmation-link'+suffix, request.url));
 }
 
 export async function GET(request: NextRequest) {
