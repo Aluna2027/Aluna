@@ -45,7 +45,7 @@ export async function signUp(form: FormData) {
   const { error, data } = await client.auth.signUp({
     email,
     password,
-    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup${nextParam}`,data:next==='/feed'?{}:{aluna_invitation_next:next}}
+    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup${nextParam}`,data:/^\/organizations\/invite\/[0-9a-f]{64}$/i.test(next)?{aluna_invitation_next:next}:{}}
   });
 
   if (error) {
