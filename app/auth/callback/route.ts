@@ -14,9 +14,14 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token_hash');
   const type = request.nextUrl.searchParams.get('type');
   const next=safeAuthDestination(request.nextUrl.searchParams.get('next')??'');
-  const onboarding=next==='/feed'?'/onboarding':'/onboarding?next='+encodeURIComponent(next);
   const client = await createClient();
-
+  async function onboardingDestination(){
+    const {data:{user}}=await client.auth.getUser();
+    const stored=safeAuthDestination(String(user?.user_metadata?.aluna_invitation_next??''));
+    const destination=next!=='/feed'?next:stored;
+    return destination==='/feed'?'/onboarding':'/onboarding?next='+encodeURIComponent(destination);
+  }
+ 
   const isSignupFlow = flow === 'signup' || type === 'email' || type === 'signup';
   if (isSignupFlow) {
     await client.auth.signOut({ scope:'local' });
@@ -33,7 +38,7 @@ export async function GET(request: NextRequest) {
             ? '/reset-password'
             : flow === 'settings'
               ? '/dashboard'
-              : onboarding,
+              : await onboardingDestination(),
           request.url,
         ),
       );
@@ -46,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { error } = await client.auth.verifyOtp({ token_hash: token, type: 'email' });
     if (!error) {
       const { data:{ user } } = await client.auth.getUser();
-      if (user) return NextResponse.redirect(new URL(flow === 'settings' ? '/dashboard' : onboarding, request.url));
+      if (user) return NextResponse.redirect(new URL(flow === 'settings' ? '/dashboard' : await onboardingDestination(), request.url));
     }
     return confirmationMessage(request);
   }
@@ -55,7 +60,7 @@ export async function GET(request: NextRequest) {
     const { error } = await client.auth.verifyOtp({ token_hash: token, type: 'signup' });
     if (!error) {
       const { data:{ user } } = await client.auth.getUser();
-      if (user) return NextResponse.redirect(new URL(onboarding, request.url));
+      if (user) return NextResponse.redirect(new URL(await onboardingDestination(), request.url));
     }
     return confirmationMessage(request);
   }
@@ -69,7 +74,7 @@ export async function GET(request: NextRequest) {
       const { data:{ user } } = await client.auth.getUser();
       if (!user) return flow === 'signup' ? confirmationMessage(request) : NextResponse.redirect(new URL('/login?error=invalid', request.url));
       return NextResponse.redirect(
-        new URL(flow === 'recovery' ? '/reset-password' : onboarding, request.url),
+        new URL(flow === 'recovery' ? '/reset-password' : await onboardingDestination(), request.url),
       );
     }
 
