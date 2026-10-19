@@ -16,8 +16,11 @@ export async function signIn(form: FormData) {
   const {data:{user}}=await client.auth.getUser();
   if(!user)redirect('/login?error=invalid');
   const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();
-  if(!isOnboardingComplete(profile))redirect('/onboarding'+(safeNext==='/feed'?'':'?next='+encodeURIComponent(safeNext)));
-  redirect(safeNext);
+  // Signup email confirmation may return through a different browser or canonical domain.
+  const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
+  const destination=safeNext!=='/feed'?safeNext:storedNext;
+  if(!isOnboardingComplete(profile))redirect('/onboarding'+(destination==='/feed'?'':'?next='+encodeURIComponent(destination)));
+  redirect(destination);
 }
 
 export async function signUp(form: FormData) {
@@ -42,7 +45,7 @@ export async function signUp(form: FormData) {
   const { error, data } = await client.auth.signUp({
     email,
     password,
-    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup${nextParam}`}
+    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup${nextParam}`,data:next==='/feed'?{}:{aluna_invitation_next:next}}
   });
 
   if (error) {
