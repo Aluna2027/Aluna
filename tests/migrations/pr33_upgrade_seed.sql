@@ -25,11 +25,11 @@ insert into auth.users (
 -- Auth Admin and password-login HTTP checks also require provider identities.
 -- These rows belong exclusively to disposable reserved .invalid test accounts;
 -- no live account, email or production auth data is changed.
-insert into auth.identities (provider_id,user_id,identity_data,provider,email,created_at,updated_at)
+insert into auth.identities (provider_id,user_id,identity_data,provider,created_at,updated_at)
 select id::text,id,
        jsonb_build_object('sub',id::text,'email',email,
                           'email_verified',true,'phone_verified',false),
-       'email',email,now(),now()
+       'email',now(),now()
 from auth.users
 where id in ('11111111-1111-4111-8111-111111111111',
              '11111111-1111-4111-8111-111111111112');
