@@ -71,6 +71,14 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           node --test tests/security/pr33_suspension_http.test.mjs
+      - name: Diagnose local Auth user-load failure (redacted categories only)
+        if: failure()
+        shell: bash
+        run: |
+          # Display diagnostic categories without Auth user data, email or keys.
+          docker logs supabase_auth_Aluna 2>&1 |
+            grep -Eo 'sql: Scan error on column index [0-9]+, name "[a-z_]+"|converting NULL to [a-zA-Z0-9 ]+|invalid input syntax for type [a-z_]+|failed to scan [a-z_]+|unsupported Scan' |
+            sort | uniq -c | tail -n 15 || true
       - name: Verify final local-only migration history
         run: supabase migration list --local
       - name: Stop temporary Supabase
