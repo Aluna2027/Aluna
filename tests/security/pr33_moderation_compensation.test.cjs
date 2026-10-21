@@ -1,6 +1,7 @@
 // PR33: deliberately isolated unit tests for the EXISTING moderation server action.
 // Source is transpiled (not rewritten); all Supabase, Next.js and Auth calls are mocked.
 // No keys, network, browser, real identities, database connections, or live writes.
+/* eslint-disable @typescript-eslint/no-require-imports -- This is a Node.js CommonJS test runner. */
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -51,7 +52,7 @@ function harness(options={}) {
     }}
   };
   const redirects=[];
-  const module={exports:{}};
+  const testModule={exports:{}};
   const required={
     'next/navigation':{redirect:(url)=>{
       redirects.push(url);
@@ -66,12 +67,12 @@ function harness(options={}) {
     }}
   };
   vm.runInNewContext(compiled,{
-    module,exports:module.exports,require:(name)=>{
+    module:testModule,exports:testModule.exports,require:(name)=>{
       if(!Object.hasOwn(required,name))throw Error('Unexpected import '+name);
       return required[name];
     },console
   },{filename:'pr33_moderation_action.js',timeout:1000});
-  const send=(decision,id=member)=>module.exports.moderateAlunaUser({
+  const send=(decision,id=member)=>testModule.exports.moderateAlunaUser({
     get:(name)=>({profile_id:id,decision,reason})[name]??null
   });
   return {state,redirects,send};
