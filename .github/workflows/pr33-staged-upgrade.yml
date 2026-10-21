@@ -59,6 +59,8 @@ jobs:
           supabase migration up --local
       - name: Assert preservation, policies, and atomic audit behavior
         run: psql -X -v ON_ERROR_STOP=1 -f tests/migrations/pr33_upgrade_verify.sql
+      - name: Exercise invitation and domain edge cases without external side effects
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_access_edge_cases.sql
       - name: Verify final local-only migration history
         run: supabase migration list --local
       - name: Stop temporary Supabase
