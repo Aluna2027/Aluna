@@ -43,7 +43,7 @@ jobs:
             mv "$migration" "$RUNNER_TEMP/pr33-pending/"
           done
           count="$(find "$RUNNER_TEMP/pr33-pending" -maxdepth 1 -type f -name '*.sql' | wc -l)"
-          test "$count" -eq 11
+          test "$count" -eq 12
           echo "Staged $count PR33 migrations; preparing earlier schema."
       - name: Build disposable pre-PR33 Supabase database
         run: |
@@ -65,6 +65,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_suspension_guards.sql
       - name: Reject protected-organization edits with synthetic test roles
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_organization_security.sql
+      - name: Verify Phase 19 media permissions and message validation
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_media_controls.sql
       - name: Verify final local-only migration history
         run: supabase migration list --local
       - name: Stop temporary Supabase

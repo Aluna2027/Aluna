@@ -2,8 +2,8 @@
 \set ON_ERROR_STOP on
 do $$
 begin
- if (select count(*) from supabase_migrations.schema_migrations)<>49 then
-   raise exception 'Expected exactly 49 recorded local migrations';
+ if (select count(*) from supabase_migrations.schema_migrations)<>50 then
+   raise exception 'Expected exactly 50 recorded local migrations';
  end if;
  if (select count(*) from public.organizations where id in
    ('22222222-2222-4222-8222-222222222221','22222222-2222-4222-8222-222222222222')
