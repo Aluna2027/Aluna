@@ -33,6 +33,12 @@ jobs:
         run: supabase start
       - name: Rebuild fresh local database from all migrations
         run: supabase db reset --local --no-seed
+      - name: Install local PostgreSQL client for payment privilege checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Verify privileged payment RPC permissions in fresh database
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f tests/security/pr33_payment_rpc_permissions.sql
       - name: Inspect local-only migration history
         run: supabase migration list --local
       - name: Stop disposable Supabase containers

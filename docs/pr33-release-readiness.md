@@ -1,5 +1,16 @@
 # PR #33 — Migration reconciliation and release readiness
 
+## P0 payment webhook RPC permissions — 2026-10-21
+
+**Source-only PR33 correction; release remains BLOCKED.** Read-only Supabase Demo ACL checks confirmed direct EXECUTE grants to anon/authenticated for four SECURITY DEFINER payment functions: record_checkout_payment_event, record_confirmed_donation, record_donation_refund and record_subscription_event. The original Phase 9 migration revoked PUBLIC but not the explicit role grants created by the Supabase defaults. The signed Stripe webhook already uses a service_role client.
+
+This forward-only ACL migration (supabase/migrations/20261021053000_restrict_payment_webhook_rpc_execution.sql) revokes PUBLIC/anon/authenticated execution on those four signatures while preserving service_role, without redefining functions or changing payment records. The new tests/security/pr33_payment_rpc_permissions.sql contains metadata-only assertions and is run against both fresh and staged-upgrade disposable local Supabase databases. CI bookkeeping changes: 13 pending PR33 migrations and 51 total local migrations.
+
+**Live Demo remains UNFIXED and needs a separately authorized, reconciled forward-only change.** No Demo/Production writes are part of this source commit. Stripe signed-webhook HTTP E2E and per-environment migration history reconciliation are not yet proven; do not merge or release merely because CI succeeds.
+
+---
+
+
 
 ## PR25A–E integration checkpoint — 2026-10-21
 
