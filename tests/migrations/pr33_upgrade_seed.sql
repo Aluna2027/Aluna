@@ -34,6 +34,16 @@ from auth.users
 where id in ('11111111-1111-4111-8111-111111111111',
              '11111111-1111-4111-8111-111111111112');
 
+-- GoTrue expects token/change fields to be empty strings, not SQL NULL.
+-- This mirrors legitimate Auth-managed users; only reserved synthetic rows.
+update auth.users
+set confirmation_token='',
+    recovery_token='',
+    email_change='',
+    email_change_token_new=''
+where id in ('11111111-1111-4111-8111-111111111111',
+             '11111111-1111-4111-8111-111111111112');
+
 update auth.users
 set raw_app_meta_data='{"provider":"email","providers":["email"]}'::jsonb,
     raw_user_meta_data='{}'::jsonb
