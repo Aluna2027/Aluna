@@ -1,5 +1,39 @@
 # PR #33 — Migration reconciliation and release readiness
 
+## Latest checkpoint — 2026-10-21: media/security parity
+
+**Validated application/test candidate:** `33667de6099cd6f9e8ebd9370fa92241af57fd14`  
+**Release decision:** **NOT CLEARED.** Keep PR #33 Draft and unmerged; do not change Demo, Production or their migration histories. The lower gap-analysis section documents **historical gaps before the fixes below** and is not a claim that those same source omissions persist on this commit.
+
+| CI evidence on exactly `33667de` | Result | Scope |
+| --- | --- | --- |
+| [PR33 fresh Supabase migrations](https://github.com/Aluna2027/Aluna/actions/runs/39535922945) | **PASS** | Repository migrations applied and reset on disposable full Supabase |
+| [PR33 staged upgrade with synthetic data](https://github.com/Aluna2027/Aluna/actions/runs/39535922808) | **PASS** | 50 repo migrations, synthetic preservation; role/audit/invitation/domain/suspension/organization/Phase 19 media assertions |
+| [PR33 integration checks](https://github.com/Aluna2027/Aluna/actions/runs/39535922791) | **PASS** | Typecheck, lint, build and mocked moderation compensation (6 cases) |
+| [PR33 isolated role authorization](https://github.com/Aluna2027/Aluna/actions/runs/39535922737) | **PASS** | Synthetic role permission and last-admin negative cases |
+
+### Source-control parity corrections
+
+- **P0 organization security — source backfilled:** `20261021024500_restore_organization_security_parity.sql` restores the current Demo-style Aluna Super Admin table, management/owner/WBA-year fields, WBA and protected-field trigger, audit structure, archiving controls, org policies and role privileges to a fresh GitHub-only environment. No personal Super Admin account is seeded. In local CI the synthetic organization-protection negative-write checks passed. This does not certify that an environment with older, divergent data can safely be upgraded without a target-specific review.
+- **P1 media — source backfilled:** `20261021030000_restore_phase19_media_controls.sql` restores the six Phase 19 Storage policies and message-body/media constraint. The pre-existing `feed_page` implementation in `202610130003_personal_timeline_visibility.sql` was left unchanged. The media assertions passed in the staged local database. No real authenticated Storage HTTP requests/uploads were executed.
+- **Migration inventory:** **50 GitHub SQL files** now versus **45 recorded Demo migrations**, with different historical identifiers; equivalence cannot be determined by subtracting counts. The earlier read-only comparison found exact current function-body parity for seven audited-access/onboarding functions. Never blindly replay the 50 repo files or repair Demo history merely to synchronize counts.
+
+### Scheduled publishing — read-only Demo inspection; no activation authorized
+
+- Demo has one enabled `cron.job`: `aluna-publish-scheduled-posts`, every minute (`* * * * *`), invoking `select public.publish_due_scheduled_posts(25);`. Read-only inspection found **1,440 runs and zero failed cron executions** over the preceding 24 hours. This confirms scheduled **job execution**, not end-to-end delivery of every due post.
+- The live Demo `publish_due_scheduled_posts(integer)` function **body matches** its committed GitHub definition after whitespace/case normalization; it is SECURITY DEFINER; `anon` and `authenticated` lack EXECUTE, and `service_role` has EXECUTE. Cron execution has the existing database-owner pathway. No function changes are needed on account of this comparison.
+- The repository deliberately **does not create or activate** a pg_cron publisher in fresh environments. Deployment gate: pick a *single* scheduler/provider per target environment; check job ownership, database permissions, frequency support, idempotence and rollback; confirm the target has no duplicate job; only then create/enable the exact job with a separately reviewed and authorized change. Validate an isolated due-post test and collect execution evidence. **Do not install or enable it automatically in PR #33.**
+
+### Remaining release gates
+
+1. Reconcile Demo/Production history **by effects and versions** into a reviewed, environment-specific forward-only plan. Avoid duplicate objects and destructive history repair; preserve members, communications, financial/proof and audit data. No Demo migrations were applied during this checkpoint.
+2. Real authenticated negative-write and suspended-session **Data API HTTP / Storage HTTP / Realtime** E2E, plus controlled QA-owned DNS TXT verification; the current SQL/mocked tests do not prove these paths.
+3. Posting/media, payment/referral, proof/impact and mobile UI regressions; verify scheduled-post delivery in a controlled target runtime, separate from job-success counts.
+4. Review PR25–33 stacked dependencies, intended cross-branch changes and final complete production diff; PR33 is based on PR32's feature branch, **not main**. Explicit release authorization is required separately before any merge/deployment.
+
+---
+
+
 ## Critical migration-source gaps — 2026-10-21
 
 **Release decision: BLOCKED. Do not merge or deploy PR #33 based on green CI alone.** A read-only comparison of the actual SQL in `supabase_migrations.schema_migrations.statements[1]` on Demo versus **all 48 committed migration SQL files** revealed material source-control omissions. Previous evidence that seven PR33 functions match Demo remains valid, but does **not** establish parity for the earlier migrations.
