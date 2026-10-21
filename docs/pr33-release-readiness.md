@@ -1,5 +1,47 @@
 # PR #33 — Migration reconciliation and release readiness
 
+## Current update — 2026-10-21 (after isolated security acceptance)
+
+**Tested candidate:** \`9dd7cc4466242a3bb9b40c9430293f16ba0110f0\`  
+**Status:** All four GitHub workflows **PASS** at this exact SHA. PR #33 is still **Draft, unmerged and NOT CLEARED for Production**. Only the PR feature branch and disposable local CI databases have changed; **no Demo or Production database writes, migrations or configuration changes** were made during these tests.
+
+| Test on candidate \`9dd7cc4\` | Current evidence | Scope and limitation |
+| --- | --- | --- |
+| Next.js typecheck, lint, build; mocked account-moderation scenarios (6/6) | [Integration run 39533026974](https://github.com/Aluna2027/Aluna/actions/runs/39533026974) — **PASS** | Mocked Auth and database client verify successful suspension, successful/reactivated state compensation after failed audit, explicit error on failed restore, Super Admin/self protection and unauthorized caller; *not* real Auth HTTP E2E |
+| Isolated SQL role authorization / RLS | [Role run 39533026926](https://github.com/Aluna2027/Aluna/actions/runs/39533026926) — **PASS** | Permission denials, final-admin protection and audited authorized role updates, against synthetic fixtures |
+| Complete 48-file local fresh migrations | [Fresh DB run 39533026969](https://github.com/Aluna2027/Aluna/actions/runs/39533026969) — **PASS** | Fresh disposable database only |
+| Staged PR32→PR33 upgrade with persistent synthetic records | [Staged run 39533026909](https://github.com/Aluna2027/Aluna/actions/runs/39533026909) — **PASS** | Data preservation, grants, RLS, role audit rollback, invitation challenge/revocation/failure/one-use/email-bound/expiration, duplicate/expired domain challenge behavior and domain audit, all transaction-rolled-back |
+| Same-subject suspension database guards | [Staged run 39533026909](https://github.com/Aluna2027/Aluna/actions/runs/39533026909), step "Verify Data API and Storage suspension guards" — **PASS** | Tests the **actual database-side hook function and Storage policy** for active, banned and nonexistent synthetic subjects; does **not** make PostgREST HTTP requests, test Storage API HTTP behavior or prove Realtime denial |
+
+The previously accepted A, B, C1–C6 and D1–D6 UI checks are **not restarted**. The five SDG Mission tabs were visually accepted; donation, posting and proof-processing regressions have **not** been re-certified by this security test sequence.
+
+### Current Demo vs GitHub migration reconciliation (read-only, 2026-10-21)
+
+- GitHub: **48 migration SQL files**. Supabase Demo \`zujkasvuxrleisbsnrxv\`: **45 recorded versions**, latest \`20261018025443\`. These counts **must not be subtracted** to infer an exact number of unapplied changes. Version IDs and historical naming already diverge before PR #33.
+- Demo records the equivalent **purpose/name**, but not the same version identifier, of PR33 files 001–006:
+
+| PR33 GitHub migration | Demo recorded version/name | Status of evidence |
+| --- | --- | --- |
+| \`202610180001_aluna_admin_role_management.sql\` | \`20261018015030\` \`aluna_admin_role_management_pr33\` | Purpose/name correspondence, not full SQL equivalence |
+| \`202610180002_aluna_profile_moderation_audit.sql\` | \`20261018020503\` \`aluna_profile_moderation_audit_pr33\` | Purpose/name correspondence |
+| \`202610180003_organization_domain_challenges.sql\` | \`20261018020543\` \`organization_domain_challenges_pr33\` | Purpose/name correspondence |
+| \`202610180004_aluna_data_api_suspension_guard.sql\` | \`20261018024555\` \`aluna_data_api_suspension_guard_pr33\` | Hook function exists; purpose/name correspondence |
+| \`202610180005_activate_aluna_data_api_suspension_guard.sql\` | \`20261018024843\` \`activate_aluna_data_api_suspension_guard_demo\` | Live read-only inspection confirms \`authenticator\` has \`pgrst.db_pre_request=public.aluna_require_active_data_api_session\` |
+| \`202610180006_aluna_storage_suspension_guard.sql\` | \`20261018025443\` \`aluna_storage_suspension_guard_pr33\` | A restrictive Storage policy named \`Aluna active account required for storage\` is present |
+
+- Files \`202610180007\`, \`202610180008\`, \`202610190001\` and \`202610190002\` have **no separately recorded matching Demo migration versions**. Their principal RPC/schema effects are present as noted in the historical checkpoint below, but provenance, content equality and safely repeatable upgrade behavior **are not proven by their presence**. The current Demo contains the expected audited access functions; a read-only definition-hash inventory was obtained, but a complete reviewed canonical function-definition diff is outstanding.
+- The read-only check found **zero public tables in Demo's \`supabase_realtime\` publication**. This is not a comprehensive review of Realtime channels, private broadcasts or authorization paths.
+- Preserve all existing data; **do not repair migration history or reapply 48 scripts blindly**. Before an approved merge/deploy, produce a reviewed **forward-only, non-destructive** plan reconciled to each target environment and check that all critical functions, constraints, RLS, roles, and migration identities match expectations.
+
+### Stacked PR integration and remaining release gates
+
+- The open PRs #25–#33 are **Draft**. PR #33 targets **PR #32's branch**, not \`main\`; its current head is **208 commits ahead of main** with **95 files changed** in the GitHub comparison. This comparison does **not** authorize direct merge to \`main\`.
+- PR #25 and #30 independently target \`main\`; PR #26→#27→#31→#32→#33 form a stacked ancestry path; PR #28→#29 diverge from PR #27. Code carried into PR #33 must be compared semantically for functionality and intended visual differences. The community Missions contextual "Create a mission" link from PR #28 was restored and passed Typecheck/Lint/Build.
+- Outstanding: (1) verified authenticated HTTP requests by a banned account through Data API and Storage plus existing session behavior; (2) audit/role negative tests on a disposable actual Auth/API environment; (3) Realtime and issued-session authorization review; (4) controlled QA-owned DNS TXT validation, including expiry/replay and revocation, not \`example.org\`; (5) protected financial/proof data retention and regression testing of posting, donations, verification and mobile interaction; (6) forward-only Demo/Production migration reconciliation and final stacked merge order/review.
+- Before any merge or Production deployment, require all applicable tests **PASS at the final candidate SHA**, reviewed migration plan and **separate explicit user release authorization**.
+
+---
+
 **Checkpoint:** 2026-10-19  
 **Repository:** `Aluna2027/Aluna`  
 **PR:** https://github.com/Aluna2027/Aluna/pull/33  
