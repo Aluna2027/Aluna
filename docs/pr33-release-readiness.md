@@ -1,5 +1,30 @@
 # PR #33 — Migration reconciliation and release readiness
 
+## Critical migration-source gaps — 2026-10-21
+
+**Release decision: BLOCKED. Do not merge or deploy PR #33 based on green CI alone.** A read-only comparison of the actual SQL in `supabase_migrations.schema_migrations.statements[1]` on Demo versus **all 48 committed migration SQL files** revealed material source-control omissions. Previous evidence that seven PR33 functions match Demo remains valid, but does **not** establish parity for the earlier migrations.
+
+| Priority | Demo migration history | GitHub branch source | Gap / risk |
+| --- | --- | --- | --- |
+| **P0 — Organization security / Super Admin** | `20261010052924` `restrict_organization_delete_and_wba_to_super_admin`; `20261010054431` `organization_ownership_and_super_admin_wba_controls`; `20261010064641` `allow_aluna_managed_company_x_name` | None of the 48 SQL files creates `aluna_super_admins`, `organization_admin_audit`, `protect_organization_fields()`, `can_archive_organization(uuid)`, `update_organization_wba(...)` or the management/owner/WBA-year columns. The committed Phase 19 SQL **grants authenticated WBA UPDATE** without the later Demo-only revocation/protection. | A fresh schema produced solely from GitHub migrations may fail Super Admin queries and lacks Demo's protected-organization-field guard. A permitted organization admin may be able to edit WBA scores directly unless another independent guard prevents it; verify through negative-write tests in a disposable fresh environment. Protect retention, ownership, archiving, audits and field permissions before merge. |
+| **P1 — Media permissions and functionality** | `20261004020205` through `20261004021113`: `phase19_media_org_fields`, `phase19_media_storage`, `phase19_media_access_feed`, `phase19_media_permissions` | `202610040001_phase19_media_org_profiles.sql` creates key columns and bucket records but explicitly **defers** the range constraints, media policies, nullable-body check and media-enabled `feed_page` definition to other live Supabase migrations not committed in the repo. | All three buckets and six Phase 19 Storage policies are present in Demo, including conversation and post-view permissions; a fresh GitHub-only database is not proven equivalent. Media access may fail or differ in authorization. Also reconcile later document MIME additions. |
+| **P1 — Scheduled post publisher** | `20261016041412` `schedule_post_publication_every_minute_20261016` | `20261015040000_scheduled_posts.sql` defines publication functions but ends with an explicit note **not to enable pg_cron** yet. | Demo has an active `cron.job` named `aluna-publish-scheduled-posts`, schedule `* * * * *`, command `select public.publish_due_scheduled_posts(25);`. The fresh GitHub-migration path does not install that job. Scheduling activation must be an explicitly reviewed environment/deployment decision, not an automatic replay. |
+
+**Observed Demo safety controls (read-only):** `protect_organization_fields` is an enabled BEFORE UPDATE trigger on `public.organizations` with a SECURITY DEFINER function that logs protected changes; browser `authenticated` currently has **no WBA score UPDATE privilege**; the organization audit table and management/ownership fields exist. Demo has the three media buckets, six Phase 19 Storage policies, and an active scheduled-post cron job. These checks establish *Demo's current objects*, not a production baseline.
+
+**Why CI was green:** Existing fresh-migration CI checks whether SQL applies, not all final expected tables, grants, triggers, storage policies, cron activation or HTTP-level access. The isolated role test explicitly builds its own Super Admin fixture, so it cannot prove a completely migrated repository schema contains the original Super Admin table.
+
+### Safest next correction (feature branch only; separate acceptance)
+
+1. Recover **the final intended behavior**, not blindly replay the Demo's old migration IDs or SQL. Prepare small, ordered, idempotent **forward-only** GitHub migrations for the missing organization security/ownership and the missing Phase 19 media controls. Review existing object/constraint names, dependencies, auditing and grant changes first. Do not hard-code personal bootstrap/admin accounts or run destructive changes.
+2. Extend the **fresh full-Supabase CI** (not just role-fixture tests) with explicit assertions that `aluna_super_admins`, protected-field trigger, safe WBA permissions, ownership/archiving guards, critical media buckets and Storage policies exist. Include negative permissions and preserved-financial/proof-history scenarios in isolated tests.
+3. Keep activation of the minute-level publisher separately gated: a reviewed setup per target environment with rollback, no duplicate scheduler, and proof the hosted runtime supports it.
+4. Run the staged PR32→PR33 synthetic data upgrade and the fresh full migration suite after the source backfills. Confirm preexisting Demo-only objects and data would not be overwritten, duplicated or invalidated. **Only** then reconcile the full historical version-to-effect inventory, obtain a target-specific forward-only promotion plan, and request separate merge/deployment authorization.
+
+**Explicit exclusions:** No Demo/Production schema or migration-history repairs; no full-replay of the 48 historical files, no direct copy of SQL that seeds a named person as Super Admin, no cron activation, and no merge.
+
+---
+
 ## Read-only functional migration-definition comparison — 2026-10-21
 
 Using `pg_proc.prosrc` from Supabase Demo and the **final** definitions in committed GitHub SQL files, all **seven relevant function bodies matched exactly after whitespace/case normalization**. No database writes were performed:
