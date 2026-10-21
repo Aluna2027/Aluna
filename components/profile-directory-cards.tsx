@@ -174,7 +174,7 @@ export async function ProfileFundraisingCards({actorId='',communityId,createdOnl
         <ConfirmSubmitButton message="Remove this campaign if no financial activity exists? Campaigns with checkout or donation records will be archived instead; donation records remain preserved." className="w-full rounded-lg px-3 py-2 text-left text-[#E49BA3] hover:bg-panel-raised">Remove / Archive Campaign</ConfirmSubmitButton>
        </form>
       </div>
-     </details>
+     </details>}
     <div className={manageOrganizationId?'flex items-center justify-between gap-2 pr-12':'flex items-center justify-between gap-2'}>
      <span className="flex size-[54px] items-center justify-center rounded-xl bg-[#1B3536]"><DirectorySdgIcon number={sdg[0]??9} size={29}/></span>
      <div className="flex items-center gap-3">{sdg.slice(1,4).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div>
