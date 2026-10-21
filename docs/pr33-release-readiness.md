@@ -1,6 +1,35 @@
 # PR #33 — Migration reconciliation and release readiness
 
 
+## PR25A–E integration checkpoint — 2026-10-21
+
+**Code candidate reviewed:** `1564a91253b27fcf3482d8eaae56a22fb035d14f` (PR33 Draft branch, base PR32). All four required GitHub Actions workflows passed on **this exact code SHA**:
+
+| Run | Conclusion | Verified scope |
+| --- | --- | --- |
+| [Integration 39542777020](https://github.com/Aluna2027/Aluna/actions/runs/39542777020) | **PASS** | Typecheck, lint, Next.js build, moderation compensation and DNS action mocks |
+| [Isolated role authorization 39542777086](https://github.com/Aluna2027/Aluna/actions/runs/39542777086) | **PASS** | Synthetic role/RLS and admin access checks |
+| [Fresh migrations 39542777074](https://github.com/Aluna2027/Aluna/actions/runs/39542777074) | **PASS** | Full clean disposable Supabase build/migration reset |
+| [Staged upgrade 39542777012](https://github.com/Aluna2027/Aluna/actions/runs/39542777012) | **PASS** | Synthetic data preservation, SQL security and Auth-issued HTTP-suspension checks |
+
+### Source-level feature comparison to PR25A–E
+
+| Original work | PR33 comparison | Decision |
+| --- | --- | --- |
+| **PR25A / #25:** post composer send UX, scheduled posts, media-only posts | Current `components/post-composer.tsx` and `components/post-scheduler.tsx` were **exactly equal** to the heads of PR25A during this inspection; scheduled publishing tables/functions, media-only post support and guarded cron endpoint exist in PR33. #25 has four commits not literally on PR33 ancestry, so this is **functional/source parity for inspected areas**, not an assertion of identical commit history. | No PR25A UI change needed. Enabling a publisher in a new target remains a separate deployment action; real scheduled delivery/mobile review remains open |
+| **PR25B / #26:** tabs above user profile and uniform directory-style cards | #26 is a direct Git ancestor of PR33; current `components/user-profile.tsx` was exactly equal to PR25B head, and directory-card component remains in use. | Integrated |
+| **PR25C / #27:** organization About→Profile, conditional header and WBA | #27 is a direct Git ancestor of PR33. PR33 retains the Profile tab, conditional full header and WBA panels, then extends the organization page to nine tabs/admin workflows. | Integrated and extended |
+| **PR25D / #28:** directory-style Mission/Fundraising community cards and membership checkmarks | PR33 uses `ProfileMissionCards` and `ProfileFundraisingCards` for linked community records and has membership checks. Missing creator three-dot edit/delete/archive menus were restored in `components/profile-directory-cards.tsx` at `3e32a5d`; its JSX syntax was corrected at `2d12970`, with successful later CI. The original #28 commits remain on a diverged branch. | Source-level functional correction complete; community ownership UX still merits final desktop/mobile acceptance |
+| **PR25E / #29:** five SDG Mission tabs and their grouped content | PR33 preserves `Overview`, `Participate`, `Communication`, `Fundraising`, `Impact`, the section anchors, shared participation control (exact file match), and existing actions. PR33's central `Card` automatically assigns semantic icons/colors to text titles rather than PR25E's hand-authored JSX icons. The mission-specific turquoise fundraising progress bar was restored in `lib/fundraising.tsx` and `components/mission-fundraising.tsx` at final code SHA `1564a91`; other progress bars remain gold. The original #29 branch contains separate commits and differs in implementation. | Code review and CI complete; final visual/mobile parity is **not** proven by CI |
+
+**Integration conclusion:** No further source-level omission was identified during the scoped PR25A–E review after these two targeted restorations. This is **not** blanket end-to-end acceptance of the five PRs or authorization to merge. Preview/screenshots were **not** reviewed in this checkpoint; visual differences from semantic `Card` rendering, owner-menu discoverability and mobile behavior still require explicit user confirmation if visual parity is required.
+
+**Release blockers unchanged:** Demo/Production forward-only migration-history reconciliation, stacked PR merge order, QA-owned live DNS TXT verification, Realtime Dashboard public access check, and financial/proof/media/posting/mobile/scheduled-publishing regressions. PR33 remains **Draft/unmerged**. No Demo/Production writes, cron activation or merge were performed.
+
+---
+
+
+
 ## DNS server-action acceptance and branch ancestry — 2026-10-21
 
 **Fully green tested candidate:** \`c86004cec3e930131f1b0780709e1035f463fd48\`. Four GitHub Actions workflows completed successfully at **this exact SHA**:
