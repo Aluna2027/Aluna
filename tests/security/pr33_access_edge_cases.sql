@@ -175,6 +175,77 @@ end $$;
 rollback;
 \echo 'PASS: database domain lifecycle, replay, uniqueness, expiry and audit'
 
+-- Verify redemption contract against existing synthetic Auth users, with no live e-mail
+-- or newly created accounts. All mutations are rolled back after assertions.
+begin;
+set local role service_role;
+insert into public.organization_invitations
+ (id, organization_id, recipient_email, token_hash, invited_by, expires_at, revoked_at)
+values
+ ('33333333-3333-4333-8333-333333333334',
+  '22222222-2222-4222-8222-222222222221',
+  'member@pr33-upgrade.invalid', repeat('e',64),
+  '11111111-1111-4111-8111-111111111111', now()+interval '1 day', null),
+ ('33333333-3333-4333-8333-333333333335',
+  '22222222-2222-4222-8222-222222222221',
+  'member@pr33-upgrade.invalid', repeat('f',64),
+  '11111111-1111-4111-8111-111111111111', now()-interval '1 minute', null),
+ ('33333333-3333-4333-8333-333333333336',
+  '22222222-2222-4222-8222-222222222221',
+  'member@pr33-upgrade.invalid', repeat('1',64),
+  '11111111-1111-4111-8111-111111111111', now()+interval '1 day', now());
+
+do $
+declare v_org uuid;
+begin
+  -- Neither a forged e-mail nor another user's identity may redeem the link.
+  if public.redeem_organization_invitation(
+     repeat('e',64),
+     '11111111-1111-4111-8111-111111111112','admin@pr33-upgrade.invalid') is not null
+   or public.redeem_organization_invitation(
+     repeat('e',64),
+     '11111111-1111-4111-8111-111111111111','member@pr33-upgrade.invalid') is not null
+  then raise exception 'FAIL: invitation redeemed with mismatched verified identity';end if;
+  if public.redeem_organization_invitation(
+     repeat('f',64),
+     '11111111-1111-4111-8111-111111111112','member@pr33-upgrade.invalid') is not null
+   or public.redeem_organization_invitation(
+     repeat('1',64),
+     '11111111-1111-4111-8111-111111111112','member@pr33-upgrade.invalid') is not null
+  then raise exception 'FAIL: expired/revoked invitation accepted';end if;
+  if not exists(select 1 from public.organization_members
+       where organization_id='22222222-2222-4222-8222-222222222221'
+         and profile_id='11111111-1111-4111-8111-111111111112'
+         and member_role='member')
+     or exists(select 1 from public.organization_access_audit
+       where action='invitation_accepted')
+  then raise exception 'FAIL: rejected invitation mutated roles or audit';end if;
+
+  -- A valid, verified recipient may use the link only once.
+  v_org:=public.redeem_organization_invitation(
+    repeat('e',64),
+    '11111111-1111-4111-8111-111111111112','member@pr33-upgrade.invalid');
+  if v_org <> '22222222-2222-4222-8222-222222222221'::uuid
+     or not exists(select 1 from public.organization_members
+       where organization_id=v_org
+         and profile_id='11111111-1111-4111-8111-111111111112' and member_role='admin')
+     or not exists(select 1 from public.organization_invitations
+       where id='33333333-3333-4333-8333-333333333334'
+         and redeemed_by='11111111-1111-4111-8111-111111111112'
+         and redeemed_at is not null)
+     or (select count(*) from public.organization_access_audit
+       where action='invitation_accepted' and actor_id='11111111-1111-4111-8111-111111111112')<>1
+  then raise exception 'FAIL: valid invitation was not redeemed atomically';end if;
+  if public.redeem_organization_invitation(
+    repeat('e',64),
+    '11111111-1111-4111-8111-111111111112','member@pr33-upgrade.invalid') is not null
+     or (select count(*) from public.organization_access_audit
+         where action='invitation_accepted')<>1
+  then raise exception 'FAIL: invitation replay accepted or duplicated audit';end if;
+end $;
+rollback;
+\echo 'PASS: invitation verified-recipient check, expiry, revocation, one-time use and audit'
+
 -- Every test above rolls back. The original pre-upgrade fixture must be unchanged.
 do $$
 begin
