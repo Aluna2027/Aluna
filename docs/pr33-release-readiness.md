@@ -1,5 +1,19 @@
 # PR #33 — Migration reconciliation and release readiness
 
+## Read-only functional migration-definition comparison — 2026-10-21
+
+Using `pg_proc.prosrc` from Supabase Demo and the **final** definitions in committed GitHub SQL files, all **seven relevant function bodies matched exactly after whitespace/case normalization**. No database writes were performed:
+
+- `202610180007`: `aluna_audited_reject_claim`, `aluna_audited_revoke_invitation`, `aluna_audited_create_domain_challenge`, `aluna_audited_verify_domain`, `aluna_audited_revoke_domain` — **5/5 function-body matches**
+- `202610180008`: `aluna_audited_invitation_delivery_failure` — **1/1 function-body match**
+- `202610190002` (the final definition replacing the one in `202610190001`): `complete_member_onboarding_v4` — **1/1 function-body match**
+- Six audited organization-access RPCs are **SECURITY INVOKER**, with empty `search_path`, not executable by `anon` or `authenticated` and executable by `service_role`. Onboarding v4 is **SECURITY DEFINER**, with empty `search_path`, executable by `authenticated` but not `anon`.
+- Additional Demo objects verified: global `organization_verified_domains_unique_domain` is a valid UNIQUE btree index on `domain`; `profiles.gender` is nullable text with no default and a validated `profiles_gender_allowed` constraint; `profiles.date_of_birth` is nullable date; the restrictive Storage policy uses `aluna_is_active_account()` for both `USING` and `WITH CHECK`.
+
+**Interpretation:** The absence of separately named Demo migration-history entries for files 007, 008 and onboarding v4 does **not** indicate a missing final implementation for these inspected functions and objects. This proves current observed *definition/permission equivalence* for the tested scope, **not** the full historical execution sequence, all triggers/grants/policies or semantic equality of every GitHub migration. The 48 GitHub SQL files versus 45 Demo migration records remain historically unreconciled, and should **not** be resolved by blindly replaying migrations or modifying Demo's migration-history table.
+
+---
+
 ## Current update — 2026-10-21 (after isolated security acceptance)
 
 **Tested candidate:** \`9dd7cc4466242a3bb9b40c9430293f16ba0110f0\`  
