@@ -26,6 +26,8 @@ jobs:
         run: npm run typecheck
       - name: Isolated Super Admin moderation audit-compensation tests
         run: node --test tests/security/pr33_moderation_compensation.test.cjs
+      - name: Isolated DNS TXT verification server-action tests
+        run: node --test tests/security/pr33_domain_verification.test.cjs
       - name: Lint
         run: npm run lint
       - name: Build
