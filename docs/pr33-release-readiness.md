@@ -1,5 +1,28 @@
 # PR #33 — Migration reconciliation and release readiness
 
+
+## HTTP suspension acceptance — 2026-10-21
+
+**Fully green CI candidate:** \`f4498ce46db2b3708217fc5bc3ff104e03a0aff7\`. The PR remains **Draft and unmerged**; Demo and Production were **not modified**.
+
+| GitHub Actions | Evidence at this exact SHA | Status |
+| --- | --- | --- |
+| Typecheck, lint, build and mocked moderation checks | [PR33 integration run 39539403901](https://github.com/Aluna2027/Aluna/actions/runs/39539403901) | **PASS** |
+| Role authorization/RLS | [PR33 isolated roles run 39539403894](https://github.com/Aluna2027/Aluna/actions/runs/39539403894) | **PASS** |
+| All 50 migrations on a disposable fresh Supabase database | [PR33 fresh run 39539403924](https://github.com/Aluna2027/Aluna/actions/runs/39539403924) | **PASS** |
+| Synthetic upgrade, SQL security regressions and Auth-issued HTTP suspension test | [PR33 staged run 39539403879](https://github.com/Aluna2027/Aluna/actions/runs/39539403879) | **PASS** |
+
+**New acceptance evidence:** The test in \`tests/security/pr33_suspension_http.test.mjs\` signs in an existing disposable synthetic member via the **local Auth HTTP endpoint**, saves its **Supabase Auth-issued JWT**, confirms a normal profile Data API read and an authorized Storage upload, suspends the user via local Auth Admin, then **reuses the same previously issued JWT** to verify both Data API and Storage upload requests are rejected. The test restores the ban in a \`finally\` block; all test accounts and files exist only in the disposable CI environment.
+
+The Auth fixture was corrected to include email identities and empty text token fields consistent with GoTrue expectations. This was **a test-fixture-only repair**, not a change to application authentication or production data. Earlier failed attempts remain historically visible, but the above four runs at this exact SHA passed.
+
+**What this proves:** Data API and Storage **HTTP** reject a previously issued JWT of an Auth-suspended account in the tested local Supabase/PR33 schema. This is stronger than earlier function-only SQL tests. It does **not** establish behavior for all other APIs, existing Realtime WebSockets, third-party clients or hosted Demo/Production configuration; do not overgeneralize it.
+
+**Remaining release gates:** (1) read-only Supabase Realtime *Allow public access* Dashboard check and, if relevant, active-WebSocket/session lifecycle acceptance; (2) controlled QA-owned DNS TXT end-to-end verification; (3) independently reviewed forward-only Demo/Production migration reconciliation and stacked PR25–PR33 merge sequencing; (4) relevant financial/proof, posting and mobile regressions, plus scheduler deployment checks. No migration replays, service configuration change, deployment or merge are authorized by this CI success.
+
+---
+
+
 ## Read-only Realtime exposure inventory — 2026-10-21
 
 **Scope:** Supabase Demo `zujkasvuxrleisbsnrxv`; metadata inspection only, without Auth session creation or database/schema writes.
