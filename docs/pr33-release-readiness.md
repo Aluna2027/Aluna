@@ -1,6 +1,49 @@
 # PR #33 — Migration reconciliation and release readiness
 
 
+## DNS server-action acceptance and branch ancestry — 2026-10-21
+
+**Fully green tested candidate:** \`c86004cec3e930131f1b0780709e1035f463fd48\`. Four GitHub Actions workflows completed successfully at **this exact SHA**:
+
+| Validation | Evidence | Result |
+| --- | --- | --- |
+| Typecheck, mocked Super Admin moderation compensation, **8 DNS TXT server-action scenarios**, ESLint, Next.js build | [Integration checks 39540181082](https://github.com/Aluna2027/Aluna/actions/runs/39540181082) | **PASS** |
+| Isolated database role/RLS authorization | [Role checks 39540181079](https://github.com/Aluna2027/Aluna/actions/runs/39540181079) | **PASS** |
+| Full migration application and rebuild against disposable fresh Supabase | [Fresh migrations 39540182207](https://github.com/Aluna2027/Aluna/actions/runs/39540182207) | **PASS** |
+| 50-file staged upgrade, preserved synthetic data, invitation/domain audit SQL, HTTP Auth-issued pre-ban/post-ban token rejection in Data API and Storage | [Staged upgrade 39540180920](https://github.com/Aluna2027/Aluna/actions/runs/39540180920) | **PASS** |
+
+### What the new DNS test proves
+
+The new isolated test file \`tests/security/pr33_domain_verification.test.cjs\` executes the **existing** \`verifyOrganizationDomain\` server action with mocked \`resolveTxt\`, Supabase RPC and auth. Eight test scenarios cover: valid/split DNS TXT segments, wrong/missing tokens, DNS lookup failure, expiration/replay/hash mismatch, removed organization, duplicate verification/atomic-RPC failure, malformed inputs and unauthorized callers. DNS is never contacted, real domains are not changed, and no Demo/Production writes occur.
+
+**Not proven by this test:** live DNS propagation against a controlled QA-owned domain; real Supabase-hosted full UI flow; public-Realtime-channel settings. Leave controlled DNS TXT E2E and Realtime *Allow public access* as **OPEN**.
+
+### Merge genealogy: compare before any release approval
+
+PRs #25–#33 were inspected via read-only GitHub PR ancestry and commit comparisons. **All currently open PRs are Draft.**
+
+| Branch sequence or side branch | Verified base relation | Release treatment |
+| --- | --- | --- |
+| #25 → #26 → #27 → #31 → #32 → #33 | Successive stacked branch bases; PR #33 targets #32, **not main** | Review ordered stack. Do **not** merge #33 directly into \`main\` now |
+| #28 → #29 (forked at #27) | PR28 has **3 commits**, PR29 **8 commits** not literally ancestors of PR33 | Compare SDG Mission 5-tab, community-card and shared UI behavior semantically. Substantial matching features are present in PR33 but file bodies differ; never infer all intended changes merged solely from similar headings |
+| #30 (from \`main\`) | **2 commits** not literally ancestors of PR33 | Compare restricted Super Admin navigation and all-organization pagination to PR33 integration; do not cherry-pick or merge automatically |
+
+A GitHub \`compare\` result of \`diverged\` means branch genealogy differs; it **does not by itself** mean PR33 lacks a feature. Explicit review of side-branch diffs and appropriate UI acceptance is required to close that uncertainty. Once the final integrated candidate is chosen, rerun all required workflows **at that new exact SHA** and obtain separate merge/deployment authorization.
+
+### Remaining gates (unchanged)
+
+- Read-only Dashboard check of Supabase Realtime's *Allow public access* setting; appropriate active-channel E2E only if used.
+- Real QA-owned DNS TXT verification (24-hour challenge lifecycle, actual resolver propagation, UI authorization and audit), without involving an unrelated domain.
+- Reviewed per-environment **forward-only** migration plan for Demo and Production; no history-table repair or destructive replay just to equalize the number of migration files.
+- Functional finance/referral/proof, posting, media and mobile regression checks; single scheduled-publisher deployment decision and rollback evidence.
+- Review diverged #28/#29/#30 features and fully understand the final main-branch diff before any merge.
+
+**No merge, deployment, Supabase Demo/Production schema write, account mutation or DNS change occurred in this checkpoint. PR #33 remains Draft.**
+
+---
+
+
+
 ## HTTP suspension acceptance — 2026-10-21
 
 **Fully green CI candidate:** \`f4498ce46db2b3708217fc5bc3ff104e03a0aff7\`. The PR remains **Draft and unmerged**; Demo and Production were **not modified**.
