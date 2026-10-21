@@ -1,5 +1,23 @@
 # PR #33 — Migration reconciliation and release readiness
 
+## Read-only Realtime exposure inventory — 2026-10-21
+
+**Scope:** Supabase Demo `zujkasvuxrleisbsnrxv`; metadata inspection only, without Auth session creation or database/schema writes.
+
+| Evidence | Observation | Interpretation |
+| --- | --- | --- |
+| `pg_publication_tables` for `supabase_realtime` | **0 published tables** | No Postgres Changes feed from `public` (or other listed tables) currently published through this publication on Demo |
+| `realtime.messages` | **RLS enabled**, **0 policies** | No database RLS policy currently authorizes private Broadcast/Presence channel access via this table |
+| Application source inspected | Message, feed and notification pages/actions, browser client, proxy/middleware have **no `.channel()`, `.subscribe()` or broadcast/presence subscription** | Those inspected Aluna UI paths currently use conventional Supabase queries/server actions; **not** proof that every repository file or third-party client lacks Realtime |
+| Realtime platform's **Allow public access** toggle | **Not inspected / unknown** | Absence of `realtime.messages` policies does **not** establish public Broadcast is disabled. A Dashboard/config check is required before claiming closure |
+| Existing WebSocket/channel tokens on suspension | **Not tested** | Realtime checks permission when joining a channel. Token revocation or ban handling for already joined connections requires a distinct controlled E2E test if Aluna enables realtime collaboration |
+
+**Decision:** No new Realtime migration or broad subscription rewrite is justified by current evidence. **Do not enable a Realtime publication or channel policies** merely to satisfy this review. If realtime channels are later introduced, use **private channels** with topic-scoped RLS tied to authoritative active-account checks, verify the Realtime "Allow public access" setting, and perform explicit already-connected suspension E2E tests. Public broadcasts must not carry protected message, profile or organization data. See the [Supabase Realtime Authorization guide](https://supabase.com/docs/guides/realtime/authorization).
+
+**Outstanding:** Requires a read-only check of the Realtime Dashboard public-access setting and representative authenticated HTTP/WebSocket tests using **existing disposable QA identities**. Do not create new accounts or modify Demo/Production in this checkpoint.
+
+---
+
 ## Latest checkpoint — 2026-10-21: media/security parity
 
 **Validated application/test candidate:** `33667de6099cd6f9e8ebd9370fa92241af57fd14`  
