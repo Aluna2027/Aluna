@@ -195,7 +195,7 @@ values
   'member@pr33-upgrade.invalid', repeat('1',64),
   '11111111-1111-4111-8111-111111111111', now()+interval '1 day', now());
 
-do $
+do $pr33redemption$
 declare v_org uuid;
 begin
   -- Neither a forged e-mail nor another user's identity may redeem the link.
@@ -242,7 +242,7 @@ begin
      or (select count(*) from public.organization_access_audit
          where action='invitation_accepted')<>1
   then raise exception 'FAIL: invitation replay accepted or duplicated audit';end if;
-end $;
+end $pr33redemption$;
 rollback;
 \echo 'PASS: invitation verified-recipient check, expiry, revocation, one-time use and audit'
 
