@@ -43,7 +43,7 @@ jobs:
             mv "$migration" "$RUNNER_TEMP/pr33-pending/"
           done
           count="$(find "$RUNNER_TEMP/pr33-pending" -maxdepth 1 -type f -name '*.sql' | wc -l)"
-          test "$count" -eq 14
+          test "$count" -eq 15
           echo "Staged $count PR33 migrations; preparing earlier schema."
       - name: Build disposable pre-PR33 Supabase database
         run: |
