@@ -29,13 +29,14 @@ export async function readOnboardingProfile(
   .select(withDemographicsFlag?onboardingProfileFields+',demographics_required':onboardingProfileFields)
   .eq('id',userId).maybeSingle();
  const current=await read(true);
- if(!current.error)return current;
+ if(!current.error)return {data:current.data as unknown as OnboardingProfile|null,error:null};
  const missingFlagColumn=/(?:column .*demographics_required.*does not exist|could not find .*demographics_required.*column|schema cache.*demographics_required)/i.test(current.error.message);
- if(!missingFlagColumn)return current;
+ if(!missingFlagColumn)return {data:null,error:current.error};
  const legacy=await read(false);
+ const legacyData=legacy.error?null:legacy.data as unknown as OnboardingProfile|null;
  return {
-  ...legacy,
-  data:legacy.data?{...legacy.data,demographics_required:false}:null
+  data:legacyData?{...legacyData,demographics_required:false}:null,
+  error:legacy.error
  };
 }
 
