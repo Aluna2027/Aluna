@@ -3,6 +3,31 @@
 -- and fundraiser referral link. The transaction is rolled back at the end.
 \set ON_ERROR_STOP on
 begin;
+-- Minimal synthetic fixture for both referral types. Triggers create the
+-- profile actor and fundraiser referral link; the whole fixture rolls back.
+insert into auth.users (
+ instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at
+) values ('00000000-0000-0000-0000-000000000000',
+ '77777777-7777-4777-8777-777777777777','authenticated','authenticated',
+ 'referral-test@pr33.invalid','',now(),now(),now());
+insert into public.places(id,name,country_code,source_key)
+values('88888888-8888-4888-8888-888888888888','PR33 Referral Test City','NL','pr33-referral-test');
+insert into public.missions(id,city_id,created_by_actor_id,title,overview,location_text,goal)
+select '99999999-9999-4999-8999-999999999999','88888888-8888-4888-8888-888888888888',a.id,
+ 'PR33 Referral Test Mission','Synthetic mission for referral tests','Test City','Validate referral replay protection'
+from public.actors a where a.profile_id='77777777-7777-4777-8777-777777777777';
+insert into public.fundraising_campaigns(id,mission_id,actor_id,title,story,goal_amount,currency_code)
+select 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','99999999-9999-4999-8999-999999999999',a.id,
+ 'PR33 Referral Test Campaign','Synthetic campaign for referral security tests',100,'EUR'
+from public.actors a where a.profile_id='77777777-7777-4777-8777-777777777777';
+insert into public.campaign_referral_links(campaign_id,created_by_actor_id,label,source_type)
+select 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',a.id,'PR33 Security Test','other'
+from public.actors a where a.profile_id='77777777-7777-4777-8777-777777777777';
+insert into public.fundraisers(campaign_id,mission_id,actor_id,kind,slug,title,story,goal_amount)
+select 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','99999999-9999-4999-8999-999999999999',a.id,
+ 'personal','pr33-referral-test','PR33 Referral Test Fundraiser','Synthetic fundraiser for referral security tests',50
+from public.actors a where a.profile_id='77777777-7777-4777-8777-777777777777';
+
 set local role service_role;
 do $referral_click_dedup$
 declare
@@ -13,7 +38,8 @@ begin
  select l.token,l.campaign_id into v_token,v_campaign
  from public.campaign_referral_links l
  join public.fundraising_campaigns c on c.id=l.campaign_id
- where l.is_active and c.removed_at is null and c.archived_at is null
+ where l.campaign_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+   and l.is_active and c.removed_at is null and c.archived_at is null
  limit 1;
  if v_token is null then raise exception 'Test fixture needs an active campaign referral link'; end if;
  select coalesce(clicks,0) into v_before from public.campaign_referral_source_counts
@@ -33,7 +59,8 @@ begin
  if v_second is distinct from v_campaign then raise exception 'Distinct visitor was not counted/redirected'; end if;
 
  select l.token,f.slug,l.id into v_fundraiser_token,v_slug,v_fundraiser_link
- from public.fundraiser_referral_links l join public.fundraisers f on f.id=l.fundraiser_id limit 1;
+ from public.fundraiser_referral_links l join public.fundraisers f on f.id=l.fundraiser_id
+ where f.slug='pr33-referral-test';
  if v_fundraiser_token is null then raise exception 'Test fixture needs a fundraiser referral link'; end if;
  select coalesce(clicks,0) into v_fundraiser_before from public.referral_source_counts
  where referral_link_id=v_fundraiser_link and source='direct';
