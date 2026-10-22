@@ -1,11 +1,11 @@
 # PR #33 — Migration reconciliation and release readiness
 
 
-## Migration lineage crosswalk — 2026-10-22 (read-only)
 ## Scheduled-post behavior clarification — 2026-10-22
 
 The one-minute Demo cron is a **polling mechanism** used during QA, not the product behavior of “create a post every minute.” The user-confirmed expected behavior is: each post is published once at the date and time its author selected. The live publisher confirms this guard: it processes only `status='pending'` rows with `scheduled_for <= now()` (and an eligible retry time). The earlier approximately two-minute and 30-second scheduling examples were one-off timing tests. They do not imply a repeating cadence. With a one-minute poll, execution may occur at the next poll after the selected time; the cron frequency is not the post frequency.
 
+## Migration lineage crosswalk — 2026-10-22 (read-only)
 
 **Purpose:** distinguish the intended GitHub release stack from the migration identifiers recorded in Supabase Demo. This is a source/effect reconciliation, not a claim that the registered Demo versions contain the exact SQL currently in GitHub.
 
