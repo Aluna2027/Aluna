@@ -1,5 +1,56 @@
 # PR #33 — Migration reconciliation and release readiness
 
+
+## Migration lineage crosswalk — 2026-10-22 (read-only)
+
+**Purpose:** distinguish the intended GitHub release stack from the migration identifiers recorded in Supabase Demo. This is a source/effect reconciliation, not a claim that the registered Demo versions contain the exact SQL currently in GitHub.
+
+### PR genealogy and migration-bearing changes
+
+| GitHub change | Branch relationship | Database migration contribution |
+| --- | --- | --- |
+| PR #25A / #25 → #25B / #26 → #25C / #27 | Linear stack from `main` | #25A adds scheduled posts; #26 and #27 add no migration files. |
+| PR #25D / #28 → #25E / #29 | Side line forked from #27 | No schema migration in #28. #29 carries the media-only migration; that file is byte-identical to the copy now present in #25A/#33. |
+| PR #25C.1 / #31 → PR #32 | Separate stack from #27; #32 depends on #31 | #31 adds organization claim/access; #32 adds organization membership requests and relationships. |
+| PR #30 | Independent of `main` | No migration files. |
+| PR #33 | Based on PR #32 | Integrates the effective #25A/#29 scheduling/media files and adds 14 PR #33 migrations. |
+
+The intended candidate sequence is therefore: existing `main` baseline (through PR #24), then the #25A–C work, the #28–29 side-line behavior, #31, #32, and finally PR #33. #30 must be reviewed/integrated as its own code line; it does not change database migration order. The source migration timestamps sort the pre-PR33 changes as scheduled posts (`20261015040000`), claim management (`202610160002`), media-only posts (`20261016070000`), and organization-member relationships (`202610170001`). The claim and media SQL do not depend on one another, so this differs from Demo's historical order without creating a dependency conflict in the inspected SQL.
+
+### PR #25–32: source files to Demo history
+
+| GitHub migration file | PR | Supabase Demo history record | Read-only result |
+| --- | --- | --- | --- |
+| `20261015040000_scheduled_posts.sql` | #25A | `20261016041354_scheduled_posts_20261016` | Scheduled-post table/RPCs are present; current source uses a 30-second minimum and the live function shows the same threshold. |
+| — (no matching SQL file in the branch migration inventory) | Demo-only/untracked | `20261016041412_schedule_post_publication_every_minute_20261016` | Demo has an active `cron.job` every minute calling `publish_due_scheduled_posts(25)`. GitHub's scheduled-post migration explicitly leaves scheduler activation for a later, separately accepted step. This environment configuration is not represented by the clean/staged migration replay. |
+| `20261016070000_media_only_posts.sql` | #25A/#29 | `20261016044126_media_only_posts_20261016` | The post and scheduled-post media-only constraints/functions are present. #25A and #29 contain the same file blob. |
+| `202610160002_organization_claim_management.sql` | #31 | `20261016135539_organization_claim_management_pr25c1` | Claim, invitation, verified-domain and access-audit objects are present. |
+| `202610170001_organization_members_relationships.sql` | #32 | `20261016230513_organization_members_relationships_pr32` | Membership-request and organization-relationship tables/functions/policies are present. |
+
+Demo's recorded order is scheduled posts → minute scheduler → media-only posts → claim management → organization relationships. This is not the same timestamp order as GitHub's candidate migration filenames. The SQL dependency review found the claim migration independent of the media-only migration; the exact Demo migration bodies are not stored in the migration-history table, so the history rows alone cannot prove identical source provenance.
+
+### PR #33: migration-to-history crosswalk
+
+The 14 PR #33 source migrations are `202610180001`–`202610180008`, `202610190001`–`202610190002`, `20261021024500`, `20261021030000`, `20261021053000`, and `20261022000100`.
+
+| PR #33 source files | Demo history identifiers | Read-only result |
+| --- | --- | --- |
+| `180001`–`180006` (admin role; moderation audit; domain challenges; Data API suspension guard and activation; Storage guard) | `20261018015030`, `18020503`, `18020543`, `18024555`, `18024843`, `18025443` respectively | Corresponding tables, functions, and policies are present. |
+| `180007`, `180008` (atomic organization-access audit and invitation-delivery failure) | No separate version row identified | Audited RPCs and uniqueness index are present; no row proves which SQL source created them. |
+| `190001`, `190002` (onboarding demographics and required DOB/gender) | No separate version row identified | Gender column/check and required onboarding RPC behavior are present; source execution provenance is not proved by the ledger. |
+| `21024500` (organization security parity) | No separate version row identified | Organization security functions, constraints, and audit-related objects are present; exact migration provenance remains unproved. |
+| `21030000` (Phase 19 media controls) | No separate version row identified | Six expected Storage policies and the direct-message media constraint are present. |
+| `21053000` (payment webhook RPC ACLs) | `20261021054252_pr33_demo_restrict_payment_webhook_rpc_execution` | Demo ACLs deny `anon`/`authenticated` and retain `service_role` on the four payment RPCs. |
+| `22000100` (anonymous membership RPC ACLs) | `20261022034809_restrict_anonymous_membership_rpc_execution` | Demo ACLs deny `anon` and retain authenticated policy access for both membership helpers. |
+
+The effect checks establish that the relevant objects currently exist; they do **not** establish the exact historical SQL body or whether a given object came from a renamed/combined migration, a manual change, or a separate deployment. In addition, 11 older baseline source migrations had no exact single-history-row SQL match in the prior normalized comparison. Their effects are partly visible in the current schema, but the migration ledger does not preserve the SQL needed to prove their individual provenance.
+
+### What the staged-upgrade test proves
+
+`.github/workflows/pr33-staged-upgrade.yml` moves the 14 PR #33 migrations aside, then builds a disposable local database from the remaining 38 candidate source files, seeds synthetic pre-upgrade rows, applies the 14 migrations, and checks data/security invariants. It therefore tests a reproducible source-built pre-PR33 candidate baseline plus the PR #33 upgrade. It **does not clone Demo**, reproduce its 47 recorded identifiers, or recreate Demo's active minute cron job. Its PASS is valid for the tested synthetic source sequence; it is not, by itself, proof of exact Demo/Production history parity.
+
+**Migration reconciliation decision: PARTIAL / RELEASE BLOCKED.** No forward database write or migration-history repair was made. To close provenance fully, retain/recover the historical SQL or deployment evidence for the 11 unmatched baseline migrations and document the Demo-only scheduled-publisher configuration. Until that evidence is available, do not claim that every recorded migration has been mapped one-to-one or that the upgrade is certified for a populated target. PR #33 remains Draft and unmerged.
+
 ## Post-payment acceptance checkpoint — 2026-10-21 (TEST only)
 
 **PR remains Draft/unmerged; release remains BLOCKED.** This is a verified update to the evidence after the historical checkpoints below, not approval to merge or promote. Source checked at `e1cbf24ee64129ab30bfafe708653f932c653ce8`; all four GitHub checks passed on this SHA: `typecheck-lint-build`, `role-security`, `fresh-supabase-database`, `staged-upgrade`. PR33 Vercel Preview `dpl_AsVpCS1SLQ3BEPPJNPw7zUAbr8Hj` READY on this SHA.
