@@ -15,7 +15,7 @@ export async function signIn(form: FormData) {
   if (error) redirect(`/login?error=invalid${safeNext!=='/feed'?`&next=${encodeURIComponent(safeNext)}`:''}`);
   const {data:{user}}=await client.auth.getUser();
   if(!user)redirect('/login?error=invalid');
-  const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();
+  const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender').eq('id',user.id).maybeSingle();
   // Signup email confirmation may return through a different browser or canonical domain.
   const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
   const destination=safeNext!=='/feed'?safeNext:storedNext;

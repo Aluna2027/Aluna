@@ -36,7 +36,7 @@ export async function refreshSession(request: NextRequest) {
   // The generic authenticated layout otherwise redirects to /onboarding and loses the token path.
   if(user && /^\/organizations\/invite\/[0-9a-f]{64}$/i.test(request.nextUrl.pathname)){
     const {data:profile}=await client.from('profiles')
-      .select('display_name,first_name,last_name,onboarded_at,aluna_role')
+      .select('display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender')
       .eq('id',user.id).maybeSingle();
     if(!isOnboardingComplete(profile)){
       const destination=new URL('/onboarding',request.url);
@@ -49,7 +49,7 @@ export async function refreshSession(request: NextRequest) {
     const safeNext=safeAuthDestination(next);
     const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
     const destination=safeNext!=='/feed'?safeNext:storedNext;
-    const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role').eq('id',user.id).maybeSingle();
+    const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender').eq('id',user.id).maybeSingle();
     if(!isOnboardingComplete(profile))return NextResponse.redirect(new URL('/onboarding'+(destination==='/feed'?'':'?next='+encodeURIComponent(destination)), request.url));
     return NextResponse.redirect(new URL(destination, request.url));
   }

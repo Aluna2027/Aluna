@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: {children:React.ReactNode}
 
   const { data: profile } = await client
     .from('profiles')
-    .select('id,display_name,first_name,last_name,onboarded_at,aluna_role')
+    .select('id,display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender')
     .eq('id', user.id)
     .maybeSingle();
 

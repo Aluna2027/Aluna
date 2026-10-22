@@ -7,9 +7,12 @@ export async function OrganizationRelationshipCards({organizationId,isAdmin,mana
  const client=await createClient();
  const {data:rows,error}=await client.from('organization_relationships').select('id,name,kind,organization_relationship_actors(actor_id)').eq('organization_id',organizationId).order('created_at',{ascending:false}).limit(100);
  const actorIds=[...new Set((rows??[]).flatMap(r=>((r.organization_relationship_actors as unknown as {actor_id:string}[])??[]).map(a=>a.actor_id)))];
- const {data:actors}=actorIds.length?await client.from('actors').select('id,profile_id,organization_id,profiles(display_name),organizations(name)').in('id',actorIds):{data:[]};
+ const {data:actors}=actorIds.length?await client.from('actors').select('id,profile_id,organization_id,organizations(name)').in('id',actorIds):{data:[]};
+ const profileIds=[...new Set((actors??[]).map(a=>a.profile_id).filter((id):id is string=>!!id))];
+ const {data:profiles}=profileIds.length?await client.from('public_profiles').select('id,display_name').in('id',profileIds):{data:[]};
+ const profileNames=new Map((profiles??[]).map(p=>[p.id,p.display_name]));
  const names=new Map((actors??[]).map(a=>[a.id,{
-  id:a.id,name:(a.profiles as unknown as {display_name:string}|null)?.display_name||(a.organizations as unknown as {name:string}|null)?.name||'Participant',
+  id:a.id,name:(a.profile_id?profileNames.get(a.profile_id):null)||(a.organizations as unknown as {name:string}|null)?.name||'Participant',
   kind:(a.profile_id?'Person':'Organization') as 'Person'|'Organization'
  }]));
  const categories=[{kind:'partnership' as const,title:'Partnerships'},{kind:'sponsorship' as const,title:'Sponsorships'}];

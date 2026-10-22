@@ -5,7 +5,7 @@ export default async function Search({searchParams}:{searchParams:Promise<{q?:st
  // Escape LIKE metacharacters: searching is literal, even for user-supplied % or _.
  const pattern=`%${term.replace(/[\\%_]/g,'\\$&')}%`;
  const [people,organizations]=term?await Promise.all([
- client.from('profiles').select('id,display_name,bio').ilike('display_name',pattern).limit(20),
+ client.from('public_profiles').select('id,display_name,bio').ilike('display_name',pattern).limit(20),
  client.from('organizations').select('id,name,organization_type,description').ilike('name',pattern).limit(20),
  ]):[{data:[]},{data:[]}];
  return <div className="space-y-6"><div><p className="deck-label">EXPLORE ALUNA</p><h1 className="mt-2 text-4xl">Search</h1></div><form className="flex gap-3"><input name="q" type="search" defaultValue={term} maxLength={80} placeholder="People or organizations" className="min-w-0 flex-1 rounded-xl border border-line bg-panel p-3"/><button className="rounded-xl bg-gold px-5 font-semibold text-navy">Search</button></form>

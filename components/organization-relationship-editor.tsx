@@ -13,7 +13,7 @@ export function RelationshipEditor({organizationId,kind,existing}:{organizationI
   try{
    const db=createClient(),safe=needle.replace(/[%_,()]/g,' ').trim();
    const [people,orgs]=await Promise.all([
-    db.from('profiles').select('id,display_name').ilike('display_name',`%${safe}%`).limit(15),
+    db.from('public_profiles').select('id,display_name').ilike('display_name',`%${safe}%`).limit(15),
     db.from('organizations').select('id,name').ilike('name',`%${safe}%`).is('removed_at',null).limit(15)
    ]);
    if(people.error||orgs.error){setError('Search failed. Please try again.');return;}
