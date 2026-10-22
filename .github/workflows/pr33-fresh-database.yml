@@ -1,0 +1,54 @@
+name: PR33 fresh Supabase migrations
+on:
+  push:
+    branches:
+      - feature/pr33-integration-admin-control-center-20261018
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fresh-supabase-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR33 branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: '2.121.0'
+      - name: Initialize temporary local configuration
+        run: |
+          set -eu
+          test ! -e supabase/config.toml
+          supabase --version
+          supabase init --yes
+      - name: Apply all migrations to disposable local Supabase
+        run: supabase start
+      - name: Rebuild fresh local database from all migrations
+        run: supabase db reset --local --no-seed
+      - name: Install local PostgreSQL client for payment privilege checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Verify privileged payment RPC permissions in fresh database
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f tests/security/pr33_payment_rpc_permissions.sql
+      - name: Verify anonymous membership helper RPC permissions in fresh database
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f tests/security/pr33_membership_rpc_permissions.sql
+      - name: Verify PR33 SECURITY DEFINER ACLs and profile privacy
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f tests/security/pr33_security_definer_acl.sql
+      - name: Verify profile demographic isolation with synthetic Auth users
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f tests/security/pr33_profile_privacy.sql
+      - name: Verify referral replay protection and atomic uniqueness
+        run: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f tests/security/pr33_referral_click_dedup.sql
+      - name: Inspect local-only migration history
+        run: supabase migration list --local
+      - name: Stop disposable Supabase containers
+        if: always()
+        run: supabase stop --no-backup || true

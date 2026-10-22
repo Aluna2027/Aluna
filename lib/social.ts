@@ -17,8 +17,20 @@ export async function ownedActors() {
 
 export async function actorDetails(ids:string[]):Promise<Map<string,Actor>> {
  const result=new Map<string,Actor>();if(!ids.length)return result;
- const client=await createClient();const {data}=await client.from('actors').select('id,profile_id,organization_id,profiles(display_name),organizations(name,organization_type)').in('id',[...new Set(ids)]);
- for(const a of data??[]){const p=a.profiles as unknown as {display_name:string}|null;const o=a.organizations as unknown as {name:string;organization_type:string}|null;result.set(a.id,{id:a.id,name:p?.display_name||o?.name||'Member',kind:p?'user':o?.organization_type||'organization',href:p?`/people/${a.profile_id}`:`/organizations/${a.organization_id}`});}
+ const client=await createClient();const {data}=await client.from('actors').select('id,profile_id,organization_id,organizations(name,organization_type)').in('id',[...new Set(ids)]);
+ const profileIds=[...new Set((data??[]).map(a=>a.profile_id).filter((id):id is string=>!!id))];
+ const {data:profiles}=profileIds.length?await client.from('public_profiles').select('id,display_name').in('id',profileIds):{data:[]};
+ const profileNames=new Map((profiles??[]).map(p=>[p.id,p.display_name]));
+ for(const a of data??[]){
+  const profileName=a.profile_id?profileNames.get(a.profile_id):null;
+  const o=a.organizations as unknown as {name:string;organization_type:string}|null;
+  result.set(a.id,{
+   id:a.id,
+   name:profileName||o?.name||'Member',
+   kind:a.profile_id?'user':o?.organization_type||'organization',
+   href:a.profile_id?`/people/${a.profile_id}`:`/organizations/${a.organization_id}`
+  });
+ }
  return result;
 }
 

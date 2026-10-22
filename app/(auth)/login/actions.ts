@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeAuthDestination } from '@/lib/auth-next';
 import { siteOrigin } from '@/lib/payments';
+import { isOnboardingComplete, readOnboardingProfile } from '@/lib/onboarding';
 
 export async function signIn(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
@@ -12,17 +13,30 @@ export async function signIn(form: FormData) {
   const next=String(form.get('next')??'');
   const safeNext=safeAuthDestination(next);
   if (error) redirect(`/login?error=invalid${safeNext!=='/feed'?`&next=${encodeURIComponent(safeNext)}`:''}`);
-  redirect(safeNext);
+  const {data:{user}}=await client.auth.getUser();
+  if(!user)redirect('/login?error=invalid');
+  const {data:profile}=await readOnboardingProfile(client,user.id);
+  // Signup email confirmation may return through a different browser or canonical domain.
+  const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
+  const destination=safeNext!=='/feed'?safeNext:storedNext;
+  if(!isOnboardingComplete(profile))redirect('/onboarding'+(destination==='/feed'?'':'?next='+encodeURIComponent(destination)));
+  redirect(destination);
 }
 
 export async function signUp(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
   const password = String(form.get('password') ?? '');
+  const confirmPassword = String(form.get('confirm_password') ?? '');
+  const signupNext=safeAuthDestination(String(form.get('next')??''));
+  const signupNextParam=signupNext==='/feed'?'':'&next='+encodeURIComponent(signupNext);
+  if(password!==confirmPassword) redirect('/login?mode=signup&error=password-mismatch'+signupNextParam);
 
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<12||password.length>128) {
-    redirect('/login?mode=signup&error=validation');
+    redirect('/login?mode=signup&error=validation'+signupNextParam);
   }
 
+  const next=safeAuthDestination(String(form.get('next')??''));
+  const nextParam=next==='/feed'?'':'&next='+encodeURIComponent(next);
   const client = await createClient();
 
   // A signup must never inherit an already authenticated browser session.
@@ -31,17 +45,17 @@ export async function signUp(form: FormData) {
   const { error, data } = await client.auth.signUp({
     email,
     password,
-    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup`}
+    options:{emailRedirectTo:`${siteOrigin()}/auth/callback?flow=signup${nextParam}`,data:/^\/organizations\/invite\/[0-9a-f]{64}$/i.test(next)?{aluna_invitation_next:next}:{}}
   });
 
   if (error) {
     if (error.code === 'over_email_send_rate_limit') {
-      redirect('/login?mode=signup&status=verification-recent');
+      redirect('/login?mode=signup&status=verification-recent'+nextParam);
     }
-    redirect('/login?mode=signup&error=signup');
+    redirect('/login?mode=signup&error=signup'+nextParam);
   }
 
-  redirect(data.session ? '/onboarding' : '/login?status=verify');
+  redirect(data.session ? '/onboarding'+(next==='/feed'?'':'?next='+encodeURIComponent(next)) : '/login?status=verify'+nextParam);
 }
 
 export async function requestPasswordReset(form:FormData){

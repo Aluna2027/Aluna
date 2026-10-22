@@ -1,14 +1,19 @@
 import { signIn, signUp } from './actions';
 import { SubmitButton } from './submit-button';
+import { safeAuthDestination } from '@/lib/auth-next';
 
 export default async function Login({ searchParams }: { searchParams: Promise<{ error?: string; status?: string; next?: string;mode?:string }> }) {
   const params = await searchParams;
   const signup=params.mode==='signup';
+  const next=safeAuthDestination(params.next??'');
+  const nextQuery=next==='/feed'?'':'&next='+encodeURIComponent(next);
 
   const errorMessage = params.error === 'invalid'
     ? 'Check your email and password.'
     : params.error === 'validation'
       ? 'Enter a valid email address and use a password of at least 12 characters.'
+      : params.error === 'password-mismatch'
+        ? 'Passwords do not match. Enter the same password twice.'
       : params.error === 'signup'
         ? 'Something went wrong while creating your account. Please try again.'
         : null;
@@ -46,14 +51,17 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
 
       {params.status === 'password-updated' && <p role="status" className="mt-5 rounded-xl bg-panel-raised p-3 text-sm">Password updated. Please sign in again.</p>}
 
+      {params.error === 'suspended' && <p role="alert" className="mt-5 rounded-xl border border-red-700 p-3 text-sm text-red-300">This account is suspended. Contact Aluna support if you believe this is an error.</p>}
+
       <form action={signup?signUp:signIn} className="mt-8 space-y-4">
-        <input type="hidden" name="next" value={params.next??''}/>
+        <input type="hidden" name="next" value={next}/>
         <label className="block text-sm font-medium">Email<input required type="email" name="email" autoComplete="email" className="mt-2 w-full rounded-xl border border-line bg-panel p-3" /></label>
         <label className="block text-sm font-medium">Password<input required minLength={signup?12:6} maxLength={signup?128:undefined} type="password" name="password" autoComplete={signup?'new-password':'current-password'} className="mt-2 w-full rounded-xl border border-line bg-input p-3" />{signup && <span className="mt-2 block text-xs text-muted">Use at least 12 characters.</span>}</label>
+        {signup&&<label className="block text-sm font-medium">Confirm password<input required type="password" name="confirm_password" autoComplete="new-password" minLength={12} maxLength={128} className="mt-2 w-full rounded-xl border border-line bg-input p-3" /></label>}
         <SubmitButton signup={signup}/>
       </form>
 
-      <div className="mt-6 flex flex-wrap justify-between gap-3 text-sm text-gold"><a href={signup?'/login':'/login?mode=signup'}>{signup?'Already a member? Log in':'New here? Join Aluna'}</a><a href="/forgot-password">Forgot password?</a></div>
+      <div className="mt-6 flex flex-wrap justify-between gap-3 text-sm text-gold"><a href={signup?'/login'+(nextQuery?'?'+nextQuery.slice(1):''):'/login?mode=signup'+nextQuery}>{signup?'Already a member? Log in':'New here? Join Aluna'}</a><a href="/forgot-password">Forgot password?</a></div>
     </div>
   </main>;
 }

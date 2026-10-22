@@ -1,0 +1,47 @@
+name: PR33 isolated role authorization
+on:
+  push:
+    branches:
+      - feature/pr33-integration-admin-control-center-20261018
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  role-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-ci-only
+          POSTGRES_DB: aluna_security_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aluna_security_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: isolated-ci-only
+      PGDATABASE: aluna_security_test
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Create isolated RLS fixture
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_fixture.sql
+      - name: Load actual PR33 SQL migration
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/202610180001_aluna_admin_role_management.sql
+      - name: Exercise authorization, RLS and last-admin protection
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_role_authorization.sql

@@ -20,12 +20,28 @@ const visuals=[
   {icon:Box,color:'#6A7CFF',short:'Resources'},
 ] as const;
 
+export function MissionParticipationIcons({kinds,large=false}:{kinds:string[];large?:boolean}){
+ return <div className="flex flex-wrap items-center gap-2" aria-label="Selected mission participation roles">
+  {participationOptions.map((option,index)=>{
+   if(!kinds.includes(option.value))return null;
+   const visual=visuals[index],Icon=visual.icon;
+   return <span key={option.value} title={option.label} aria-label={option.label} className={large
+     ?'flex size-14 shrink-0 items-center justify-center rounded-xl border bg-panel-raised sm:size-16'
+     :'flex size-10 shrink-0 items-center justify-center rounded-lg border bg-panel-raised'}
+     style={{borderColor:visual.color}}>
+    <Icon aria-hidden="true" size={large?29:22} color={visual.color}/>
+   </span>;
+  })}
+ </div>;
+}
+
 export function MissionParticipationControl({
-  missionId,actors,participations,
+  missionId,actors,participations,variant='directory',
 }:{
   missionId:string;
   actors:ActorOption[];
   participations:Participation[];
+  variant?:'directory'|'detail';
 }){
   const kindsFor=(id:string)=>participations.filter(p=>p.actor_id===id).map(p=>p.participation_kind);
   const firstJoined=actors.find(actor=>kindsFor(actor.id).length>0);
@@ -56,7 +72,7 @@ export function MissionParticipationControl({
       {actors.map(item=><option key={item.id} value={item.id}>{item.name} · {item.kind}</option>)}
      </select>
    </label>}
-   {joined&&<div className="space-y-3">
+   {joined&&variant==='directory'&&<div className="space-y-3">
     <p className="text-xs font-semibold uppercase tracking-wider text-muted">Your participation</p>
     <div className="flex flex-wrap gap-3">
      {participationOptions.map((opt,i)=>{
@@ -69,18 +85,29 @@ export function MissionParticipationControl({
      })}
     </div>
    </div>}
-   <button type="button" onClick={()=>{setEditing(open=>!open);setConfirmLeave(false);setChosen(joinedKinds)}} aria-expanded={editing} aria-label={joined?'Manage participation for '+actor.name:'Join mission as '+actor.name} className={joined
+   {variant==='detail'?<>
+    <div className="flex flex-wrap items-center gap-3">
+     {joined?<span role="status" className="flex min-h-[65px] items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#122C2D] px-5 text-lg font-semibold text-[#26E7D4]"><CircleCheck aria-hidden="true" size={22}/>Joined</span>
+     :<button type="button" onClick={()=>{setEditing(open=>!open);setConfirmLeave(false);setChosen(joinedKinds)}} aria-expanded={editing} className="flex min-h-[65px] items-center justify-center gap-3 rounded-xl bg-gold px-5 text-lg font-semibold text-navy hover:bg-gold-soft"><UserRoundPlus aria-hidden="true" size={22}/>Join Mission</button>}
+     {joined&&<MissionParticipationIcons kinds={joinedKinds} large/>}
+    </div>
+    {joined&&<div className="flex flex-wrap items-center gap-5 text-sm">
+     <button type="button" className="inline-flex items-center gap-2 text-gold hover:underline" onClick={()=>{setEditing(open=>!open);setConfirmLeave(false);setChosen(joinedKinds)}} aria-expanded={editing}>Edit Participation</button>
+     <button type="button" className="text-[#E49BA3] hover:underline" onClick={()=>{setConfirmLeave(open=>!open);setEditing(false)}} aria-expanded={confirmLeave}>Leave Mission</button>
+    </div>}
+   </>:<button type="button" onClick={()=>{setEditing(open=>!open);setConfirmLeave(false);setChosen(joinedKinds)}} aria-expanded={editing} aria-label={joined?'Manage participation for '+actor.name:'Join mission as '+actor.name} className={joined
      ?'flex min-h-[65px] w-full items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#122C2D] px-4 text-lg font-semibold text-[#26E7D4] hover:bg-[#19383A]'
      :'flex min-h-[65px] w-full items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy hover:bg-gold-soft'}>
      {joined?<CircleCheck aria-hidden="true" size={22}/>:<UserRoundPlus aria-hidden="true" size={22}/>}
      {joined?'Joined':'Join Mission'}
-   </button>
+   </button>}
    {editing&&<div className="rounded-2xl border border-line bg-navy p-4">
     <h3 className="text-xl font-bold normal-case text-ink [font-stretch:normal]">{joined?'Manage Participation':'Join SDG Mission'}</h3>
     <p className="mt-2 text-sm text-muted">Choose one or more ways to participate.</p>
     <form action={saveMissionParticipationFromDirectory} className="mt-5 space-y-4">
      <input type="hidden" name="mission_id" value={missionId}/>
      <input type="hidden" name="actor_id" value={actorId}/>
+     {variant==='detail'&&<input type="hidden" name="return_to" value={`/missions/${missionId}?tab=overview`}/>}
      <fieldset>
       <legend className="sr-only">Participation types</legend>
       <div className="grid grid-cols-2 gap-3">
@@ -102,7 +129,7 @@ export function MissionParticipationControl({
      </button>
     </form>
    </div>}
-   {joined&&<div className="text-center">
+   {joined&&variant==='directory'&&<div className="text-center">
     <button type="button" onClick={()=>{setConfirmLeave(open=>!open);setEditing(false)}} aria-expanded={confirmLeave} className="text-sm text-muted underline underline-offset-4 hover:text-ink">Leave Mission</button>
    </div>}
    {joined&&confirmLeave&&<div role="group" aria-label="Confirm leaving mission" className="space-y-4 rounded-2xl border border-line bg-navy p-4">
@@ -119,6 +146,7 @@ export function MissionParticipationControl({
     <form action={leaveMissionFromDirectory} className="flex gap-3">
      <input type="hidden" name="mission_id" value={missionId}/>
      <input type="hidden" name="actor_id" value={actorId}/>
+     {variant==='detail'&&<input type="hidden" name="return_to" value={`/missions/${missionId}?tab=overview`}/>}
      <button type="button" onClick={()=>setConfirmLeave(false)} className="min-h-12 flex-1 rounded-xl border border-line text-ink">Cancel</button>
      <button type="submit" className="min-h-12 flex-1 rounded-xl bg-gold px-3 font-semibold text-navy">Unjoin Mission</button>
     </form>

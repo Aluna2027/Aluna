@@ -12,11 +12,26 @@ export default async function AlunaAdmin({searchParams}:{searchParams:Promise<{s
   const {data:isAdmin,error:roleError}=await client.rpc('is_aluna_super_admin');
   if(roleError||!isAdmin)redirect('/organizations');
   const {status,error}=await searchParams;
-  const {data:organizations,error:loadError}=await client.from('organizations')
-    .select('id,name,organization_type,country,management_type,removed_at,wba_assessment_year,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score')
-    .order('name').limit(5000);
-  const active=organizations?.filter(org=>!org.removed_at)??[];
-  const archived=organizations?.filter(org=>!!org.removed_at)??[];
+  // Supabase limits each API response to 1,000 rows. Load every page
+  // deterministically so admin totals, lists, and WBA options stay complete.
+  const {count:organizationCount,error:countError}=await client.from('organizations')
+    .select('id',{head:true,count:'exact'});
+  const batchSize=1000;
+  const pages=countError||organizationCount==null?[]:await Promise.all(
+    Array.from({length:Math.ceil(organizationCount/batchSize)},(_,index)=>
+      client.from('organizations')
+        .select('id,name,organization_type,country,management_type,removed_at,wba_assessment_year,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score')
+        .order('name').order('id')
+        .range(index*batchSize,Math.min((index+1)*batchSize,organizationCount)-1)
+    )
+  );
+  const incomplete=organizationCount==null||pages.some((page,index)=>
+    page.data?.length!==Math.min(batchSize,organizationCount-index*batchSize)
+  );
+  const loadError=countError??pages.find(page=>page.error)?.error??(incomplete?new Error('Incomplete organization data'):null);
+  const organizations=loadError?[]:pages.flatMap(page=>page.data??[]);
+  const active=organizations.filter(org=>!org.removed_at);
+  const archived=organizations.filter(org=>!!org.removed_at);
   const {data:audit}=await client.from('organization_admin_audit')
     .select('id,organization_name,action,occurred_at').order('occurred_at',{ascending:false}).limit(25);
   return <div className="space-y-6">
@@ -24,10 +39,20 @@ export default async function AlunaAdmin({searchParams}:{searchParams:Promise<{s
     {status&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Action completed: {status}</p>}
     {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">The action could not be completed ({error}). No changes were confirmed.</p>}
     {loadError&&<p role="alert" className="text-red-300">Could not load organizations.</p>}
-    <div className="grid gap-4 sm:grid-cols-3">
-      <Card title="Active organizations"><p className="metric-number text-4xl text-gold">{active.length}</p></Card>
-      <Card title="Archived organizations"><p className="metric-number text-4xl text-gold">{archived.length}</p></Card>
-      <Card title="Aluna-managed"><p className="metric-number text-4xl text-gold">{active.filter(o=>o.management_type==='aluna_managed').length}</p></Card>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Card title="User Profiles"><p className="mb-3 text-sm text-muted">Search member profiles and inspect organization memberships.</p><Link href="/aluna-admin/users" className="text-gold">Open User Profiles →</Link></Card>
+      <Card title="Organization Admins"><p className="mb-3 text-sm text-muted">Inspect administrator assignments and associated organizations.</p><Link href="/aluna-admin/organization-admins" className="text-gold">Open Organization Admins →</Link></Card>
+    </div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Card title="Verified Domains"><p className="mb-3 text-sm text-muted">Inspect official organization domains. Website verification and domain approval remain separate.</p><Link href="/aluna-admin/verified-domains" className="text-gold">Open Verified Domains →</Link></Card>
+      <Card title="Audit Log"><p className="mb-3 text-sm text-muted">Search recent organization-management and access events.</p><Link href="/aluna-admin/audit" className="text-gold">Open Audit Log →</Link></Card>
+    </div>
+    <Card title="Organization Access"><p className="mb-3 text-sm text-muted">Review exceptional organization claims, issue representative invitations, and inspect access audit records.</p><Link href="/aluna-admin/organization-access" className="inline-block rounded-lg border border-gold px-4 py-2 text-gold">Open Organization Access →</Link></Card>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card title="Total organizations"><p className="metric-number text-4xl text-gold">{loadError?'—':organizations.length}</p></Card>
+      <Card title="Active organizations"><p className="metric-number text-4xl text-gold">{loadError?'—':active.length}</p></Card>
+      <Card title="Archived organizations"><p className="metric-number text-4xl text-gold">{loadError?'—':archived.length}</p></Card>
+      <Card title="Aluna-managed"><p className="metric-number text-4xl text-gold">{loadError?'—':active.filter(o=>o.management_type==='aluna_managed').length}</p></Card>
     </div>
     <Card title="Active organizations">
       <p className="mb-4 text-sm">Super Admin may archive any organization. Community creators can archive only their own inactive organizations.</p>

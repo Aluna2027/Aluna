@@ -1,0 +1,94 @@
+name: PR33 staged upgrade with synthetic data
+on:
+  push:
+    branches:
+      - feature/pr33-integration-admin-control-center-20261018
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  staged-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PGHOST: '127.0.0.1'
+      PGPORT: '54322'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout PR33 branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: '2.121.0'
+      - name: Install local-only PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Stage PR33 migrations outside baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pr33-pending"
+          shopt -s nullglob
+          for migration in supabase/migrations/20261018*.sql supabase/migrations/20261019*.sql supabase/migrations/20261021*.sql supabase/migrations/20261022*.sql; do
+            mv "$migration" "$RUNNER_TEMP/pr33-pending/"
+          done
+          count="$(find "$RUNNER_TEMP/pr33-pending" -maxdepth 1 -type f -name '*.sql' | wc -l)"
+          test "$count" -eq 15
+          echo "Staged $count PR33 migrations; preparing earlier schema."
+      - name: Build disposable pre-PR33 Supabase database
+        run: |
+          supabase init --yes
+          supabase start
+      - name: Seed synthetic pre-upgrade records
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/migrations/pr33_upgrade_seed.sql
+      - name: Apply pending PR33 migrations without resetting
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv "$RUNNER_TEMP"/pr33-pending/*.sql supabase/migrations/
+          supabase migration up --local
+      - name: Assert preservation, policies, and atomic audit behavior
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/migrations/pr33_upgrade_verify.sql
+      - name: Exercise invitation and domain edge cases without external side effects
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_access_edge_cases.sql
+      - name: Verify Data API and Storage suspension guards with synthetic accounts
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_suspension_guards.sql
+      - name: Reject protected-organization edits with synthetic test roles
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_organization_security.sql
+      - name: Verify privileged Stripe webhook RPC permissions
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_payment_rpc_permissions.sql
+      - name: Verify anonymous membership helper RPC permissions
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_membership_rpc_permissions.sql
+      - name: Verify profile demographic isolation with synthetic Auth users
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_profile_privacy.sql
+      - name: Verify referral replay protection and atomic uniqueness
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_referral_click_dedup.sql
+      - name: Verify Phase 19 media permissions and message validation
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_media_controls.sql
+      - name: Exercise Auth-issued session via local Data API and Storage HTTP
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test tests/security/pr33_suspension_http.test.mjs
+      - name: Diagnose local Auth user-load failure (redacted categories only)
+        if: failure()
+        shell: bash
+        run: |
+          # Display diagnostic categories without Auth user data, email or keys.
+          docker logs supabase_auth_Aluna 2>&1 |
+            grep -Eo 'sql: Scan error on column index [0-9]+, name "[a-z_]+"|converting NULL to [a-zA-Z0-9 ]+|invalid input syntax for type [a-z_]+|failed to scan [a-z_]+|unsupported Scan' |
+            sort | uniq -c | tail -n 15 || true
+      - name: Verify final local-only migration history
+        run: supabase migration list --local
+      - name: Stop temporary Supabase
+        if: always()
+        run: supabase stop --no-backup || true
