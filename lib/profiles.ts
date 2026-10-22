@@ -10,3 +10,7 @@ export type PublicProfile = { id:string; display_name:string; first_name?:string
 export type Organization = { id:string; name:string; organization_type:OrganizationType; country?:string|null; description:string|null; is_verified:boolean; logo_url:string|null; location_text:string|null; website:string|null; wba_total_score?:number|null; wba_human_rights_score?:number|null; wba_decent_work_score?:number|null; wba_acting_ethically_score?:number|null };
 export function tabSlug(label:string) {return label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
 export function safeUrl(value:string|null|undefined) {if(!value)return null;try {const url=new URL(value);return ['http:','https:'].includes(url.protocol)?url.toString():null;} catch {return null;}}
+
+export function isMissingPublicProfilesView(message:string|null|undefined) {
+ return !!message&&/(?:relation ["']?(?:public\.)?public_profiles["']? does not exist|could not find the table ["']?(?:public\.)?public_profiles["']? in the schema cache)/i.test(message);
+}

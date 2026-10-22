@@ -22,7 +22,7 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: PR33 onboarding and referral security regressions
+      - name: PR33 onboarding, profile search, and referral security regressions
         run: node --test tests/security/pr33_onboarding_gate.test.cjs tests/security/pr33_referral_visit.test.cjs
       - name: Typecheck
         run: npm run typecheck

@@ -52,3 +52,20 @@ test('profile reader does not hide unrelated database errors',async()=>{
  assert.equal(calls,1);
  assert.equal(result.error.message,'permission denied');
 });
+
+
+const profileSource=readFileSync('lib/profiles.ts','utf8');
+const profileCompiled=ts.transpileModule(profileSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const profileModule={exports:{}};
+new Function('module','exports','require',profileCompiled)(profileModule,profileModule.exports,require);
+const {isMissingPublicProfilesView}=profileModule.exports;
+
+test('profile search falls back only when the public profile view is absent',()=>{
+ assert.equal(isMissingPublicProfilesView(`Could not find the table 'public.public_profiles' in the schema cache`),true);
+ assert.equal(isMissingPublicProfilesView('relation "public.public_profiles" does not exist'),true);
+ assert.equal(isMissingPublicProfilesView('permission denied for table profiles'),false);
+ const search=readFileSync('app/(app)/search/page.tsx','utf8');
+ assert.match(search,/isMissingPublicProfilesView\(viewResult\.error\.message\)/);
+ assert.match(search,/from\('profiles'\)\.select\('id,display_name,bio'\)/);
+ assert.doesNotMatch(search,/date_of_birth|gender/);
+});
