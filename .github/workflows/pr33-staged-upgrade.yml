@@ -69,6 +69,8 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_payment_rpc_permissions.sql
       - name: Verify anonymous membership helper RPC permissions
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_membership_rpc_permissions.sql
+      - name: Verify profile demographic isolation with synthetic Auth users
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_profile_privacy.sql
       - name: Verify Phase 19 media permissions and message validation
         run: psql -X -v ON_ERROR_STOP=1 -f tests/security/pr33_media_controls.sql
       - name: Exercise Auth-issued session via local Data API and Storage HTTP
