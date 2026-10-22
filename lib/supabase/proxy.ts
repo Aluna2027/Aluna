@@ -3,7 +3,7 @@ type CookieUpdate = { name: string; value: string; options: CookieOptions };
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseConfig } from './config';
 import { safeAuthDestination } from '@/lib/auth-next';
-import { isOnboardingComplete } from '@/lib/onboarding';
+import { isOnboardingComplete, readOnboardingProfile } from '@/lib/onboarding';
 
 export async function refreshSession(request: NextRequest) {
   if (request.nextUrl.pathname === '/') return NextResponse.next({ request });
@@ -35,9 +35,7 @@ export async function refreshSession(request: NextRequest) {
   // Preserve the recipient-bound invitation while requiring personal onboarding.
   // The generic authenticated layout otherwise redirects to /onboarding and loses the token path.
   if(user && /^\/organizations\/invite\/[0-9a-f]{64}$/i.test(request.nextUrl.pathname)){
-    const {data:profile}=await client.from('profiles')
-      .select('display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender')
-      .eq('id',user.id).maybeSingle();
+    const {data:profile}=await readOnboardingProfile(client,user.id);
     if(!isOnboardingComplete(profile)){
       const destination=new URL('/onboarding',request.url);
       destination.searchParams.set('next',request.nextUrl.pathname);
@@ -49,7 +47,7 @@ export async function refreshSession(request: NextRequest) {
     const safeNext=safeAuthDestination(next);
     const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
     const destination=safeNext!=='/feed'?safeNext:storedNext;
-    const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender').eq('id',user.id).maybeSingle();
+    const {data:profile}=await readOnboardingProfile(client,user.id);
     if(!isOnboardingComplete(profile))return NextResponse.redirect(new URL('/onboarding'+(destination==='/feed'?'':'?next='+encodeURIComponent(destination)), request.url));
     return NextResponse.redirect(new URL(destination, request.url));
   }

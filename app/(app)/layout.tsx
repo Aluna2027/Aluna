@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Shell } from '@/components/shell';
-import { isOnboardingComplete } from '@/lib/onboarding';
+import { isOnboardingComplete, readOnboardingProfile } from '@/lib/onboarding';
 
 export default async function AppLayout({ children }: {children:React.ReactNode}) {
   const client = await createClient();
@@ -10,11 +10,7 @@ export default async function AppLayout({ children }: {children:React.ReactNode}
   // Reject suspended users on authenticated application page requests.
   if (user.banned_until && new Date(user.banned_until).getTime()>Date.now()) redirect('/login?error=suspended');
 
-  const { data: profile } = await client
-    .from('profiles')
-    .select('id,display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender')
-    .eq('id', user.id)
-    .maybeSingle();
+  const { data: profile } = await readOnboardingProfile(client,user.id);
 
   if (!profile || profile.id !== user.id) {
     await client.auth.signOut({ scope:'local' });

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeAuthDestination } from '@/lib/auth-next';
 import { siteOrigin } from '@/lib/payments';
-import { isOnboardingComplete } from '@/lib/onboarding';
+import { isOnboardingComplete, readOnboardingProfile } from '@/lib/onboarding';
 
 export async function signIn(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
@@ -15,7 +15,7 @@ export async function signIn(form: FormData) {
   if (error) redirect(`/login?error=invalid${safeNext!=='/feed'?`&next=${encodeURIComponent(safeNext)}`:''}`);
   const {data:{user}}=await client.auth.getUser();
   if(!user)redirect('/login?error=invalid');
-  const {data:profile}=await client.from('profiles').select('display_name,first_name,last_name,onboarded_at,aluna_role,demographics_required,date_of_birth,gender').eq('id',user.id).maybeSingle();
+  const {data:profile}=await readOnboardingProfile(client,user.id);
   // Signup email confirmation may return through a different browser or canonical domain.
   const storedNext=safeAuthDestination(String(user.user_metadata?.aluna_invitation_next??''));
   const destination=safeNext!=='/feed'?safeNext:storedNext;
