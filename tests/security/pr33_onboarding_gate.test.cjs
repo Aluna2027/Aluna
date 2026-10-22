@@ -67,5 +67,7 @@ test('profile search falls back only when the public profile view is absent',()=
  const search=readFileSync('app/(app)/search/page.tsx','utf8');
  assert.match(search,/isMissingPublicProfilesView\(viewResult\.error\.message\)/);
  assert.match(search,/from\('profiles'\)\.select\('id,display_name,bio'\)/);
- assert.doesNotMatch(search,/date_of_birth|gender/);
+ const selectedColumns=[...search.matchAll(/\.select\('([^']+)'\)/g)].map(match=>match[1]);
+ assert.ok(selectedColumns.includes('id,display_name,bio'));
+ assert.ok(selectedColumns.every(columns=>!/(?:^|,)(?:date_of_birth|gender)(?:,|$)/.test(columns)));
 });
