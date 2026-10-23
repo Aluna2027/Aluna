@@ -82,9 +82,9 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  {active==='Fundraising'&&<section id="budget"><Card title={<span className="flex items-center gap-3"><Wallet size={24} color={iconColors.missions}/>Budget</span>}><p className="text-2xl text-ink">{money(mission.budget_amount,mission.currency_code)}</p><p className="mt-3 text-sm">Budget is supplied by the mission creator; it is not a record of spending.</p></Card></section>}
  {active==='Fundraising'&&<section id="funding-goal"><Card title={<span className="flex items-center gap-3"><Target size={24} color={iconColors.wifi}/>Funding Goal</span>}><p className="text-2xl text-ink">{money(mission.funding_goal_amount,mission.currency_code)}</p></Card></section>}
  {active==='Fundraising'&&<section id="donate"><MissionFundraising missionId={id}/></section>}
- {active==='Impact'&&<section id="proofs"><ProofList missionId={id} titleIcon/></section>}
+ {active==='Impact'&&<section id="proofs"><ProofList missionId={id} iconColor={iconColors.proofs}/></section>}
  {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`${base}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View mission proofs →</Link></Card></section>}
  {active==='Impact'&&<section id="contributions"><ContributionList missionId={id} iconColor={iconColors.missions}/></section>}
- {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.wifi}/>Impact</div><ImpactView scope={{missionId:id}} withTitleIcons/></section>}
+ {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.wifi}/>Impact</div><ImpactView scope={{missionId:id}} metricIconColor={iconColors.impact}/></section>}
  </div>;
 }
