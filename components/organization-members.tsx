@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui';
+import { isMissingPublicProfilesView } from '@/lib/profiles';
 import { requestOrganizationMembership, reviewOrganizationMembership } from '@/app/(app)/organizations/membership-actions';
 
 export async function OrganizationMembers({organizationId,isAdmin,managing}:{organizationId:string;isAdmin:boolean;managing:boolean}){
@@ -11,7 +12,12 @@ export async function OrganizationMembers({organizationId,isAdmin,managing}:{org
  ]);
  const isMember=members?.some(m=>m.profile_id===user?.id);const hasRequest=requests?.some(r=>r.requester_id===user?.id);
  const profileIds=[...new Set([...(members??[]).map(m=>m.profile_id),...(isAdmin?(requests??[]).map(r=>r.requester_id):[])])];
- const {data:profiles}=profileIds.length?await client.from('public_profiles').select('id,display_name').in('id',profileIds):{data:[]};
+ let profileResult=profileIds.length?await client.from('public_profiles').select('id,display_name').in('id',profileIds):{data:[],error:null};
+ if(profileResult.error&&isMissingPublicProfilesView(profileResult.error.message)){
+  profileResult=await client.from('profiles').select('id,display_name').in('id',profileIds);
+ }
+ if(profileResult.error)throw new Error('Unable to load member profiles');
+ const profiles=profileResult.data;
  const names=new Map((profiles??[]).map(p=>[p.id,p.display_name]));
  return <section className="space-y-4">
   <Card title="Members"><p className="mb-4 text-sm text-muted">Approved organization members</p>
