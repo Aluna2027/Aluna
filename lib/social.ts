@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { isMissingPublicProfilesView } from '@/lib/profiles';
 export type Actor = {id:string;name:string;kind:string;href:string};
 export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|'document'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number;actor_votes?:Record<string,1|-1>};
 
@@ -19,7 +20,12 @@ export async function actorDetails(ids:string[]):Promise<Map<string,Actor>> {
  const result=new Map<string,Actor>();if(!ids.length)return result;
  const client=await createClient();const {data}=await client.from('actors').select('id,profile_id,organization_id,organizations(name,organization_type)').in('id',[...new Set(ids)]);
  const profileIds=[...new Set((data??[]).map(a=>a.profile_id).filter((id):id is string=>!!id))];
- const {data:profiles}=profileIds.length?await client.from('public_profiles').select('id,display_name').in('id',profileIds):{data:[]};
+ let profileResult=profileIds.length?await client.from('public_profiles').select('id,display_name').in('id',profileIds):{data:[],error:null};
+ if(profileResult.error&&isMissingPublicProfilesView(profileResult.error.message)){
+  profileResult=await client.from('profiles').select('id,display_name').in('id',profileIds);
+ }
+ if(profileResult.error)throw new Error('Unable to load actor profiles');
+ const profiles=profileResult.data;
  const profileNames=new Map((profiles??[]).map(p=>[p.id,p.display_name]));
  for(const a of data??[]){
   const profileName=a.profile_id?profileNames.get(a.profile_id):null;
