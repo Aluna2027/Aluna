@@ -73,7 +73,6 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4"><div><p className="text-xs font-semibold uppercase text-gold">Mission Creator</p><Link href={creator?.href||'/missions'} className="font-semibold text-ink hover:text-gold">{creator?.name||'Member'}</Link></div><MissionParticipationIcons kinds={creatorParticipation?.kinds??[]}/></div>
   {orderedParticipants.filter(p=>p.id!==mission.created_by_actor_id).map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 last:border-0"><div><p className="text-xs uppercase text-muted">Team Member</p><Link href={detail.get(p.id)?.href||'/missions'} className="text-ink hover:text-gold">{detail.get(p.id)?.name||'Member'}</Link></div><MissionParticipationIcons kinds={p.kinds}/></div>)}
   {orderedParticipants.every(p=>p.id===mission.created_by_actor_id)&&<p>No team members yet.</p>}</div></Card></section>}
- {active==='Participate'&&<section id="contributions"><ContributionList missionId={id} titleIcon/></section>}
  {active==='Communication'&&<section id="messages"><Card title={<span className="flex items-center gap-3"><MessageCircle size={24} color={iconColors.profile}/>Messages</span>}><p>Contact the mission creator privately.</p>{creator&&<Link href={`/messages?to=${creator.id}`} className="mt-4 inline-block text-gold">Message {creator.name} →</Link>}</Card></section>}
  {active==='Communication'&&<div id="posts" className="w-full space-y-5">
   {participantActors.length>0&&<PostComposer actors={participantActors} returnTo={base} missionId={id}/>}
@@ -84,7 +83,8 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  {active==='Fundraising'&&<section id="funding-goal"><Card title={<span className="flex items-center gap-3"><Target size={24} color={iconColors.wifi}/>Funding Goal</span>}><p className="text-2xl text-ink">{money(mission.funding_goal_amount,mission.currency_code)}</p></Card></section>}
  {active==='Fundraising'&&<section id="donate"><MissionFundraising missionId={id}/></section>}
  {active==='Impact'&&<section id="proofs"><ProofList missionId={id} titleIcon/></section>}
- {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.profile}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`${base}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View mission proofs →</Link></Card></section>}
+ {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`${base}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View mission proofs →</Link></Card></section>}
+ {active==='Impact'&&<section id="contributions"><ContributionList missionId={id} iconColor={iconColors.missions}/></section>}
  {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.wifi}/>Impact</div><ImpactView scope={{missionId:id}} withTitleIcons/></section>}
  </div>;
 }
