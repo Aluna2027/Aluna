@@ -1,5 +1,5 @@
 import { Wifi, Earth, MapPin, ShieldAlert, Map as MapIcon, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen, CircleCheck, ShieldCheck, TrendingUp } from 'lucide-react';
-import { DetailPageHeader, DetailMetricCard, DetailSectionCard } from '@/components/detail-design-elements';
+import { DetailPageHeader, DetailMetricCard, DetailSectionCard, MobileDetailIdentityCard } from '@/components/detail-design-elements';
 import { ContributionList } from '@/components/contribution-list';
 import { ProofList } from '@/components/proof-list';
 import { ImpactView } from '@/components/impact-view';
@@ -40,9 +40,10 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
  const {data:{user}}=await client.auth.getUser();
  const {data:visitor}=user?await client.from('profiles').select('display_name').eq('id',user.id).maybeSingle():{data:null};
  const visitorName=visitor?.display_name||user?.email?.split('@')[0]||'member';
- return <div className="space-y-6"><DetailPageHeader kind="WI-FI MESH COMMUNITY" title={community.name} backHref="/communities" backLabel="Wi-Fi Mesh Communities" visitorName={visitorName}/>
+ return <div className="space-y-6"><DetailPageHeader kind="WI-FI MESH COMMUNITY" title={community.name} backHref="/communities" backLabel="Wi-Fi Mesh Communities" visitorName={visitorName} mobileCompact/>
  {status==='saved'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Community saved.</p>}{error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
- <ProfileTabs base={`/communities/${id}`} tabs={communityTabs} active={tabSlug(active)} variant="detail"/>
+ <div className="!mt-3 lg:!mt-6"><ProfileTabs base={`/communities/${id}`} tabs={communityTabs} active={tabSlug(active)} variant="detail"/></div>
+ {active!=='Overview'&&<MobileDetailIdentityCard name={community.name} icon={<Wifi size={21} color={iconColors.connections}/>}/>} 
  {active==='Overview'&&<>
   <header className="rounded-[23px] border border-line bg-panel p-5 sm:p-6">
    <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-3"><span className="flex size-14 items-center justify-center rounded-xl bg-[#173638]"><Wifi size={28} color="#26E7D4"/></span><span className="text-sm font-semibold text-gold">PHYSICAL WI-FI MESH COMMUNITY</span></div><Earth size={25} className="hidden text-[#8A4DFF] sm:block"/></div>
