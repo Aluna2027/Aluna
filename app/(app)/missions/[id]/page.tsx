@@ -85,6 +85,6 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  {active==='Impact'&&<section id="proofs"><ProofList missionId={id} iconColor={iconColors.proofs}/></section>}
  {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`${base}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View mission proofs →</Link></Card></section>}
  {active==='Impact'&&<section id="contributions"><ContributionList missionId={id} iconColor={iconColors.missions}/></section>}
- {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.wifi}/>Impact</div><ImpactView scope={{missionId:id}} metricIconColor={iconColors.impact}/></section>}
+ {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.impact}/>Impact</div><ImpactView scope={{missionId:id}} metricIconColor={iconColors.impact}/></section>}
  </div>;
 }
