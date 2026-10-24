@@ -1,4 +1,4 @@
-import { Wifi, Earth, MapPin, ShieldAlert, Map as MapIcon, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen, CircleCheck } from 'lucide-react';
+import { Wifi, Earth, MapPin, ShieldAlert, Map as MapIcon, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen, CircleCheck, ShieldCheck, TrendingUp } from 'lucide-react';
 import { DetailPageHeader, DetailMetricCard, DetailSectionCard } from '@/components/detail-design-elements';
 import { ContributionList } from '@/components/contribution-list';
 import { ProofList } from '@/components/proof-list';
@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { actorDetails, attachPostMedia, ownedActors, type FeedPost } from '@/lib/social';
 import { communityTabs, metric, type MeshCommunity } from '@/lib/communities';
+import { iconColors } from '@/lib/icon-colors';
 import { getCity } from '@/lib/cities';
 import { Card, Placeholder } from '@/components/ui';
 import { ProfileTabs } from '@/components/profile-tabs';
@@ -22,7 +23,8 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
  const pageNumber=Math.min(1000,Math.max(0,Number.parseInt(page||'0',10)||0));const client=await createClient();
  const {data:row}=await client.from('mesh_communities').select('id,city_id,name,location_text,description,population,people_connected,nodes,local_owners,is_verified,created_at,places(name,country_code,source_key)').eq('id',id).is('removed_at',null).maybeSingle();if(!row)notFound();
  const community=row as unknown as MeshCommunity & {places:{name:string;country_code:string;source_key:string}|null};
- const active=communityTabs.find(t=>tabSlug(t)===tab)??'Overview';
+ // Preserve old links to the removed Proof / Contributions tabs.
+ const active=tab==='proof'||tab==='contributions'?'Impact':communityTabs.find(t=>tabSlug(t)===tab)??'Overview';
  const actors=await ownedActors();
  const [{data:members},{data:myMemberRows}]=await Promise.all([client.from('mesh_community_members').select('actor_id,member_role').eq('community_id',id).limit(200),actors.length?client.from('mesh_community_members').select('actor_id,member_role').eq('community_id',id).in('actor_id',actors.map(a=>a.id)):Promise.resolve({data:[]})]);
  const details=active==='Members'?await actorDetails((members??[]).map(m=>m.actor_id)):new Map();
@@ -66,9 +68,10 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
  {active==='Feed'&&<div className="mx-auto max-w-3xl space-y-5"><PostComposer actors={myMembers} returnTo={`/communities/${id}`} communityId={id}/><FeedList posts={posts} actors={myMembers} returnTo={`/communities/${id}`}/>{posts.length===20&&<Link href={`/communities/${id}?tab=feed&before=${encodeURIComponent(posts[19].created_at)}&before_id=${posts[19].id}`} className="text-gold">Older posts →</Link>}{!myMembers.length&&<p className="text-sm text-muted">Join this community with your profile to post updates.</p>}</div>}
  {active==='Missions'&&<><ProfileMissionCards communityId={id} page={pageNumber} paginationBase={`/communities/${id}?tab=missions`}/><Link href={`/missions/new?city=${city?.id||''}&community=${id}`} className="mt-4 inline-block text-sm text-gold hover:underline">Create a mission →</Link></>}
  {active==='Fundraising'&&<ProfileFundraisingCards communityId={id} page={pageNumber} paginationBase={`/communities/${id}?tab=fundraising`}/>}
- {active==='Contributions'&&<ContributionList communityId={id}/>}
- {active==='Proof'&&<ProofList communityId={id}/>}
- {active==='Impact'&&<ImpactView scope={{communityId:id}}/>}
- {!['Overview','Members','Feed','Missions','Fundraising','Contributions','Proof','Impact'].includes(active)&&<Placeholder title={active} description={`${active} for this mesh community will be added in a later phase.`}/>} 
+ {active==='Impact'&&<section id="proofs"><ProofList communityId={id} iconColor={iconColors.proofs}/></section>}
+ {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`/communities/${id}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View community proofs →</Link></Card></section>}
+ {active==='Impact'&&<section id="contributions"><ContributionList communityId={id} iconColor={iconColors.missions}/></section>}
+ {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.impact}/>Impact</div><ImpactView scope={{communityId:id}} metricIconColor={iconColors.impact}/></section>}
+ {!['Overview','Members','Feed','Missions','Fundraising','Impact'].includes(active)&&<Placeholder title={active} description={`${active} for this mesh community will be added in a later phase.`}/>} 
  </div>;
 }
