@@ -51,7 +51,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  {status==='left'&&<p role="status" className="rounded-xl border border-[#26E7D4] p-3 text-[#26E7D4]">Mission participation ended.</p>}
  {status==='joined'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Mission participation saved.</p>}
  {actionError&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the mission. Please try again.</p>}
- <nav aria-label="SDG Mission categories" className="flex flex-wrap items-center justify-between gap-3">
+ <nav aria-label="SDG Mission categories" className="mt-3! flex flex-wrap items-center justify-between gap-3 lg:mt-6!">
  <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
  {([['All','all'],['Participating','participating'],['Created','created']] as const).map(([label,value])=><Link key={value} href={params(value)} aria-current={view===value?'page':undefined} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${view===value?'bg-gold font-semibold text-navy':'glass'}`}>{label}</Link>)}
  </div>
