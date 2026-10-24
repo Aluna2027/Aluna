@@ -3,16 +3,23 @@ import type { ReactNode } from 'react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
 import { sdgLabel } from '@/lib/sdgs';
 
-export function DetailPageHeader({kind,title,backHref,backLabel,visitorName}:{
- kind:string;title:string;backHref:string;backLabel:string;visitorName:string;
+export function DetailPageHeader({kind,title,backHref,backLabel,visitorName,mobileCompact=false}:{
+ kind:string;title:string;backHref:string;backLabel:string;visitorName:string;mobileCompact?:boolean;
 }){
- return <header className="min-w-0 border-b border-line pb-7">
-   <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)]">
-    <div className="min-w-0"><p className="text-[11px] font-bold uppercase leading-tight text-gold sm:text-[13px]">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-xs text-muted sm:text-base">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline">{visitorName}</Link></p></div>
-    <div className="min-w-0 text-center"><p className="text-xs font-bold uppercase leading-tight text-gold sm:text-sm">{kind}</p><h1 className="mt-2 break-words text-[19px] font-bold normal-case leading-tight text-ink [font-stretch:normal] sm:text-[27px]">{title}</h1></div>
-    <Link href={backHref} className="min-w-0 break-words text-right text-xs font-semibold text-gold hover:underline sm:text-base">← <span className="hidden sm:inline">{backLabel}</span><span className="sm:hidden">{backLabel==='Wi-Fi Mesh Communities'?'Communities':backLabel}</span></Link>
+ return <header className={mobileCompact?'min-w-0 border-line lg:border-b lg:pb-7':'min-w-0 border-b border-line pb-7'}>
+   <div className={mobileCompact?'grid min-w-0 grid-cols-1 items-start gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)]':'grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)] items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)]'}>
+    <div className={mobileCompact?'hidden min-w-0 lg:block':'min-w-0'}><p className="text-[11px] font-bold uppercase leading-tight text-gold sm:text-[13px]">PEOPLE · PLACES · POSSIBILITY</p><p className="mt-1 text-xs text-muted sm:text-base">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline">{visitorName}</Link></p></div>
+    <div className="min-w-0 text-center"><p className="text-xs font-bold uppercase leading-tight text-gold sm:text-sm">{kind}</p><h1 className={`${mobileCompact?'hidden lg:block ':''}mt-2 break-words text-[19px] font-bold normal-case leading-tight text-ink [font-stretch:normal] sm:text-[27px]`}>{title}</h1></div>
+    <Link href={backHref} className={`${mobileCompact?'hidden lg:block ':''}min-w-0 break-words text-right text-xs font-semibold text-gold hover:underline sm:text-base`}>← <span className="hidden sm:inline">{backLabel}</span><span className="sm:hidden">{backLabel==='Wi-Fi Mesh Communities'?'Communities':backLabel}</span></Link>
    </div>
   </header>;
+}
+
+export function MobileDetailIdentityCard({name,icon}:{name:string;icon:ReactNode}){
+ return <div className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 lg:hidden">
+   <span aria-hidden="true" className="shrink-0">{icon}</span>
+   <span className="min-w-0 break-words text-sm font-semibold text-ink">{name}</span>
+ </div>;
 }
 
 export function DetailSectionCard({title,mobileTitle,icon,children,className=''}:{
