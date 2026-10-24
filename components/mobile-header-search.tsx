@@ -2,12 +2,7 @@
 
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import { usePathname } from 'next/navigation';
-import { isCompactMobilePage } from '@/lib/mobile-compact-pages';
-
 export function MobileHeaderSearch() {
- const pathname = usePathname();
- if (!isCompactMobilePage(pathname)) return null;
  return <Link
   href="/search"
   aria-label="Search people and organizations"
