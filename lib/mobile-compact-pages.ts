@@ -1,5 +1,5 @@
-// Mobile-only header changes are limited to these main navigation pages.
-// Keep Overview, World Map, Admin and all detail pages unchanged.
+// Mobile-only header changes for selected directories and four detail types.
+// Leave Overview, World Map, Admin, forms and management pages unchanged.
 const compactMobilePages = new Set([
  '/feed',
  '/following',
@@ -16,6 +16,9 @@ const compactMobilePages = new Set([
  '/donations',
 ]);
 
+const detailPagePattern = /^\/(?:people|organizations|communities|missions)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function isCompactMobilePage(pathname: string) {
- return compactMobilePages.has(pathname.replace(/\/$/, '') || '/');
+ const path = pathname.replace(/\/$/, '') || '/';
+ return compactMobilePages.has(path) || detailPagePattern.test(path);
 }
