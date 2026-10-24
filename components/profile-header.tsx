@@ -89,12 +89,12 @@ export function ProfileHeader({
             style={{ backgroundImage: `url(${JSON.stringify(image)})` }}
           />
         )}
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="deck-label">
             ALUNA GLOBAL NETWORK · {kind}
             {country && <> · <span className="text-gold">{country}</span></>}
           </p>
-          <h1 className="mt-5 text-4xl sm:text-5xl">{name}</h1>
+          <h1 className="mt-5 min-w-0 whitespace-normal hyphens-auto [overflow-wrap:anywhere] text-4xl sm:text-5xl">{name}</h1>
           {children && <div className="mt-4">{children}</div>}
           {unverified && <p className="mt-2 text-xs text-muted">Organization details have not been verified by Aluna.</p>}
         </div>
