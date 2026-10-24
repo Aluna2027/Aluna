@@ -1,4 +1,4 @@
-export const userTabs = ['About','Posts','Connections','Followers','Following','Wi-Fi Mesh Communities','Missions','Fundraising','Donations','Contributions','Proofs','Impact'] as const;
+export const userTabs = ['About','Posts','Connections','Followers','Following','Wi-Fi Mesh Communities','Missions','Fundraising','Donations','Impact'] as const;
 export const organizationTabs = {
   university:['Profile','Members','Posts','Connections','Following','Wi-Fi Mesh','Missions','Fundraising','Impact'],
   ngo:['Profile','Members','Posts','Connections','Following','Wi-Fi Mesh','Missions','Fundraising','Impact'],
