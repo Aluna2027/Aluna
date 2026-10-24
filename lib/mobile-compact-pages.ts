@@ -1,6 +1,10 @@
-// Mobile-only header changes for selected directories and four detail types.
-// Leave Overview, World Map, Admin, forms and management pages unchanged.
+// Only the listed pages receive the compact mobile content spacing.
+// The white search icon is available on every authenticated mobile page.
 const compactMobilePages = new Set([
+ '/dashboard',
+ '/world-map',
+ '/aluna-admin',
+ '/search',
  '/feed',
  '/following',
  '/profile',
