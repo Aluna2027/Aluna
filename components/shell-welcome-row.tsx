@@ -32,6 +32,14 @@ export function ShellWelcomeRow({ name }: { name: string }) {
     <div className="hidden min-w-0 justify-self-end sm:col-start-2 sm:row-start-1 xl:col-start-3 lg:block"><ProfileHeaderControls/></div>
   </div>;
 
+  if (pathname==='/search') return <div className="relative mb-3 flex flex-wrap items-center gap-4 lg:mb-6">
+    <div>
+      <p className="deck-label">PEOPLE · PLACES · POSSIBILITY</p>
+      <p className="mt-1 text-sm text-muted">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline" aria-label="Open my profile">{name}</Link></p>
+    </div>
+    <div className="hidden lg:block"><ProfileHeaderControls/></div>
+  </div>;
+
   return <div className={`${compactMobile?'hidden lg:flex':'flex'} relative mb-6 flex-wrap items-center gap-4`}>
     <div>
       <p className="deck-label">PEOPLE · PLACES · POSSIBILITY</p>
