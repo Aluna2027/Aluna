@@ -1,5 +1,5 @@
 import { MapPin, BookOpen, Target, ChartNoAxesColumnIncreasing, Pencil, UserRound, UsersRound, MessageCircle, MessagesSquare, Wallet, ShieldCheck, TrendingUp } from 'lucide-react';
-import { DetailPageHeader, DetailSectionCard, DetailSdgIcons, DetailSdgRows, featuredSdg } from '@/components/detail-design-elements';
+import { DetailPageHeader, DetailSectionCard, DetailSdgIcons, DetailSdgRows, featuredSdg, MobileDetailIdentityCard } from '@/components/detail-design-elements';
 import { iconColors } from '@/lib/icon-colors';
 import { MissionParticipationControl, MissionParticipationIcons } from '@/components/mission-participation-control';
 import { ContributionList } from '@/components/contribution-list';
@@ -46,8 +46,9 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  const visitorName=visitor?.display_name||user?.email?.split('@')[0]||'member';
  const base=`/missions/${id}`;
  return <div className="space-y-6">
- <DetailPageHeader kind="SDG MISSION" title={mission.title} backHref="/missions" backLabel="SDG Missions" visitorName={visitorName}/>
- <ProfileTabs base={base} tabs={missionTabs} active={tabSlug(active)} variant="detail"/>
+ <DetailPageHeader kind="SDG MISSION" title={mission.title} backHref="/missions" backLabel="SDG Missions" visitorName={visitorName} mobileCompact/>
+ <div className="!mt-3 lg:!mt-6"><ProfileTabs base={base} tabs={missionTabs} active={tabSlug(active)} variant="detail"/></div>
+ {active!=='Overview'&&<MobileDetailIdentityCard name={mission.title} icon={<Target size={21} color={iconColors.connections}/>}/>} 
  {status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Mission saved.</p>}
  {status==='joined'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Your mission participation has been saved.</p>}
  {status==='already-joined'&&<p role="status" className="rounded-lg border border-line p-3 text-muted">You already participate with the selected types.</p>}
