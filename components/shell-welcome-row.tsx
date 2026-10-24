@@ -20,7 +20,7 @@ export function ShellWelcomeRow({ name }: { name: string }) {
     :pathname==='/fundraising'
       ?{label:'SDG MISSION FUNDRAISING',title:'SDG Fundraising'}
       :null;
-  if(directoryHeading)return <div className={`${compactMobile?'mb-0 lg:mb-6':'mb-6'} grid min-w-0 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.65fr)_minmax(0,1fr)] xl:items-start`}>
+  if(directoryHeading)return <div className={`${compactMobile?'mb-3 lg:mb-6':'mb-6'} grid min-w-0 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.65fr)_minmax(0,1fr)] xl:items-start`}>
     <div className="hidden min-w-0 lg:block sm:col-start-1 sm:row-start-1">
       <p className="deck-label">PEOPLE · PLACES · POSSIBILITY</p>
       <p className="mt-1 text-sm text-muted">Welcome, <Link href="/profile" className="font-semibold text-gold hover:underline" aria-label="Open my profile">{name}</Link></p>
