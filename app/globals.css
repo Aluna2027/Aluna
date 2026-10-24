@@ -38,3 +38,7 @@ input, select, textarea { color: var(--ink); font-family: 'Archivo Variable', Ar
 input:not([type='hidden']), select, textarea { background-color: var(--input); border-color: var(--line); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 input::placeholder { color: var(--muted); }
+/* Keep mobile native select controls within their parent fields. The OS controls expanded options. */
+@media (max-width: 1023px) {
+  select { max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+}
