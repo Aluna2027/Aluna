@@ -15,6 +15,6 @@ export function ProfileHeaderControls() {
    <Search size={18} className="shrink-0"/>
    <input name="q" type="search" aria-label="Search people and organizations" placeholder="Search people & organizations" className="w-44 min-w-0 bg-transparent outline-none sm:w-56"/>
   </form>}
-  {ownProfile&&<Link href="/settings" className="shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-gold hover:bg-panel-raised">Account settings</Link>}
+  {ownProfile&&<Link href="/settings" className="hidden lg:inline-flex shrink-0 rounded-xl border border-line px-4 py-2 text-sm font-semibold text-gold hover:bg-panel-raised">Account settings</Link>}
  </div></>;
 }
