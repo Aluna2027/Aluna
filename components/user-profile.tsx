@@ -1,5 +1,4 @@
-import { ContributionList } from '@/components/contribution-list';
-import { ProofList } from '@/components/proof-list';
+import { OrganizationImpact } from '@/components/organization-impact';
 import { ActorMissions } from '@/components/actor-missions';
 import Link from 'next/link';
 import { ActorFundraising } from '@/components/actor-fundraising';
@@ -14,14 +13,16 @@ import { type PublicProfile, tabSlug, userTabs } from '@/lib/profiles';
 import { CheckCircle2, MessageCircle, UsersRound } from 'lucide-react';
 
 export async function UserProfile({profile,tab,isOwner=false,actorId,base,error}:{profile:PublicProfile;tab?:string;isOwner?:boolean;actorId?:string;base?:string;error?:string}) {
- const active=userTabs.find(t=>tabSlug(t)===tab)??'About';
+ const availableTabs=isOwner?userTabs:userTabs.filter(t=>t!=='Donations');
+ const requestedTab=tab==='contributions'||tab==='proofs'?'impact':tab;
+ const active=availableTabs.find(t=>tabSlug(t)===requestedTab)??'About';
  const href=base??`/people/${profile.id}`;
  const ownProfile=isOwner&&href==='/profile';
  const role=profile.aluna_role?profile.aluna_role.charAt(0).toUpperCase()+profile.aluna_role.slice(1):null;
  const fullName=[profile.first_name,profile.last_name].filter(Boolean).join(' ');
  const composerActors=isOwner&&actorId&&active==='Posts'?(await ownedActors()).filter(a=>a.id===actorId):[];
  return <div className="space-y-6">
-  <SocialProfileTabs base={href} tabs={userTabs} active={tabSlug(active)} actorId={actorId} tabsFirst/>
+  <SocialProfileTabs base={href} tabs={availableTabs} active={tabSlug(active)} actorId={actorId} tabsFirst/>
   {['follow','connection'].includes(error??'')&&<p role="alert" className="rounded-lg border border-red-700 bg-panel p-3 text-sm text-red-300">Could not update your relationship. Please try again.</p>}
   {active==='About'?<>
    <ProfileHeader name={profile.display_name||'Aluna member'} kind="User" location={profile.location_text} website={profile.website} imageUrl={profile.avatar_url} editHref={isOwner?'/profile/edit':undefined}/>
@@ -43,8 +44,7 @@ export async function UserProfile({profile,tab,isOwner=false,actorId,base,error}
   </>:active==='Wi-Fi Mesh Communities'&&actorId?<ActorCommunities actorId={actorId}/>
   :active==='Missions'&&actorId?<ActorMissions actorId={actorId}/>
   :active==='Fundraising'&&actorId?<ActorFundraising actorId={actorId}/>
-  :active==='Contributions'&&actorId?<ContributionList actorId={actorId}/>
-  :active==='Proofs'&&actorId?<ProofList actorId={actorId}/>
+  :active==='Impact'&&actorId?<OrganizationImpact actorId={actorId} subject="profile"/>
   :active==='Donations'&&isOwner?<Card title="Your donations"><p className="mb-4">Your payments and receipts are private.</p><Link href="/donations" className="text-gold">View my donations →</Link></Card>
   :actorId&&['Posts','Connections','Followers','Following'].includes(active)?<>
    {isOwner&&active==='Posts'&&composerActors.length>0&&<PostComposer actors={composerActors} returnTo={href+'?tab=posts'}/>}
