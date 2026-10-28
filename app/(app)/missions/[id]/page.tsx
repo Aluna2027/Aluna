@@ -52,7 +52,8 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  {status==='saved'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Mission saved.</p>}
  {status==='joined'&&<p role="status" className="rounded-lg border border-gold p-3 text-gold">Your mission participation has been saved.</p>}
  {status==='already-joined'&&<p role="status" className="rounded-lg border border-line p-3 text-muted">You already participate with the selected types.</p>}
- {error&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
+ {error==='active-campaign'&&<p role="alert" className="rounded-lg border border-[#E49BA3] p-3 text-[#E49BA3]">First archive or close your active fundraising campaign to leave this mission. Existing donations remain preserved.</p>}
+  {error&&error!=='active-campaign'&&<p role="alert" className="rounded-lg border border-red-700 p-3 text-red-300">Could not complete that action.</p>}
  {active==='Overview'&&<><header className="rounded-[22px] border border-line bg-panel p-5 sm:p-6">
   <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-3"><span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-[#173638] sm:size-16"><DirectorySdgIcon number={featuredSdg((missionSdgs??[]).map(s=>s.sdg_number),Boolean(mission.community_id))} size={29}/></span><p className="text-sm font-semibold text-gold">SDG MISSION</p></div><div className="flex items-center gap-3">{(missionSdgs??[]).map(s=>s.sdg_number).filter(n=>n!==featuredSdg((missionSdgs??[]).map(s=>s.sdg_number),Boolean(mission.community_id))).map(n=><DirectorySdgIcon key={n} number={n} size={24}/>)}</div></div>
   <h2 className="mt-7 break-words text-[28px] font-bold normal-case leading-tight text-ink [font-stretch:normal] sm:text-[35px]">{mission.title}</h2>
