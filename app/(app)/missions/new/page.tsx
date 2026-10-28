@@ -4,6 +4,7 @@ import { ownedActors } from '@/lib/social';
 import { createClient } from '@/lib/supabase/server';
 import { Card } from '@/components/ui';
 import { MissionFields } from '@/components/mission-fields';
+import { MissionCommunityLocation } from '@/components/mission-community-location';
 import { countryGroups } from '@/lib/countries';
 import { createMission } from '../actions';
 export default async function NewMission({searchParams}:{searchParams:Promise<{city?:string;community?:string;error?:string;organization?:string}>}) {
