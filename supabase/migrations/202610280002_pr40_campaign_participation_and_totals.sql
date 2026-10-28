@@ -87,3 +87,47 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION public.mission_fundraising_totals(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mission_fundraising_totals(uuid) TO authenticated;
+
+
+-- Enforce one source of truth for new/changed campaign financial goals.
+-- Legacy campaign titles/stories remain editable without rewriting historical totals.
+CREATE OR REPLACE FUNCTION public.pr40_guard_campaign_mission_finances()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE v_goal numeric; v_currency character(3);
+BEGIN
+  SELECT funding_goal_amount,currency_code INTO v_goal,v_currency
+  FROM public.missions WHERE id=NEW.mission_id AND removed_at IS NULL;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Mission unavailable'; END IF;
+  IF TG_OP='INSERT' OR NEW.mission_id IS DISTINCT FROM OLD.mission_id
+    OR NEW.goal_amount IS DISTINCT FROM OLD.goal_amount
+    OR NEW.currency_code IS DISTINCT FROM OLD.currency_code THEN
+    IF v_goal IS NULL OR v_goal <= 0 THEN RAISE EXCEPTION 'Invalid mission funding goal'; END IF;
+    IF NEW.goal_amount IS DISTINCT FROM v_goal OR NEW.currency_code IS DISTINCT FROM v_currency
+    THEN RAISE EXCEPTION 'Campaign finance values must match the SDG Mission'; END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS pr40_guard_campaign_mission_finances ON public.fundraising_campaigns;
+CREATE TRIGGER pr40_guard_campaign_mission_finances
+BEFORE INSERT OR UPDATE ON public.fundraising_campaigns
+FOR EACH ROW EXECUTE FUNCTION public.pr40_guard_campaign_mission_finances();
+
+-- Require an About description for all new and edited mesh communities.
+-- NOT VALID avoids rejecting older rows which were created when About was optional;
+-- it still checks any new/updated rows.
+ALTER TABLE public.mesh_communities
+  ADD CONSTRAINT pr40_mesh_community_about_required
+  CHECK (description IS NOT NULL AND char_length(trim(description)) BETWEEN 2 AND 3000) NOT VALID;
+
+-- Prevent newly-created or edited missions from omitting their required planning
+-- fields, while allowing legacy rows to remain readable until their next edit.
+ALTER TABLE public.missions
+  ADD CONSTRAINT pr40_mission_required_details
+  CHECK (
+    roles_summary IS NOT NULL AND char_length(trim(roles_summary)) BETWEEN 1 AND 2000
+    AND starts_on IS NOT NULL AND ends_on IS NOT NULL
+    AND budget_amount IS NOT NULL
+    AND funding_goal_amount IS NOT NULL AND funding_goal_amount > 0
+  ) NOT VALID;
