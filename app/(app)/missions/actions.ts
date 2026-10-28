@@ -12,7 +12,7 @@ function common(form:FormData){
  const title=String(form.get('title')??'').trim(),overview=String(form.get('overview')??'').trim(),location=String(form.get('location')??'').trim(),goal=String(form.get('goal')??'').trim(),roles=String(form.get('roles_summary')??'').trim();
  const start=date(form,'starts_on'),end=date(form,'ends_on'),budget=amount(form,'budget_amount'),funding=amount(form,'funding_goal_amount');
  const currency=String(form.get('currency_code')??'EUR');
- if(title.length<3||title.length>180||overview.length<10||overview.length>5000||location.length<2||location.length>240||goal.length<3||goal.length>2000||roles.length>2000||(start&&end&&end<start)||!['EUR','USD','GBP'].includes(currency))throw new Error('Invalid details');
+ if(title.length<3||title.length>180||overview.length<10||overview.length>5000||location.length<2||location.length>240||goal.length<3||goal.length>2000||roles.length<1||roles.length>2000||!start||!end||end<start||budget===null||funding===null||funding<=0||!['EUR','USD','GBP'].includes(currency))throw new Error('Invalid details');
  return {title,overview,location,goal,roles,start,end,budget,funding,currency};
 }
 export async function createMission(form:FormData) {
