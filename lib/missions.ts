@@ -11,5 +11,5 @@ const missionTabAliases:Record<string,(typeof missionTabs)[number]>={
 export function missionTabFromSlug(slug?:string):(typeof missionTabs)[number] {
  return missionTabs.find(tab=>tab.toLowerCase()===slug)??missionTabAliases[slug??'']??'Overview';
 }
-export const participationOptions=[{value:'join_team',label:'Join Team'},{value:'volunteer',label:'Volunteer'},{value:'contribute_skills',label:'Contribute Skills'},{value:'contribute_time',label:'Contribute Time'},{value:'provide_expertise',label:'Provide Expertise'},{value:'provide_resources',label:'Provide Resources'}] as const;
+export const participationOptions=[{value:'join_team',label:'Join Team'},{value:'volunteer',label:'Volunteer'},{value:'contribute_skills',label:'Contribute Skills'},{value:'contribute_time',label:'Contribute Time'},{value:'provide_expertise',label:'Provide Expertise'},{value:'provide_resources',label:'Provide Resources'},{value:'fundraising',label:'Fundraising'}] as const;
 export function money(value:number|null,currency:string){return value===null?'Not reported':new Intl.NumberFormat('en',{style:'currency',currency,maximumFractionDigits:2}).format(value);}
