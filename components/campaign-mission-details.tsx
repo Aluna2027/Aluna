@@ -1,9 +1,10 @@
 import { MissionFundingHelp } from '@/components/mission-funding-help';
 import { money } from '@/lib/missions';
+import { getCity } from '@/lib/cities';
 
 export type CampaignMissionInfo={id:string;created_by_actor_id:string;title:string;location_text:string;goal:string;roles_summary:string|null;starts_on:string|null;ends_on:string|null;budget_amount:number|null;funding_goal_amount:number|null;currency_code:string;manual_place:string|null;manual_country:string|null;community_id:string|null;places:{name:string;source_key:string}|null;mesh_communities:{name:string}|null;mission_sdgs:{sdg_number:number}[]|null};
 export function CampaignMissionDetails({mission}:{mission:CampaignMissionInfo}){
- const location=mission.manual_place&&mission.manual_country?`${mission.manual_place}, ${mission.manual_country}`:mission.places?.name??'Not specified';
+ const location=mission.manual_place&&mission.manual_country?`${mission.manual_place}, ${mission.manual_country}`:(mission.places?.source_key?(()=>{const city=getCity(mission.places!.source_key);return city?`${city.name}, ${city.country}`:mission.places?.name??'Not specified';})():mission.places?.name??'Not specified');
  const details:[string,string][]=[
   ['Place and Country',location],
   ['Wi-Fi Mesh Community',mission.mesh_communities?.name??'No linked community'],
