@@ -43,6 +43,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  if(queryText){const safe=queryText.replace(/[%_,()]/g,' ').replace(/\s+/g,' ').trim();const filters=[safe?`title.ilike.%${safe}%`:null,safe?`manual_place.ilike.%${safe}%`:null,safe?`manual_country.ilike.%${safe}%`:null,matchingPlaceIds.length?`city_id.in.(${matchingPlaceIds.join(',')})`:null,matchingSdgMissionIds.length?`id.in.(${matchingSdgMissionIds.join(',')})`:null].filter(Boolean).join(',');if(filters)query=query.or(filters);else query=query.eq('id','00000000-0000-0000-0000-000000000000');}
  const {data:missions}=await query;
  const missionIds=(missions??[]).map(m=>m.id);
+ const {data:activeCampaignRows}=missionIds.length?await client.from('fundraising_campaigns').select('id,title,actor_id,mission_id').in('mission_id',missionIds).is('removed_at',null).is('archived_at',null).limit(3000):{data:[]};
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
  const sdgsByMission=new Map<string,number[]>();for(const row of sdgRows??[]){const values=sdgsByMission.get(row.mission_id)??[];values.push(row.sdg_number);sdgsByMission.set(row.mission_id,values);}
 
@@ -50,7 +51,8 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  <div className="text-center xl:hidden"><p className="deck-label">PEOPLE · PLACES · PURPOSE</p><h1 className="mt-1 text-3xl">SDG Missions</h1></div>
  {status==='left'&&<p role="status" className="rounded-xl border border-[#26E7D4] p-3 text-[#26E7D4]">Mission participation ended.</p>}
  {status==='joined'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Mission participation saved.</p>}
- {actionError&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the mission. Please try again.</p>}
+ {actionError==='active-campaign'&&<p role="alert" className="rounded-xl border border-[#E49BA3] p-3 text-[#E49BA3]">Archive or close your active fundraising campaign before leaving this mission. Your donations and history will be preserved.</p>}
+  {actionError&&actionError!=='active-campaign'&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not join the mission. Please try again.</p>}
  <nav aria-label="SDG Mission categories" className="mt-3! flex flex-wrap items-center justify-between gap-3 lg:mt-6!">
  <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
  {([['All','all'],['Participating','participating'],['Created','created']] as const).map(([label,value])=><Link key={value} href={params(value)} aria-current={view===value?'page':undefined} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${view===value?'bg-gold font-semibold text-navy':'glass'}`}>{label}</Link>)}
@@ -100,7 +102,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
   </Link>
   <div className="mt-auto pt-6">
    {owned&&<p className="mb-2 text-sm font-semibold text-gold">Created by you</p>}
-   <MissionParticipationControl missionId={m.id} actors={actors} participations={participations.filter(p=>p.mission_id===m.id)}/>
+   <MissionParticipationControl missionId={m.id} actors={actors} participations={participations.filter(p=>p.mission_id===m.id)} creatorActorId={m.created_by_actor_id} activeCampaigns={(activeCampaignRows??[]).filter(c=>c.mission_id===m.id)}/>
   </div>
  </article>})}</div>
  {!missions?.length&&<p className="glass rounded-2xl p-6 text-muted">{queryText?'No SDG Missions match your search.':view==='participating'?'You have no mission participations yet.':view==='created'?'You have not created any missions yet.':'No SDG Missions have been added here yet.'}</p>}

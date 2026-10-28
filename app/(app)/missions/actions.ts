@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { participationOptions } from '@/lib/missions';
 import { countrySet } from '@/lib/countries';
 import { ownedActors } from '@/lib/social';
+import { activeCampaignExitGuard } from '@/lib/mission-campaign-guard';
 function amount(form:FormData,key:string){const raw=String(form.get(key)??'').trim();if(!raw)return null;const n=Number(raw);if(!/^\d+(\.\d{1,2})?$/.test(raw)||!Number.isFinite(n)||n>999_999_999_999.99)throw new Error('Invalid amount');return n;}
 function date(form:FormData,key:string){const v=String(form.get(key)??'').trim();if(!v)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||Number.isNaN(Date.parse(v)))throw new Error('Invalid date');return v;}
 function selectedSdgs(form:FormData){const values=form.getAll('sdg_numbers').map(v=>Number(String(v))).filter(Number.isInteger);const unique=[...new Set(values)];if(!unique.length||unique.some(n=>n<1||n>17))throw new Error('Invalid SDGs');return unique;}
@@ -12,7 +13,7 @@ function common(form:FormData){
  const title=String(form.get('title')??'').trim(),overview=String(form.get('overview')??'').trim(),location=String(form.get('location')??'').trim(),goal=String(form.get('goal')??'').trim(),roles=String(form.get('roles_summary')??'').trim();
  const start=date(form,'starts_on'),end=date(form,'ends_on'),budget=amount(form,'budget_amount'),funding=amount(form,'funding_goal_amount');
  const currency=String(form.get('currency_code')??'EUR');
- if(title.length<3||title.length>180||overview.length<10||overview.length>5000||location.length<2||location.length>240||goal.length<3||goal.length>2000||roles.length>2000||(start&&end&&end<start)||!['EUR','USD','GBP'].includes(currency))throw new Error('Invalid details');
+ if(title.length<3||title.length>180||overview.length<10||overview.length>5000||location.length<2||location.length>240||goal.length<3||goal.length>2000||roles.length<1||roles.length>2000||!start||!end||end<start||budget===null||funding===null||funding<=0||!['EUR','USD','GBP'].includes(currency))throw new Error('Invalid details');
  return {title,overview,location,goal,roles,start,end,budget,funding,currency};
 }
 export async function createMission(form:FormData) {
@@ -30,10 +31,23 @@ export async function createMission(form:FormData) {
 export async function updateMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
- let fields:ReturnType<typeof common>;let sdgNumbers:number[];try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
- const {error}=await client.rpc('update_mission_v2',{p_mission:id,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
+ let fields:ReturnType<typeof common>;let sdgNumbers:number[];
+ try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
+ const citySource=String(form.get('city')??'').trim(),manualPlace=String(form.get('manual_place')??'').trim(),manualCountry=String(form.get('manual_country')??'').trim();
+ if((citySource&&(manualPlace||manualCountry))||(!citySource&&(!manualPlace||!manualCountry))||manualPlace.length>160||(manualCountry&&!countrySet.has(manualCountry)))redirect(`/missions/${id}/edit?error=location`);
+ const {data:city}=citySource?await client.from('places').select('id').eq('source_key',citySource).maybeSingle():{data:null};
+ if(citySource&&!city)redirect(`/missions/${id}/edit?error=city`);
+ const community=String(form.get('community_id')??'')||null;
+ if(community&&!city)redirect(`/missions/${id}/edit?error=community`);
+ const {error}=await client.rpc('update_mission_v3',{
+  p_mission:id,p_city:city?.id??null,p_manual_place:manualPlace||null,p_manual_country:manualCountry||null,
+  p_community:community,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,
+  p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles,p_start:fields.start,
+  p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency
+ });
  if(error)redirect(`/missions/${id}/edit?error=save`);
- revalidatePath('/missions');revalidatePath(`/missions/${id}`);revalidatePath('/fundraising');redirect(`/missions/${id}?status=saved`);
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);revalidatePath('/fundraising');
+ redirect(`/missions/${id}?status=saved`);
 }
 export async function joinMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
@@ -55,9 +69,20 @@ export async function joinMission(form:FormData) {
  redirect(`/missions/${id}?tab=participants&status=joined`);
 }
 
+async function guardMissionExit(client:Awaited<ReturnType<typeof createClient>>,missionId:string,actorId:string,base:string){
+ try {
+  const result=await activeCampaignExitGuard(client,missionId,actorId);
+  if(result.blocked)redirect(missionParticipationResult(base,'error=active-campaign'));
+ } catch(error) {
+  if(error&&typeof error==='object'&&'digest' in error)throw error;
+  redirect(missionParticipationResult(base,'error=leave'));
+ }
+}
+
 export async function leaveMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('mission_id')??''),actor_id=String(form.get('actor_id')??''),kind=String(form.get('participation_kind')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
+ await guardMissionExit(client,id,actor_id,`/missions/${id}?tab=participants`);
  const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor_id).eq('participation_kind',kind);
  if(error)redirect(`/missions/${id}?tab=participants&error=leave`);revalidatePath(`/missions/${id}`);redirect(`/missions/${id}?tab=participants`);
 }
@@ -121,6 +146,7 @@ export async function saveMissionParticipationFromDirectory(form:FormData){
   if(error)redirect(missionParticipationResult(destination,'error=participation'));
  }
  if(toRemove.length){
+  if(toRemove.includes('fundraising'))await guardMissionExit(client,id,actor,destination);
   const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor).in('participation_kind',toRemove);
   if(error)redirect(missionParticipationResult(destination,'error=participation'));
  }
@@ -134,6 +160,7 @@ export async function leaveMissionFromDirectory(form:FormData){
  const destination=missionParticipationReturn(form,id);
  if(!directoryMissionUuid.test(id)||!directoryMissionUuid.test(actor))redirect(missionParticipationResult(destination,'error=leave'));
  const owned=await ownedActors();if(!owned.some(a=>a.id===actor))redirect(missionParticipationResult(destination,'error=leave'));
+ await guardMissionExit(client,id,actor,destination);
  const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor);
  if(error)redirect(missionParticipationResult(destination,'error=leave'));
  revalidatePath('/missions');revalidatePath(`/missions/${id}`);

@@ -105,7 +105,7 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
   {status==='removed'&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Campaign removed.</p>}
   <nav aria-label="Fundraising views" className="flex flex-wrap items-center justify-between gap-3">
    <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
-    {([['All','all'],['My Campaigns','campaigns'],['My Fundraisers','fundraisers']] as const).map(([label,value])=><Link key={value} href={fundraisingUrl(value,selectedSdg,queryText)} aria-current={view===value?'page':undefined} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${view===value?'bg-gold font-semibold text-navy':'glass hover:border-gold'}`}>{label}</Link>)}
+    {([['All','all'],['My Campaigns','campaigns'],['Historical Fundraisers','fundraisers']] as const).map(([label,value])=><Link key={value} href={fundraisingUrl(value,selectedSdg,queryText)} aria-current={view===value?'page':undefined} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${view===value?'bg-gold font-semibold text-navy':'glass hover:border-gold'}`}>{label}</Link>)}
     <Link href="/fundraising/performance" className="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm glass hover:border-gold">Performance</Link>
    </div>
    <div className="flex shrink-0 gap-2">
