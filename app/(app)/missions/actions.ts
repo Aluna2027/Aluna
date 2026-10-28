@@ -146,6 +146,7 @@ export async function saveMissionParticipationFromDirectory(form:FormData){
   if(error)redirect(missionParticipationResult(destination,'error=participation'));
  }
  if(toRemove.length){
+  if(toRemove.includes('fundraising'))await guardMissionExit(client,id,actor,destination);
   const {error}=await client.from('mission_participations').delete().eq('mission_id',id).eq('actor_id',actor).in('participation_kind',toRemove);
   if(error)redirect(missionParticipationResult(destination,'error=participation'));
  }
