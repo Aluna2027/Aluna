@@ -131,3 +131,55 @@ ALTER TABLE public.missions
     AND budget_amount IS NOT NULL
     AND funding_goal_amount IS NOT NULL AND funding_goal_amount > 0
   ) NOT VALID;
+
+
+-- Edit all centrally-owned mission fields atomically; the campaign forms only read
+-- from the mission. Same authorization as update_mission_v2.
+CREATE OR REPLACE FUNCTION public.update_mission_v3(
+ p_mission uuid,p_city uuid,p_manual_place text,p_manual_country text,p_community uuid,
+ p_title text,p_overview text,p_location text,p_goal text,p_sdgs smallint[],
+ p_roles text,p_start date,p_end date,p_budget numeric,p_funding numeric,p_currency character
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+BEGIN
+ IF NOT EXISTS (
+  SELECT 1 FROM public.missions m WHERE m.id=p_mission AND m.removed_at IS NULL AND public.can_act_as(m.created_by_actor_id)
+ ) THEN RAISE EXCEPTION 'Not permitted'; END IF;
+ IF p_sdgs IS NULL OR cardinality(p_sdgs)=0 OR EXISTS(SELECT 1 FROM unnest(p_sdgs) s WHERE s NOT BETWEEN 1 AND 17)
+ THEN RAISE EXCEPTION 'Invalid SDGs'; END IF;
+ IF char_length(trim(coalesce(p_title,''))) NOT BETWEEN 3 AND 180
+   OR char_length(trim(coalesce(p_overview,''))) NOT BETWEEN 10 AND 5000
+   OR char_length(trim(coalesce(p_location,''))) NOT BETWEEN 2 AND 240
+   OR char_length(trim(coalesce(p_goal,''))) NOT BETWEEN 3 AND 2000
+   OR char_length(trim(coalesce(p_roles,''))) NOT BETWEEN 1 AND 2000
+   OR p_start IS NULL OR p_end IS NULL OR p_end<p_start
+   OR p_budget IS NULL OR p_budget < 0 OR p_funding IS NULL OR p_funding <=0
+   OR p_currency NOT IN ('EUR','USD','GBP')
+ THEN RAISE EXCEPTION 'Invalid mission details'; END IF;
+ IF p_city IS NOT NULL THEN
+   IF p_manual_place IS NOT NULL OR p_manual_country IS NOT NULL
+   THEN RAISE EXCEPTION 'Choose one location mode'; END IF;
+   IF NOT EXISTS(SELECT 1 FROM public.places WHERE id=p_city AND source_key IS NOT NULL)
+   THEN RAISE EXCEPTION 'City unavailable'; END IF;
+ ELSE
+   IF nullif(trim(coalesce(p_manual_place,'')),'') IS NULL
+     OR nullif(trim(coalesce(p_manual_country,'')),'') IS NULL
+     OR char_length(trim(coalesce(p_manual_place,'')))>160
+     OR p_community IS NOT NULL
+   THEN RAISE EXCEPTION 'Invalid manual location'; END IF;
+ END IF;
+ UPDATE public.missions SET
+ city_id=p_city,manual_place=nullif(trim(coalesce(p_manual_place,'')),''),
+ manual_country=nullif(trim(coalesce(p_manual_country,'')),''),
+ community_id=p_community,title=trim(p_title),overview=trim(p_overview),
+ location_text=trim(p_location),goal=trim(p_goal),roles_summary=trim(p_roles),
+ starts_on=p_start,ends_on=p_end,budget_amount=p_budget,
+ funding_goal_amount=p_funding,currency_code=p_currency,updated_at=now()
+ WHERE id=p_mission;
+ DELETE FROM public.mission_sdgs WHERE mission_id=p_mission;
+ INSERT INTO public.mission_sdgs(mission_id,sdg_number)
+ SELECT p_mission,s FROM (SELECT DISTINCT unnest(p_sdgs)::smallint AS s) x ORDER BY s;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.update_mission_v3(uuid,uuid,text,text,uuid,text,text,text,text,smallint[],text,date,date,numeric,numeric,character) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.update_mission_v3(uuid,uuid,text,text,uuid,text,text,text,text,smallint[],text,date,date,numeric,numeric,character) TO authenticated;
