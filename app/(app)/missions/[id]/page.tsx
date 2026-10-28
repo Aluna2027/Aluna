@@ -25,7 +25,7 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  const {data:row}=await client.from('missions').select('*,places(name,source_key),mesh_communities(name)').eq('id',id).is('removed_at',null).maybeSingle();if(!row)notFound();
  const mission=row as unknown as Mission & {places:{name:string;source_key:string}|null;mesh_communities:{name:string}|null};
  const active=missionTabFromSlug(tab);const actors=await ownedActors();
- const [{data:participants},{data:mine}]=await Promise.all([client.from('mission_participations').select('actor_id,participation_kind,joined_at').eq('mission_id',id).order('joined_at',{ascending:true}).limit(2000),actors.length?client.from('mission_participations').select('actor_id,participation_kind').eq('mission_id',id).in('actor_id',actors.map(a=>a.id)):Promise.resolve({data:[]})]);
+ const [{data:participants},{data:mine},{data:activeCampaigns}]=await Promise.all([client.from('mission_participations').select('actor_id,participation_kind,joined_at').eq('mission_id',id).order('joined_at',{ascending:true}).limit(2000),actors.length?client.from('mission_participations').select('actor_id,participation_kind').eq('mission_id',id).in('actor_id',actors.map(a=>a.id)):Promise.resolve({data:[]}),client.from('fundraising_campaigns').select('id,title,actor_id').eq('mission_id',id).is('removed_at',null).is('archived_at',null)]);
  const participantIds=[...new Set((participants??[]).map(p=>p.actor_id))];const detail=await actorDetails([...participantIds,mission.created_by_actor_id]);
  const grouped=new Map<string,{id:string;joinedAt:string;kinds:string[]}>();
  for(const participant of participants??[]){const current=grouped.get(participant.actor_id);if(current){if(!current.kinds.includes(participant.participation_kind))current.kinds.push(participant.participation_kind);if(participant.joined_at<current.joinedAt)current.joinedAt=participant.joined_at;}else grouped.set(participant.actor_id,{id:participant.actor_id,joinedAt:participant.joined_at,kinds:[participant.participation_kind]});}
@@ -59,7 +59,7 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
   <p className="mt-6 flex items-center gap-3 text-base text-muted sm:text-lg"><MapPin size={21} className="shrink-0 text-[#26E7D4]"/>{manualPlace|| (city?city.name+', '+city.country:mission.location_text)}</p>
   <div className="mt-6 text-base leading-relaxed sm:text-lg"><DetailSdgRows numbers={(missionSdgs??[]).map(s=>s.sdg_number)} primary={featuredSdg((missionSdgs??[]).map(s=>s.sdg_number),Boolean(mission.community_id))}/></div>
   <div className="mt-8 border-t border-line pt-7">
-   <MissionParticipationControl missionId={id} actors={actors} participations={mine??[]} variant="detail"/>
+   <MissionParticipationControl missionId={id} actors={actors} participations={mine??[]} variant="detail" creatorActorId={mission.created_by_actor_id} activeCampaigns={activeCampaigns??[]}/>
    <div className="mt-6 flex flex-wrap items-center justify-between gap-3"><p className="flex items-center gap-2 text-sm text-muted"><UserRound size={19}/>Created by {creator?.name||'Member'}</p>{canEdit&&<Link href={base+'/edit'} className="inline-flex items-center gap-2 text-sm text-gold"><Pencil size={18}/>Edit Mission</Link>}</div>
    {canEdit&&<form action={removeMission} className="mt-2 text-right"><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to delete this SDG Mission?" className="text-xs text-[#E49BA3]">Delete SDG Mission</ConfirmSubmitButton></form>}
   </div>
