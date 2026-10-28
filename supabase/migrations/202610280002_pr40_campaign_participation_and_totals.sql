@@ -1,0 +1,89 @@
+-- PR #40, phase 2: verified mission fundraising participation and totals.
+-- Apply only after the enum migration has committed.
+CREATE OR REPLACE FUNCTION public.create_campaign_with_participation(
+  p_mission uuid, p_actor uuid, p_title text, p_story text, p_kinds text[]
+) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE
+  v_id uuid;
+  v_goal numeric;
+  v_currency character(3);
+  v_kind text;
+BEGIN
+  IF NOT public.can_act_as(p_actor) THEN RAISE EXCEPTION 'Not permitted'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.missions WHERE id=p_mission AND removed_at IS NULL)
+  THEN RAISE EXCEPTION 'Mission unavailable'; END IF;
+  SELECT funding_goal_amount,currency_code INTO v_goal,v_currency
+  FROM public.missions WHERE id=p_mission AND removed_at IS NULL;
+  IF v_goal IS NULL OR v_goal <= 0 THEN RAISE EXCEPTION 'Mission funding goal must be positive'; END IF;
+  IF char_length(trim(coalesce(p_title,''))) NOT BETWEEN 3 AND 180
+    OR char_length(trim(coalesce(p_story,''))) NOT BETWEEN 10 AND 5000
+  THEN RAISE EXCEPTION 'Invalid campaign details'; END IF;
+  IF p_kinds IS NULL OR NOT ('fundraising'=ANY(p_kinds))
+    OR EXISTS (
+       SELECT 1 FROM unnest(p_kinds) k
+       WHERE k NOT IN ('join_team','volunteer','contribute_skills','contribute_time','provide_expertise','provide_resources','fundraising')
+    )
+  THEN RAISE EXCEPTION 'Fundraising participation is required'; END IF;
+  INSERT INTO public.mission_participations(mission_id,actor_id,participation_kind)
+  SELECT p_mission,p_actor,k::public.mission_participation_kind
+  FROM (SELECT DISTINCT unnest(p_kinds) AS k) selected
+  ON CONFLICT DO NOTHING;
+  INSERT INTO public.fundraising_campaigns(mission_id,actor_id,title,story,goal_amount,currency_code)
+  VALUES(p_mission,p_actor,trim(p_title),trim(p_story),v_goal,v_currency)
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.create_campaign_with_participation(uuid,uuid,text,text,text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.create_campaign_with_participation(uuid,uuid,text,text,text[]) TO authenticated;
+
+-- A direct Data API insert must not bypass the mission participation requirement.
+DROP POLICY IF EXISTS "Create own mission campaigns" ON public.fundraising_campaigns;
+CREATE POLICY "Create campaigns for joined missions" ON public.fundraising_campaigns
+FOR INSERT TO authenticated WITH CHECK (
+  public.can_act_as(actor_id) AND (
+    EXISTS (SELECT 1 FROM public.missions m WHERE m.id=mission_id AND m.created_by_actor_id=actor_id AND m.removed_at IS NULL)
+    OR EXISTS (SELECT 1 FROM public.mission_participations mp WHERE mp.mission_id=mission_id AND mp.actor_id=actor_id AND mp.participation_kind='fundraising')
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.sync_campaign_mission_finances()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+BEGIN
+  IF NEW.currency_code IS DISTINCT FROM OLD.currency_code AND EXISTS (
+    SELECT 1 FROM public.fundraiser_donations d
+    JOIN public.fundraising_campaigns c ON c.id=d.campaign_id
+    WHERE c.mission_id=NEW.id
+  ) THEN RAISE EXCEPTION 'Cannot change currency after donations are recorded'; END IF;
+  IF NEW.funding_goal_amount IS DISTINCT FROM OLD.funding_goal_amount
+  OR NEW.currency_code IS DISTINCT FROM OLD.currency_code THEN
+    IF NEW.funding_goal_amount IS NULL OR NEW.funding_goal_amount <= 0
+    THEN RAISE EXCEPTION 'Active campaigns need a positive funding goal'; END IF;
+    UPDATE public.fundraising_campaigns
+    SET goal_amount=NEW.funding_goal_amount,currency_code=NEW.currency_code,updated_at=now()
+    WHERE mission_id=NEW.id AND removed_at IS NULL AND archived_at IS NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS pr40_sync_mission_finances ON public.missions;
+CREATE TRIGGER pr40_sync_mission_finances
+AFTER UPDATE OF funding_goal_amount,currency_code ON public.missions
+FOR EACH ROW EXECUTE FUNCTION public.sync_campaign_mission_finances();
+
+-- Historical, archived and legacy fundraiser donations remain in the shared mission total.
+CREATE OR REPLACE FUNCTION public.mission_fundraising_totals(p_mission uuid)
+RETURNS TABLE(amount_raised numeric,donor_count bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
+AS $$
+  SELECT coalesce(sum(d.amount-d.refunded_amount),0)::numeric,
+         count(DISTINCT d.donor_reference) FILTER (WHERE d.amount>d.refunded_amount)
+  FROM public.fundraiser_donations d
+  JOIN public.fundraising_campaigns c ON c.id=d.campaign_id
+  WHERE c.mission_id=p_mission
+$$;
+REVOKE ALL ON FUNCTION public.mission_fundraising_totals(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mission_fundraising_totals(uuid) TO authenticated;
