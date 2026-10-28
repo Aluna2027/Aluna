@@ -30,10 +30,23 @@ export async function createMission(form:FormData) {
 export async function updateMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/missions');
- let fields:ReturnType<typeof common>;let sdgNumbers:number[];try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
- const {error}=await client.rpc('update_mission_v2',{p_mission:id,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles||null,p_start:fields.start,p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency});
+ let fields:ReturnType<typeof common>;let sdgNumbers:number[];
+ try{fields=common(form);sdgNumbers=selectedSdgs(form);}catch{redirect(`/missions/${id}/edit?error=validation`);}
+ const citySource=String(form.get('city')??'').trim(),manualPlace=String(form.get('manual_place')??'').trim(),manualCountry=String(form.get('manual_country')??'').trim();
+ if((citySource&&(manualPlace||manualCountry))||(!citySource&&(!manualPlace||!manualCountry))||manualPlace.length>160||(manualCountry&&!countrySet.has(manualCountry)))redirect(`/missions/${id}/edit?error=location`);
+ const {data:city}=citySource?await client.from('places').select('id').eq('source_key',citySource).maybeSingle():{data:null};
+ if(citySource&&!city)redirect(`/missions/${id}/edit?error=city`);
+ const community=String(form.get('community_id')??'')||null;
+ if(community&&!city)redirect(`/missions/${id}/edit?error=community`);
+ const {error}=await client.rpc('update_mission_v3',{
+  p_mission:id,p_city:city?.id??null,p_manual_place:manualPlace||null,p_manual_country:manualCountry||null,
+  p_community:community,p_title:fields.title,p_overview:fields.overview,p_location:fields.location,
+  p_goal:fields.goal,p_sdgs:sdgNumbers,p_roles:fields.roles,p_start:fields.start,
+  p_end:fields.end,p_budget:fields.budget,p_funding:fields.funding,p_currency:fields.currency
+ });
  if(error)redirect(`/missions/${id}/edit?error=save`);
- revalidatePath('/missions');revalidatePath(`/missions/${id}`);revalidatePath('/fundraising');redirect(`/missions/${id}?status=saved`);
+ revalidatePath('/missions');revalidatePath(`/missions/${id}`);revalidatePath('/fundraising');
+ redirect(`/missions/${id}?status=saved`);
 }
 export async function joinMission(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
