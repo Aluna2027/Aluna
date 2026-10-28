@@ -37,12 +37,14 @@ export function MissionParticipationIcons({kinds,large=false}:{kinds:string[];la
 }
 
 export function MissionParticipationControl({
-  missionId,actors,participations,variant='directory',
+  missionId,actors,participations,variant='directory',creatorActorId,activeCampaigns=[],
 }:{
   missionId:string;
   actors:ActorOption[];
   participations:Participation[];
   variant?:'directory'|'detail';
+ creatorActorId?:string;
+ activeCampaigns?:{actor_id:string;id:string;title:string}[];
 }){
   const kindsFor=(id:string)=>participations.filter(p=>p.actor_id===id).map(p=>p.participation_kind);
   const firstJoined=actors.find(actor=>kindsFor(actor.id).length>0);
@@ -55,6 +57,8 @@ export function MissionParticipationControl({
   const joinedKinds=kindsFor(actorId);
   const joined=joinedKinds.length>0;
   const actor=actors.find(item=>item.id===actorId)??actors[0];
+ const creator=creatorActorId===actorId;
+ const ownActiveCampaign=activeCampaigns.find(c=>c.actor_id===actorId);
 
   function changeActor(next:string){
     setActorId(next);
@@ -136,6 +140,8 @@ export function MissionParticipationControl({
    {joined&&confirmLeave&&<div role="group" aria-label="Confirm leaving mission" className="space-y-4 rounded-2xl border border-line bg-navy p-4">
     <h3 className="text-lg font-bold normal-case text-ink [font-stretch:normal]">Unjoin Mission</h3>
     <p className="text-sm text-muted">Are you sure you want to leave this mission as {actor.name}? Your current participation types will be removed.</p>
+     {creator&&<p className="text-sm text-gold">You created this mission. Leaving participation does not end your ownership or active campaigns.</p>}
+     {!creator&&ownActiveCampaign&&<p role="alert" className="text-sm text-[#E49BA3]">First archive or close your active <a className="underline" href={`/fundraising/campaigns/${ownActiveCampaign.id}`}>fundraising campaign</a> before leaving this mission. Donation history will be preserved.</p>}
     <ul className="space-y-2">
      {participationOptions.map((opt,i)=>{
       if(!joinedKinds.includes(opt.value))return null;
@@ -149,7 +155,7 @@ export function MissionParticipationControl({
      <input type="hidden" name="actor_id" value={actorId}/>
      {variant==='detail'&&<input type="hidden" name="return_to" value={`/missions/${missionId}?tab=overview`}/>}
      <button type="button" onClick={()=>setConfirmLeave(false)} className="min-h-12 flex-1 rounded-xl border border-line text-ink">Cancel</button>
-     <button type="submit" className="min-h-12 flex-1 rounded-xl bg-gold px-3 font-semibold text-navy">Unjoin Mission</button>
+     <button type="submit" disabled={!creator&&Boolean(ownActiveCampaign)} className="min-h-12 flex-1 rounded-xl bg-gold px-3 font-semibold text-navy disabled:opacity-50">Unjoin Mission</button>
     </form>
    </div>}
   </div>;
