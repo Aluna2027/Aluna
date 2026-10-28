@@ -32,6 +32,10 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
   client.from('fundraisers').select('id,slug,title,kind,actor_id,goal_amount').eq('campaign_id',id).order('created_at',{ascending:false}).limit(100),
   client.rpc('fundraising_totals',{p_campaign:id})
  ]);
+ const {data:missionTotalRows}=await client.rpc('mission_fundraising_totals',{p_mission:campaign.mission_id});
+ const {data:linkedMission}=await client.from('missions').select('funding_goal_amount,currency_code').eq('id',campaign.mission_id).maybeSingle();
+ const missionTotal=Number(missionTotalRows?.[0]?.amount_raised??0),missionGoal=Number(linkedMission?.funding_goal_amount??campaign.goal_amount);
+ const missionPercent=missionGoal>0?Math.round(missionTotal/missionGoal*100):0;
  const summary=campaignTotal((totals??[]) as Total[]);const byFundraiser=new Map(((totals??[]) as Total[]).map(t=>[t.fundraiser_id,t]));
  const actors=await actorDetails([campaign.actor_id,...(fundraisers??[]).map(f=>f.actor_id)]);const mine=await ownedActors();const canEdit=mine.some(a=>a.id===campaign.actor_id);
  let referralRows:CampaignReferralReportRow[]=[];let assignable:{id:string;name:string;kind:string}[]=[];
@@ -64,7 +68,7 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
    <p className="mt-7 flex items-center gap-3 text-base text-muted"><MapPin className="shrink-0 text-[#26E7D4]" size={20}/>{missionLocation||'Location not reported'} · <Link href={'/missions/'+campaign.mission_id} className="hover:text-gold hover:underline">{campaign.missions?.title||'SDG Mission'}</Link></p>
    <div className="mt-6 text-base leading-relaxed sm:text-lg"><DetailSdgRows numbers={(campaignSdgs??[]).map(s=>s.sdg_number)} primary={featuredSdg((campaignSdgs??[]).map(s=>s.sdg_number),true)}/></div>
    <div className="mt-8 border-t border-line pt-8">
-    <div className="flex items-baseline justify-between gap-4"><strong className="text-[32px] font-bold text-gold sm:text-[38px]">{money(summary.amount,campaign.currency_code)}</strong><strong className="text-[28px] font-bold text-[#26E7D4]">{Number(campaign.goal_amount)>0?Math.min(100,Math.round(summary.amount/Number(campaign.goal_amount)*100)):0}%</strong></div>
+    <div className="flex items-baseline justify-between gap-4"><strong className="text-[32px] font-bold text-gold sm:text-[38px]">{money(summary.amount,campaign.currency_code)}</strong><strong className="text-[28px] font-bold text-[#26E7D4]">{Number(campaign.goal_amount)>0?Math.round(summary.amount/Number(campaign.goal_amount)*100):0}%</strong></div>
     <div className="mt-1 flex justify-between gap-4 text-sm text-muted sm:text-base"><span>Raised of {money(Number(campaign.goal_amount),campaign.currency_code)}</span><span>{summary.count} confirmed donors</span></div>
     <div role="progressbar" aria-label="Campaign funding progress" aria-valuenow={Number(campaign.goal_amount)>0?Math.min(100,Math.round(summary.amount/Number(campaign.goal_amount)*100)):0} aria-valuemin={0} aria-valuemax={100} className="mt-5 h-[14px] overflow-hidden rounded-full bg-[#2A3040]"><div className="h-full rounded-full bg-[#26E7D4]" style={{width:(Number(campaign.goal_amount)>0?Math.min(100,Math.round(summary.amount/Number(campaign.goal_amount)*100)):0)+'%'}}/></div>
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -73,10 +77,16 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
     </div>
    </div>
   </header>
+  <section className="rounded-xl border border-[#26E7D4] bg-panel p-5" aria-label="Combined Mission Funding">
+    <h2 className="text-xl font-semibold text-ink">Combined Mission Funding</h2>
+    <p className="mt-2 text-lg text-gold">{money(missionTotal,campaign.currency_code)} raised of {money(missionGoal,campaign.currency_code)} · {missionPercent}% funded</p>
+    <div role="progressbar" aria-label="Combined mission funding" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100,Math.max(0,missionPercent))} className="mt-3 h-3 overflow-hidden rounded-full bg-panel-raised"><div className="h-full rounded-full bg-[#26E7D4]" style={{width:`${Math.min(100,Math.max(0,missionPercent))}%`}}/></div>
+    {missionGoal>0&&missionTotal>missionGoal&&<p className="mt-2 font-semibold text-[#26E7D4]">{money(missionTotal-missionGoal,campaign.currency_code)} raised beyond the funding goal!</p>}
+   </section>
   <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
    <div className="order-2 space-y-4 lg:order-1 lg:col-start-1 lg:row-start-1">
     <DetailSectionCard title="CAMPAIGN STORY" icon={<BookOpen size={25} color="#A78BFA"/>}><p className="whitespace-pre-wrap">{campaign.story}</p></DetailSectionCard>
-    <DetailSectionCard title="FUNDRAISERS" icon={<UsersRound size={25} color="#26E7D4"/>}><div className="space-y-3">{fundraisers?.map(f=>{const total=byFundraiser.get(f.id);return <Link key={f.id} href={'/fundraising/'+f.slug} className="block rounded-xl border border-line p-4 hover:border-gold"><p className="text-gold">{f.title} · {f.kind==='team'?'Team':'Personal'}</p><p className="my-2 text-xs">By {actors.get(f.actor_id)?.name}</p><Progress amount={Number(total?.amount_raised??0)} count={Number(total?.donor_count??0)} goal={Number(f.goal_amount)} currency={campaign.currency_code}/></Link>})}{!fundraisers?.length&&<div className="rounded-xl bg-[#191E2A] p-4"><p>No fundraisers yet.</p><Link href={'/fundraising/new?campaign='+id} className="mt-3 block text-base font-semibold text-gold">+ Start the first fundraiser</Link></div>}</div></DetailSectionCard>
+    <DetailSectionCard title="HISTORICAL FUNDRAISERS" icon={<UsersRound size={25} color="#26E7D4"/>}><div className="space-y-3">{fundraisers?.map(f=>{const total=byFundraiser.get(f.id);return <Link key={f.id} href={'/fundraising/'+f.slug} className="block rounded-xl border border-line p-4 hover:border-gold"><p className="text-gold">{f.title} · {f.kind==='team'?'Team':'Personal'}</p><p className="my-2 text-xs">By {actors.get(f.actor_id)?.name}</p><Progress amount={Number(total?.amount_raised??0)} count={Number(total?.donor_count??0)} goal={Number(f.goal_amount)} currency={campaign.currency_code}/></Link>})}{!fundraisers?.length&&<p className="text-sm text-muted">No historical personal/team fundraisers linked to this campaign.</p>}</div></DetailSectionCard>
     {canEdit&&<section className="rounded-[20px] border border-line bg-panel p-5"><h2 className="flex items-center gap-3 text-xl font-bold uppercase text-ink [font-stretch:normal]"><ChartNoAxesColumnIncreasing size={23} className="text-gold"/>CAMPAIGN MANAGEMENT</h2><p className="mt-4 text-sm text-muted">For authorized campaign owners only.</p><div className="mt-3 flex flex-wrap gap-4 text-sm">{!archived&&<Link className="text-gold" href={'/fundraising/campaigns/'+id+'/edit'}>Edit Campaign</Link>}<Link href="/fundraising/performance" className="text-[#26E7D4]">Referral Performance</Link>{!archived&&<form action={removeOrArchiveCampaign}><input type="hidden" name="id" value={id}/><ConfirmSubmitButton message="Are you sure you want to archive or delete this campaign?" className="text-[#E49BA3]">Archive / Delete</ConfirmSubmitButton></form>}</div></section>}
    </div>
    <div className="order-1 lg:order-2 lg:col-start-2 lg:row-start-1">{!archived&&<CampaignDonationFields campaignId={id} currency={campaign.currency_code} requestKey={randomUUID()}/>}</div>
