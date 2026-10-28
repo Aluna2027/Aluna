@@ -12,9 +12,9 @@ const kinds=[
  {id:'provide_resources',label:'Provide Resources',Icon:Box,color:'#6A7CFF'},
  {id:'fundraising',label:'Fundraising',Icon:HandCoins,color:'#FF4FD8'}
 ];
-export function CampaignCreationForm({missions,actors,participations,lockedMissionId}:{missions:CampaignMissionInfo[];actors:Actor[];participations:{mission_id:string;actor_id:string;participation_kind:string}[];lockedMissionId?:string|null}){
+export function CampaignCreationForm({missions,actors,participations,lockedMissionId,editingCampaign}:{missions:CampaignMissionInfo[];actors:Actor[];participations:{mission_id:string;actor_id:string;participation_kind:string}[];lockedMissionId?:string|null;editingCampaign?:{id:string;title:string;story:string;actor_id:string}}){
  const [missionId,setMissionId]=useState(lockedMissionId??'');
- const [actorId,setActorId]=useState(actors[0]?.id??'');
+ const [actorId,setActorId]=useState(editingCampaign?.actor_id??actors[0]?.id??'');
  const [extras,setExtras]=useState<string[]>([]);
  const mission=missions.find(x=>x.id===missionId);
  const joined=participations.filter(p=>p.mission_id===missionId&&p.actor_id===actorId).map(p=>p.participation_kind);
@@ -28,8 +28,8 @@ export function CampaignCreationForm({missions,actors,participations,lockedMissi
    {lockedMissionId&&<input type="hidden" name="mission_id" value={lockedMissionId}/>}
   </label>
   {mission&&<CampaignMissionDetails mission={mission}/>}
-  <label className="block text-sm">Create as<select name="actor_id" required value={actorId} onChange={e=>{setActorId(e.target.value);setExtras([])}} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3">{actors.map(a=><option key={a.id} value={a.id}>{a.name} · {a.kind}</option>)}</select></label>
-  {mission&&<fieldset className="space-y-3 rounded-xl border border-line p-4">
+  <label className="block text-sm">Create as<select name="actor_id" required value={actorId} onChange={e=>{setActorId(e.target.value);setExtras([])}} disabled={Boolean(editingCampaign)} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3">{actors.map(a=><option key={a.id} value={a.id}>{a.name} · {a.kind}</option>)}</select></label>
+  {mission&&<fieldset disabled={Boolean(editingCampaign)} className="space-y-3 rounded-xl border border-line p-4">
    <legend className="px-2 text-sm font-semibold">Join Mission — Participation</legend>
    <p className="text-xs text-muted">{originalCreator?'As mission creator you are already authorized.':joined.length?'Your existing participation is retained. Fundraising is required for a campaign.':'Select participation types. Fundraising is required and the mission will be joined when your campaign is created.'}</p>
    <div className="grid grid-cols-2 gap-3">{kinds.map(({id,label,Icon,color})=><label key={id} className="flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-panel-raised p-3 text-sm" style={{borderColor:checked.has(id)?color:undefined}}>
@@ -39,8 +39,9 @@ export function CampaignCreationForm({missions,actors,participations,lockedMissi
     {id==='fundraising'&&<input type="hidden" name="participation_kind" value="fundraising"/>}
    </label>)}</div>
   </fieldset>}
-  <label className="block text-sm">Campaign Title<input name="title" required minLength={3} maxLength={180} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
-  <label className="block text-sm">Campaign Story<textarea name="story" required minLength={10} maxLength={5000} rows={5} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
-  <button type="submit" disabled={!ready} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy disabled:opacity-50">Create Campaign</button>
+  {editingCampaign&&<p className="text-xs text-muted">Shared mission details and participation roles are managed through Edit SDG Mission and Edit Participation, not through Campaign Edit.</p>}
+  <label className="block text-sm">Campaign Title<input name="title" required minLength={3} maxLength={180} defaultValue={editingCampaign?.title??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
+  <label className="block text-sm">Campaign Story<textarea name="story" required minLength={10} maxLength={5000} rows={5} defaultValue={editingCampaign?.story??''} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
+  <button type="submit" disabled={!ready} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy disabled:opacity-50">{editingCampaign?'Save Campaign':'Create Campaign'}</button>
  </div>;
 }
