@@ -28,7 +28,7 @@ BEGIN
   THEN RAISE EXCEPTION 'Fundraising participation is required'; END IF;
   INSERT INTO public.mission_participations(mission_id,actor_id,participation_kind)
   SELECT p_mission,p_actor,k::public.mission_participation_kind
-  FROM (SELECT DISTINCT unnest(p_kinds) AS k) selected
+  FROM (SELECT DISTINCT unnest(p_kinds) AS k) selected WHERE true
   ON CONFLICT DO NOTHING;
   INSERT INTO public.fundraising_campaigns(mission_id,actor_id,title,story,goal_amount,currency_code)
   VALUES(p_mission,p_actor,trim(p_title),trim(p_story),v_goal,v_currency)
@@ -99,6 +99,8 @@ BEGIN
   SELECT funding_goal_amount,currency_code INTO v_goal,v_currency
   FROM public.missions WHERE id=NEW.mission_id AND removed_at IS NULL;
   IF NOT FOUND THEN RAISE EXCEPTION 'Mission unavailable'; END IF;
+  IF TG_OP='UPDATE' AND (NEW.mission_id IS DISTINCT FROM OLD.mission_id OR NEW.actor_id IS DISTINCT FROM OLD.actor_id)
+  THEN RAISE EXCEPTION 'Campaign mission and owner cannot be reassigned'; END IF;
   IF TG_OP='INSERT' OR NEW.mission_id IS DISTINCT FROM OLD.mission_id
     OR NEW.goal_amount IS DISTINCT FROM OLD.goal_amount
     OR NEW.currency_code IS DISTINCT FROM OLD.currency_code THEN
