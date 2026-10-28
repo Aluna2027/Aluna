@@ -8,7 +8,7 @@ export async function createCommunity(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const name=String(form.get('name')??'').trim(),location=String(form.get('location')??'').trim(),description=String(form.get('description')??'').trim();
  const citySource=String(form.get('city')??''),actor=String(form.get('actor_id')??'');
- if(name.length<2||name.length>160||location.length<2||location.length>240||description.length>3000)redirect('/communities/new?error=validation');
+ if(name.length<2||name.length>160||location.length<2||location.length>240||(description.length<2||description.length>3000))redirect('/communities/new?error=validation');
  const {data:city}=await client.from('places').select('id').eq('source_key',citySource).maybeSingle();if(!city)redirect('/communities/new?error=city');
  const {data:id,error}=await client.rpc('create_mesh_community',{p_city:city.id,p_name:name,p_location:location,p_actor:actor,p_description:description||null});
  if(error||!id)redirect('/communities/new?error=save');
