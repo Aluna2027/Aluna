@@ -14,7 +14,7 @@ export function MissionCommunityLocation({defaultCity='',defaultCommunity='',def
   if(!city||manual.trim()){setItems([]);setCommunity('');return;}
   let active=true;const c=new AbortController();setLoading(true);
   const timer=setTimeout(()=>{
-   fetch(`/api/mission-communities?city=${encodeURIComponent(city)}&q=${encodeURIComponent(q)}`,{signal:c.signal})
+   fetch(`/api/mission-communities?city=${encodeURIComponent(city)}&q=${encodeURIComponent(q)}&selected=${encodeURIComponent(defaultCommunity)}`,{signal:c.signal})
     .then(r=>r.ok?r.json():{items:[]}).then(v=>{if(active)setItems((v.items??[]) as Entry[])})
     .catch(()=>{if(active)setItems([])}).finally(()=>{if(active)setLoading(false)});
   },250);
