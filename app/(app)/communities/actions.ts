@@ -20,7 +20,7 @@ export async function updateCommunity(form:FormData) {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('id')??'');if(!/^[0-9a-f-]{36}$/i.test(id))redirect('/communities');
  const name=String(form.get('name')??'').trim(),location_text=String(form.get('location')??'').trim(),description=String(form.get('description')??'').trim();
- if(name.length<2||name.length>160||location_text.length<2||location_text.length>240||description.length>3000)redirect(`/communities/${id}/edit?error=validation`);
+ if(name.length<2||name.length>160||location_text.length<2||location_text.length>240||(description.length<2||description.length>3000))redirect(`/communities/${id}/edit?error=validation`);
  let population,people_connected,nodes,local_owners;
  try {population=optionalCount(form,'population');people_connected=optionalCount(form,'people_connected');nodes=optionalCount(form,'nodes');local_owners=optionalCount(form,'local_owners');}catch{redirect(`/communities/${id}/edit?error=validation`);}
  if(population!==null&&people_connected!==null&&people_connected>population)redirect(`/communities/${id}/edit?error=validation`);
