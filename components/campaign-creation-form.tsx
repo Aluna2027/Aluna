@@ -18,7 +18,7 @@ export function CampaignCreationForm({missions,actors,participations,lockedMissi
  const [extras,setExtras]=useState<string[]>([]);
  const mission=missions.find(x=>x.id===missionId);
  const joined=participations.filter(p=>p.mission_id===missionId&&p.actor_id===actorId).map(p=>p.participation_kind);
- const originalCreator=(mission as CampaignMissionInfo&{created_by_actor_id?:string}|undefined)?.created_by_actor_id===actorId;
+ const originalCreator=mission?.created_by_actor_id===actorId;
  const checked=new Set(['fundraising',...joined,...extras]);
  const ready=Boolean(mission&&actorId&&mission.funding_goal_amount!==null&&mission.funding_goal_amount>0);
  return <div className="space-y-5">
