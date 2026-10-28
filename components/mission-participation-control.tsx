@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import {
-  Box, Check, CircleCheck, Clock, HandHeart, Lightbulb,
+  Box, Check, CircleCheck, Clock, HandHeart, Lightbulb, HandCoins,
   UserRoundPlus, UsersRound, Wrench,
 } from 'lucide-react';
 import { participationOptions } from '@/lib/missions';
@@ -18,6 +18,7 @@ const visuals=[
   {icon:Clock,color:'#35F3FF',short:'Time'},
   {icon:Lightbulb,color:'#FF4FD8',short:'Expertise'},
   {icon:Box,color:'#6A7CFF',short:'Resources'},
+  {icon:HandCoins,color:'#FF4FD8',short:'Fundraising'},
 ] as const;
 
 export function MissionParticipationIcons({kinds,large=false}:{kinds:string[];large?:boolean}){
