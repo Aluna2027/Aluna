@@ -43,6 +43,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  if(queryText){const safe=queryText.replace(/[%_,()]/g,' ').replace(/\s+/g,' ').trim();const filters=[safe?`title.ilike.%${safe}%`:null,safe?`manual_place.ilike.%${safe}%`:null,safe?`manual_country.ilike.%${safe}%`:null,matchingPlaceIds.length?`city_id.in.(${matchingPlaceIds.join(',')})`:null,matchingSdgMissionIds.length?`id.in.(${matchingSdgMissionIds.join(',')})`:null].filter(Boolean).join(',');if(filters)query=query.or(filters);else query=query.eq('id','00000000-0000-0000-0000-000000000000');}
  const {data:missions}=await query;
  const missionIds=(missions??[]).map(m=>m.id);
+ const {data:activeCampaignRows}=missionIds.length?await client.from('fundraising_campaigns').select('id,title,actor_id,mission_id').in('mission_id',missionIds).is('removed_at',null).is('archived_at',null).limit(3000):{data:[]};
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
  const sdgsByMission=new Map<string,number[]>();for(const row of sdgRows??[]){const values=sdgsByMission.get(row.mission_id)??[];values.push(row.sdg_number);sdgsByMission.set(row.mission_id,values);}
 
@@ -100,7 +101,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
   </Link>
   <div className="mt-auto pt-6">
    {owned&&<p className="mb-2 text-sm font-semibold text-gold">Created by you</p>}
-   <MissionParticipationControl missionId={m.id} actors={actors} participations={participations.filter(p=>p.mission_id===m.id)}/>
+   <MissionParticipationControl missionId={m.id} actors={actors} participations={participations.filter(p=>p.mission_id===m.id)} creatorActorId={m.created_by_actor_id} activeCampaigns={(activeCampaignRows??[]).filter(c=>c.mission_id===m.id)}/>
   </div>
  </article>})}</div>
  {!missions?.length&&<p className="glass rounded-2xl p-6 text-muted">{queryText?'No SDG Missions match your search.':view==='participating'?'You have no mission participations yet.':view==='created'?'You have not created any missions yet.':'No SDG Missions have been added here yet.'}</p>}
