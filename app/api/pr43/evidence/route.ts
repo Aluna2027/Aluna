@@ -44,3 +44,39 @@ export async function POST(req:Request){
  if(error){await client.storage.from('contribution-evidence').remove([path]);return NextResponse.json({error:'Evidence registration failed'},{status:400});}
  return NextResponse.json({ok:true});
 }
+
+
+// Download private evidence through the authenticated session, not through a
+// reusable signed URL. Both the metadata RLS and Storage RLS are checked again
+// on every request, including after an L3 assignment is revoked.
+export async function GET(req: Request) {
+ const responseHeaders = {'Cache-Control':'private, no-store, max-age=0'};
+ const client = await createClient();
+ const {data:{user}} = await client.auth.getUser();
+ if (!user) return NextResponse.json({error:'Sign in required'}, {status:401,headers:responseHeaders});
+ const id = new URL(req.url).searchParams.get('fileId')??'';
+ if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+  return NextResponse.json({error:'File not found'}, {status:404,headers:responseHeaders});
+ const {data:file,error:lookupError} = await client
+  .from('pr43_contribution_files')
+  .select('storage_path,filename,content_type')
+  .eq('id',id)
+  .maybeSingle();
+ if(lookupError||!file) return NextResponse.json({error:'File not found'}, {status:404,headers:responseHeaders});
+ const {data:blob,error:downloadError} = await client.storage
+  .from('contribution-evidence')
+  .download(file.storage_path);
+ if(downloadError||!blob) return NextResponse.json({error:'File unavailable or access revoked'}, {status:404,headers:responseHeaders});
+ const bytes = await blob.arrayBuffer();
+ const safeName = (file.filename||'evidence').replace(/[\r\n"\\]/g,'_').slice(0,180);
+ const contentType = allowed.has(file.content_type) ? file.content_type : 'application/octet-stream';
+ return new NextResponse(bytes,{
+  status:200,
+  headers:{
+   ...responseHeaders,
+   'Content-Type':contentType,
+   'Content-Disposition':`attachment; filename="${safeName}"`,
+   'X-Content-Type-Options':'nosniff'
+  }
+ });
+}
