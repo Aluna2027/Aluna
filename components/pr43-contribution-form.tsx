@@ -22,6 +22,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
  async function submit(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();if(saved||!actor||(!mission&&!community)||!types.length)return;
   setBusy(true);setError('');
+  let contributionRecorded=false;
   const fd=new FormData(e.currentTarget);
   try{
    const items=types.map(type=>{
@@ -43,11 +44,12 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
    const res=await fetch('/api/pr43/contributions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor,mission:mission||null,community:community||null,items})});
    const result=await res.json();
    if(!res.ok)throw Error(result.error||'Could not record the contribution.');
+   contributionRecorded=true;
    setSaved(true);
    const inputs=types.flatMap(type=>Array.from(fd.getAll(type+'_files')).filter(x=>x instanceof File && x.size>0).map(x=>({type,file:x as File})));
    for(const entry of inputs){const media=new FormData();media.set('submission',result.submission);media.set('type',entry.type);media.set('file',entry.file);const uploaded=await fetch('/api/pr43/evidence',{method:'POST',body:media});if(!uploaded.ok)throw Error('Contribution recorded, but one attachment could not be uploaded. You can add evidence later.');}
    window.location.assign('/contributions?status=created');
-  }catch(e){setError((saved?'Your contribution was already recorded. ':'')+(e instanceof Error?e.message:'Unexpected error'));setBusy(false);}
+  }catch(e){setError((contributionRecorded?'Your contribution was already recorded. ':'')+(e instanceof Error?e.message:'Unexpected error'));setBusy(false);}
  }
  return <form onSubmit={submit} className="max-w-3xl space-y-5">
   {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">{error}{saved&&<Link className="ml-2 underline" href="/contributions">View saved contribution</Link>}</p>}
