@@ -11,12 +11,13 @@ export function PR43ProofReview({actors,missions,communities,items,initial}:{act
  const [community,setCommunity]=useState(initial.community??'');
  const [pending,setPending]=useState<string|null>(null);
  const [message,setMessage]=useState('');
+ const [query,setQuery]=useState('');
  const [verified,setVerified]=useState<Record<string,boolean>>({});
  const [values,setValues]=useState<Record<string,string>>({});
  const [comments,setComments]=useState<Record<string,string>>({});
  const [uploads,setUploads]=useState<Record<string,File[]>>({});
  const [levels,setLevels]=useState<Record<string,number>>({});
- const visible=useMemo(()=>items.filter(i=>initial.contribution===i.id||(!initial.contribution&&(mission?i.mission_id===mission:true)&&(community?i.community_id===community:true)&&Boolean(mission||community))),[items,mission,community,initial.contribution]);
+ const visible=useMemo(()=>items.filter(i=>i.pr43_contribution_results.length>0&&i.pr43_contribution_results.some(r=>r.verification_level<4)&&(initial.contribution===i.id||(!initial.contribution&&(mission?i.mission_id===mission:true)&&(community?i.community_id===community:true)&&Boolean(mission||community)))&&(!query||[i.title,i.description,i.contribution_type].join(' ').toLowerCase().includes(query.toLowerCase()))),[items,mission,community,initial.contribution,query]);
  const input='mt-1 w-full rounded-xl border border-line bg-panel-raised p-3';
  async function review(result:Result,contributionId:string){
   if(!actor||!verified[result.id])return;setMessage('');setPending(result.id);
@@ -38,6 +39,7 @@ export function PR43ProofReview({actors,missions,communities,items,initial}:{act
   <label className="block text-sm">Wi-Fi Mesh Community<select className={input} value={community} onChange={e=>{setCommunity(e.target.value);setMission('')}}><option value="">Choose a community</option>{communities.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
   <label className="block text-sm">SDG Mission<select className={input} value={mission} onChange={e=>{setMission(e.target.value);setCommunity('')}}><option value="">Choose a mission</option>{missions.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
   {message&&<p role="status" className="rounded-xl border border-line p-3 text-sm">{message}</p>}
+  <label className="block text-sm">Search open Contributions<input type="search" className={input} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search title, type or description"/></label>
   <h3 className="font-semibold text-ink">Open Contributions ({visible.length})</h3>
   {!visible.length&&<p className="text-sm text-muted">Choose a project to view contributions. Only contributors or authorized organization reviewers can confirm them.</p>}
   {visible.map(item=><section key={item.id} className="space-y-4 rounded-2xl border border-line p-4">
