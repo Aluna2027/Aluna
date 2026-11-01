@@ -2,7 +2,7 @@
 import {useState} from 'react';
 import {contributionTypes,resultKeys} from '@/lib/contributions';
 type Actor={id:string;name:string;kind:string};
-type Project={id:string;name:string;city_id:string|null;community_id?:string|null;location?:string};
+type Project={id:string;name:string;city_id:string|null;community_id?:string|null;location?:string;owner_actor_id?:string;steward_actor_ids?:string[]};
 export function PR43ContributionForm({actors,missions,communities,cityNames,initial}:{actors:Actor[];missions:Project[];communities:Project[];cityNames:Record<string,string>;initial:{actor?:string;mission?:string;community?:string}}){
  const [actor,setActor]=useState(initial.actor&&actors.some(a=>a.id===initial.actor)?initial.actor:actors[0]?.id??'');
  const [mission,setMission]=useState(initial.mission??'');
@@ -14,7 +14,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
  const city=m?.city_id??c?.city_id??null;
  const possibleMissions=missions.filter(x=>!community||x.community_id===community);
  const possibleCommunities=communities.filter(x=>!mission||m?.community_id===x.id);
- const isMissionOwner=m&&actor&&m.community_id!==undefined; // owner eligibility enforced server-side
+ const availableTypes=contributionTypes.filter(t=>t.value==='complete_sdg_mission'?Boolean(m&&m.owner_actor_id===actor):t.value==='complete_wifi_community'?Boolean(c&&c.steward_actor_ids?.includes(actor)):true);
  const fields='mt-1 w-full rounded-xl border border-line bg-panel-raised p-3';
  const today=new Date().toISOString().slice(0,10);
  async function submit(e:React.FormEvent<HTMLFormElement>){
@@ -53,7 +53,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
   <label className="block text-sm">City<input className={fields} readOnly value={city?cityNames[city]??'Linked project city':m?.location??'Determined from selected project'} /></label>
   <p className="text-xs text-muted">Select a Wi-Fi Mesh Community and/or SDG Mission. When both are selected they must belong to the same project.</p>
   <label className="block text-sm">Contribute as *<select required className={fields} value={actor} onChange={e=>setActor(e.target.value)}>{actors.map(v=><option key={v.id} value={v.id}>{v.name} · {v.kind}</option>)}</select></label>
-  <fieldset className="space-y-3"><legend className="font-semibold text-ink">Contribution types * (select multiple)</legend><div className="grid gap-3 sm:grid-cols-2">{contributionTypes.map(t=><label key={t.value} className="flex items-center gap-3 rounded-xl border border-line p-3 text-sm"><input type="checkbox" checked={types.includes(t.value)} onChange={e=>setTypes(old=>e.target.checked?[...old,t.value]:old.filter(x=>x!==t.value))}/>{t.label}</label>)}</div></fieldset>
+  <fieldset className="space-y-3"><legend className="font-semibold text-ink">Contribution types * (select multiple)</legend><div className="grid gap-3 sm:grid-cols-2">{availableTypes.map(t=><label key={t.value} className="flex items-center gap-3 rounded-xl border border-line p-3 text-sm"><input type="checkbox" checked={types.includes(t.value)} onChange={e=>setTypes(old=>e.target.checked?[...old,t.value]:old.filter(x=>x!==t.value))}/>{t.label}</label>)}</div></fieldset>
   {types.map(type=><section key={type} className="space-y-3 rounded-2xl border border-line bg-panel p-4"><h3 className="font-semibold text-gold">{contributionTypes.find(t=>t.value===type)?.label}</h3>
    <label className="block text-sm">Title *<input className={fields} name={type+'_title'} required minLength={3} maxLength={160}/></label>
    <label className="block text-sm">Description *<textarea className={fields} name={type+'_description'} required minLength={10} maxLength={3000} rows={3}/></label>
