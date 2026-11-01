@@ -181,7 +181,7 @@ create or replace function public.pr43_guard_contribution()
 returns trigger language plpgsql security definer set search_path='' as $$
 declare m public.missions%rowtype; c public.mesh_communities%rowtype;
 begin
- if new.mission_id is null and new.community_id is null then raise exception 'A mission or community is required'; end if;
+ if new.submission_id is not null and new.mission_id is null and new.community_id is null then raise exception 'A mission or community is required'; end if;
  if new.mission_id is not null then
   select * into m from public.missions where id=new.mission_id and removed_at is null;
   if not found then raise exception 'Mission unavailable'; end if;
