@@ -128,6 +128,9 @@ begin
    values(grp,p_actor,p_mission,p_community,t,trim(entry->>'title'),trim(entry->>'description'),(entry->>'date')::date,detail,
     case when t='time' then nullif(detail->>'hours','')::numeric else null end,
     case when t='time' then 'hours' else null end) returning id into c_id;
+  if t='complete_sdg_mission' and detail->>'completion_status'<>'all' then raise exception 'Cannot mark an unfinished mission as completed'; end if;
+  if t='complete_wifi_community' and (detail->>'completion_status'<>'all' or detail->>'operational'<>'yes') then raise exception 'Network implementation must be completed and operational'; end if;
+  if t='time' and coalesce(nullif(detail->>'hours','')::numeric,0)<=0 then raise exception 'Volunteer hours are required'; end if;
   if jsonb_typeof(entry->'metrics')<>'array' then raise exception 'Measurements required'; end if;
   if jsonb_array_length(entry->'metrics')=0 then raise exception 'At least one result is required'; end if;
   for result in select value from jsonb_array_elements(entry->'metrics') loop
@@ -202,7 +205,8 @@ begin
   select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization';
  elsif role_name='aluna' then partner_value:=p_value;
  else
-  select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='owner';
+  select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization';
+  if partner_value is null then partner_value:=p_value; end if;
  end if;
  if v_level>=3 and partner_value is null then select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization'; end if;
  if r.proof_id is null then
