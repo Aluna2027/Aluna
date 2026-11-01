@@ -9,6 +9,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
  const [community,setCommunity]=useState(initial.community??'');
  const [types,setTypes]=useState<string[]>(['data']);
  const [busy,setBusy]=useState(false);
+ const [saved,setSaved]=useState(false);
  const [error,setError]=useState('');
  const m=missions.find(x=>x.id===mission),c=communities.find(x=>x.id===community);
  const city=m?.city_id??c?.city_id??null;
@@ -18,7 +19,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
  const fields='mt-1 w-full rounded-xl border border-line bg-panel-raised p-3';
  const today=new Date().toISOString().slice(0,10);
  async function submit(e:React.FormEvent<HTMLFormElement>){
-  e.preventDefault();if(!actor||(!mission&&!community)||!types.length)return;
+  e.preventDefault();if(saved||!actor||(!mission&&!community)||!types.length)return;
   setBusy(true);setError('');
   const fd=new FormData(e.currentTarget);
   try{
@@ -41,13 +42,14 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
    const res=await fetch('/api/pr43/contributions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor,mission:mission||null,community:community||null,items})});
    const result=await res.json();
    if(!res.ok)throw Error(result.error||'Could not record the contribution.');
+   setSaved(true);
    const inputs=types.flatMap(type=>Array.from(fd.getAll(type+'_files')).filter(x=>x instanceof File && x.size>0).map(x=>({type,file:x as File})));
    for(const entry of inputs){const media=new FormData();media.set('submission',result.submission);media.set('type',entry.type);media.set('file',entry.file);const uploaded=await fetch('/api/pr43/evidence',{method:'POST',body:media});if(!uploaded.ok)throw Error('Contribution recorded, but one attachment could not be uploaded. You can add evidence later.');}
    window.location.assign('/contributions?status=created');
-  }catch(e){setError(e instanceof Error?e.message:'Unexpected error');setBusy(false);}
+  }catch(e){setError((saved?'Your contribution was already recorded. ':'')+(e instanceof Error?e.message:'Unexpected error'));setBusy(false);}
  }
  return <form onSubmit={submit} className="max-w-3xl space-y-5">
-  {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">{error}</p>}
+  {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">{error}{saved&&<a className="ml-2 underline" href="/contributions">View saved contribution</a>}</p>}
   <label className="block text-sm">Wi-Fi Mesh Community<select className={fields} value={community} onChange={e=>{setCommunity(e.target.value);if(e.target.value&&m?.community_id!==e.target.value)setMission('')}}><option value="">No community selected</option>{possibleCommunities.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
   <label className="block text-sm">SDG Mission<select className={fields} value={mission} onChange={e=>{setMission(e.target.value);if(e.target.value&&c?.id!==missions.find(x=>x.id===e.target.value)?.community_id)setCommunity('')}}><option value="">No mission selected</option>{possibleMissions.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
   <label className="block text-sm">City<input className={fields} readOnly value={city?cityNames[city]??'Linked project city':m?.location??'Determined from selected project'} /></label>
@@ -68,6 +70,6 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
    {type==='complete_sdg_mission'||type==='complete_wifi_community'?<><p className="text-sm">Only the project creator or steward can submit project completion.</p><fieldset className="space-y-2"><legend className="text-sm">Were the objectives achieved? *</legend>{['all','partial','none'].map(x=><label key={x} className="block text-sm"><input type="radio" name={type+'_completion_status'} value={x} required className="mr-2"/>{x==='all'?'All objectives achieved':x==='partial'?'Partially achieved':'Not achieved'}</label>)}</fieldset>{type==='complete_wifi_community'&&<label className="block text-sm">Network operational?<select name={type+'_operational'} className={fields}><option value="yes">Yes</option><option value="no">Not yet</option></select></label>}</>:null}
    <label className="block text-sm">Photos, videos and files (multiple)<input type="file" name={type+'_files'} multiple accept="image/*,video/mp4,video/webm,video/quicktime,.pdf,.doc,.docx,.xls,.xlsx" className={fields}/></label>
   </section>)}
-  <button disabled={busy||!actor||(!mission&&!community)||!types.length} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy disabled:opacity-50">{busy?'Recording…':'Record Contribution'}</button>
+  <button disabled={busy||saved||!actor||(!mission&&!community)||!types.length} className="rounded-xl bg-gold px-5 py-3 font-semibold text-navy disabled:opacity-50">{saved?'Contribution recorded':busy?'Recording…':'Record Contribution'}</button>
  </form>;
 }
