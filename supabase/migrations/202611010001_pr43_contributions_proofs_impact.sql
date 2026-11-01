@@ -87,7 +87,30 @@ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
  values ('contribution-evidence','contribution-evidence',false,20971520,
  array['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime','application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
  on conflict(id) do nothing;
-create policy "PR43 evidence read" on storage.objects for select to authenticated using(bucket_id='contribution-evidence');
+create policy "PR43 evidence read" on storage.objects for select to authenticated using(
+ bucket_id='contribution-evidence' and (
+  (storage.foldername(name))[1]=auth.uid()::text or public.is_aluna_admin()
+  or exists(
+   select 1 from public.pr43_contribution_files f
+   join public.contributions c on c.id=f.contribution_id
+   where f.storage_path=name and (
+    public.can_act_as(c.actor_id)
+    or exists(
+     select 1 from public.mission_participations mp
+     join public.actors a on a.id=mp.actor_id and a.organization_id is not null
+     join public.organization_members om on om.organization_id=a.organization_id
+       and om.profile_id=auth.uid() and om.member_role='admin'
+     where mp.mission_id=c.mission_id)
+    or exists(
+     select 1 from public.mesh_community_members cm
+     join public.actors a on a.id=cm.actor_id and a.organization_id is not null
+     join public.organization_members om on om.organization_id=a.organization_id
+       and om.profile_id=auth.uid() and om.member_role='admin'
+     where cm.community_id=c.community_id)
+   )
+  )
+ )
+);
 create policy "PR43 evidence upload" on storage.objects for insert to authenticated
  with check (bucket_id='contribution-evidence' and (storage.foldername(name))[1] = auth.uid()::text);
 
