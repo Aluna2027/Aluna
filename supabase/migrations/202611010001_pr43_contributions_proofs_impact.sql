@@ -152,6 +152,15 @@ begin
    indicator_name:=nullif(trim(result->>'indicator'),'');
    select coalesce(array_agg(value::integer),'{}') into sdgs from jsonb_array_elements_text(coalesce(result->'sdgs','[]'::jsonb)) value;
    if key='sdg_metrics' and (indicator_name is null or cardinality(sdgs)=0) then raise exception 'SDG indicator and goals required'; end if;
+   if key in ('people_connected','nodes_installed','local_owners','money_invested') and src is null then
+     raise exception 'A unique source or batch reference is required for this metric';
+   end if;
+   if key in ('people_connected','nodes_installed','local_owners') and p_community is null then
+     raise exception 'Select the related Wi-Fi Mesh Community for network measurements';
+   end if;
+   if key in ('people_connected','nodes_installed','local_owners','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed') and amount<>trunc(amount) then
+     raise exception 'This metric requires a whole number';
+   end if;
    insert into public.pr43_contribution_results(contribution_id,metric_key,quantity,unit,source_reference,indicator,sdg_numbers,measured_on)
     values(c_id,key,amount,unit_name,src,indicator_name,sdgs,(entry->>'date')::date);
   end loop;
@@ -188,6 +197,9 @@ begin
      raise exception 'Review must be independent'; end if;
    role_name:='organization';
  else raise exception 'Organization reviewer required'; end if;
+ if role_name='organization' and r.metric_key='money_invested' and coalesce(grant_level,0)<3 then
+   raise exception 'Financial result requires an authorized partner reviewer';
+ end if;
  if role_name='organization' and contributor.mission_id is not null and not exists(select 1 from public.mission_participations mp where mp.mission_id=contributor.mission_id and mp.actor_id=p_actor) and not exists(select 1 from public.missions m where m.id=contributor.mission_id and m.created_by_actor_id=p_actor) and (contributor.community_id is null or not exists(select 1 from public.mesh_community_members cm where cm.community_id=contributor.community_id and cm.actor_id=p_actor)) then
   raise exception 'Organization must be a project participant or manager';
  end if;
