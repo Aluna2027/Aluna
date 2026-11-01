@@ -5,7 +5,7 @@ export async function POST(request:Request){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();
  if(!user)return NextResponse.json({error:'Sign in required'},{status:401});
  try{
-  const body=await request.json();const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const body=await request.json();if(JSON.stringify(body).length>150000)return NextResponse.json({error:'Contribution too large'},{status:413});const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const actor=String(body.actor??''),mission=body.mission?String(body.mission):null,community=body.community?String(body.community):null;
   if(!uuid.test(actor)||mission&&!uuid.test(mission)||community&&!uuid.test(community)||!mission&&!community)return NextResponse.json({error:'Choose a valid project and actor'},{status:400});
   const items=body.items;
