@@ -16,14 +16,21 @@ export async function createProof(form:FormData){
   args={p_actor:actor,p_contribution:optionalId(form,'contribution_id'),p_post:optionalId(form,'post_id'),p_mission:optionalId(form,'mission_id'),p_city:null,p_evidence_type:type,p_evidence_url:url||null,p_evidence_description:description,p_latitude:nlat,p_longitude:nlon,p_result:result,p_date:date};
   const cityKey=String(form.get('city')??'');if(cityKey){const {data}=await client.from('places').select('id').eq('source_key',cityKey).maybeSingle();if(!data)throw Error('Invalid city');args.p_city=data.id;}
   if(!args.p_contribution&&!args.p_post)throw Error('Missing source');
- }catch{redirect('/proofs/new?error=validation');}
- const {data:id,error}=await client.rpc('create_proof',args);if(error||!id)redirect('/proofs/new?error=save');
+ }catch{redirect('/proofs/new/legacy?error=validation');}
+ if(args.p_contribution){
+  const {data:linked,error:lookupError}=await client.from('contributions').select('submission_id').eq('id',args.p_contribution).maybeSingle();
+  if(lookupError||!linked)redirect('/proofs/new/legacy?error=save');
+  if(linked.submission_id)redirect(`/proofs/new?contribution=${args.p_contribution}`);
+ }
+ const {data:id,error}=await client.rpc('create_proof',args);if(error||!id)redirect('/proofs/new/legacy?error=save');
  revalidatePath('/proofs');redirect(`/proofs/${id}`);
 }
 export async function verifyProof(form:FormData){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const id=String(form.get('proof_id')??''),actor=String(form.get('actor_id')??''),expected=Number(form.get('expected_level')),next=Number(form.get('new_level')),reason=String(form.get('reason')??'').trim();
  if(!uuid.test(id)||!uuid.test(actor)||![1,2,3,4].includes(expected)||![1,2,3,4].includes(next)||reason.length<10||reason.length>2000)redirect('/proofs');
+ const {data:pr43Managed,error:pr43LookupError}=await client.from('pr43_contribution_results').select('id').eq('proof_id',id).maybeSingle();
+ if(pr43LookupError||pr43Managed)redirect(`/proofs/${id}?error=pr43`);
  const {error}=await client.rpc('change_proof_verification',{p_proof:id,p_actor:actor,p_expected:expected,p_new:next,p_reason:reason});
  if(error)redirect(`/proofs/${id}?error=review`);revalidatePath(`/proofs/${id}`);revalidatePath('/proofs');redirect(`/proofs/${id}?status=reviewed`);
 }
