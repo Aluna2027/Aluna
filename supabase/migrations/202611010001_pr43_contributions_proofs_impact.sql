@@ -57,6 +57,27 @@ create policy "PR43 read reviews" on public.pr43_contribution_reviews for select
 create policy "PR43 read attachments" on public.pr43_contribution_files for select to authenticated using(true);
 create policy "PR43 save attachments" on public.pr43_contribution_files for insert to authenticated
  with check (exists(select 1 from public.contributions c where c.id=contribution_id and public.can_act_as(c.actor_id)));
+
+create policy "PR43 independent reviewer uploads" on public.pr43_contribution_files
+ for insert to authenticated with check (
+  public.is_aluna_admin()
+  or exists (
+   select 1 from public.contributions c
+   join public.mission_participations mp on mp.mission_id=c.mission_id
+   join public.actors a on a.id=mp.actor_id and a.organization_id is not null
+   join public.organization_members om on om.organization_id=a.organization_id
+     and om.profile_id=auth.uid() and om.member_role='admin'
+   where c.id=contribution_id
+  )
+  or exists (
+   select 1 from public.contributions c
+   join public.mesh_community_members cm on cm.community_id=c.community_id
+   join public.actors a on a.id=cm.actor_id and a.organization_id is not null
+   join public.organization_members om on om.organization_id=a.organization_id
+     and om.profile_id=auth.uid() and om.member_role='admin'
+   where c.id=contribution_id
+  )
+ );
 revoke all on public.pr43_contribution_results,public.pr43_contribution_reviews from anon,authenticated;
 grant select on public.pr43_contribution_results,public.pr43_contribution_reviews to authenticated;
 revoke all on public.pr43_contribution_files from anon,authenticated;
