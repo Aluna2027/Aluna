@@ -9,7 +9,7 @@ alter table public.contributions add constraint contributions_contribution_type_
 create table if not exists public.pr43_contribution_results (
  id uuid primary key default gen_random_uuid(),
  contribution_id uuid not null references public.contributions(id) on delete restrict,
- metric_key text not null check (metric_key in ('people_connected','nodes_installed','local_owners','money_invested','volunteer_hours','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed')),
+ metric_key text not null check (metric_key in ('people_connected','nodes_installed','local_owners','money_invested','volunteer_hours','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed','contribution_verified')),
  quantity numeric(18,2) not null check (quantity >= 0 and quantity <= 1000000000),
  unit text not null default 'count',
  source_reference text,
@@ -135,7 +135,7 @@ begin
   if jsonb_array_length(entry->'metrics')=0 then raise exception 'At least one result is required'; end if;
   for result in select value from jsonb_array_elements(entry->'metrics') loop
    key:=result->>'key';
-   if key not in ('people_connected','nodes_installed','local_owners','money_invested','volunteer_hours','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed')
+   if key not in ('people_connected','nodes_installed','local_owners','money_invested','volunteer_hours','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed','contribution_verified')
     or coalesce(result->>'quantity','') !~ '^[0-9]+(\.[0-9]+)?$' then raise exception 'Invalid metric'; end if;
    amount:=(result->>'quantity')::numeric;
    if amount<0 or amount>1000000000 then raise exception 'Metric outside allowed range'; end if;
@@ -144,7 +144,7 @@ begin
       (t='complete_sdg_mission' and key<>'mission_completed') or
       (t='complete_wifi_community' and key<>'wifi_completed') or
       (t='data' and key not in ('people_connected','nodes_installed','local_owners','money_invested','sdg_metrics','community_data')) or
-      (t not in ('time','skills','data','complete_sdg_mission','complete_wifi_community') and key not in ('community_data')) then
+      (t not in ('time','skills','data','complete_sdg_mission','complete_wifi_community') and key not in ('contribution_verified')) then
       raise exception 'Metric not allowed for this contribution type';
    end if;
    unit_name:=coalesce(nullif(result->>'unit',''),'count');
@@ -188,6 +188,12 @@ begin
      raise exception 'Review must be independent'; end if;
    role_name:='organization';
  else raise exception 'Organization reviewer required'; end if;
+ if role_name='organization' and contributor.mission_id is not null and not exists(select 1 from public.mission_participations mp where mp.mission_id=contributor.mission_id and mp.actor_id=p_actor) and not exists(select 1 from public.missions m where m.id=contributor.mission_id and m.created_by_actor_id=p_actor) and (contributor.community_id is null or not exists(select 1 from public.mesh_community_members cm where cm.community_id=contributor.community_id and cm.actor_id=p_actor)) then
+  raise exception 'Organization must be a project participant or manager';
+ end if;
+ if role_name='organization' and contributor.mission_id is null and contributor.community_id is not null and not exists(select 1 from public.mesh_community_members cm where cm.community_id=contributor.community_id and cm.actor_id=p_actor) then
+  raise exception 'Organization must be a community participant';
+ end if;
  if role_name='organization' and exists(select 1 from public.pr43_contribution_reviews x where x.result_id=p_result and x.role='owner' and x.reviewer_profile_id=auth.uid()) then
   raise exception 'Independent review required';
  end if;
