@@ -35,7 +35,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
     else if(type==='skills')metrics.push({key:'skills_contributed',quantity:1,unit:'contributions'});
     else if(type==='complete_sdg_mission')metrics.push({key:'mission_completed',quantity:1,unit:'mission'});
     else if(type==='complete_wifi_community')metrics.push({key:'wifi_completed',quantity:1,unit:'community'});
-    else metrics.push({key:'community_data',quantity:1,unit:'contribution'});
+    else metrics.push({key:'contribution_verified',quantity:1,unit:'contribution'});
     return {type,title,description,date,details,metrics};
    });
    const res=await fetch('/api/pr43/contributions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor,mission:mission||null,community:community||null,items})});
