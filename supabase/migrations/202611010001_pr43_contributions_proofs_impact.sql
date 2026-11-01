@@ -34,7 +34,7 @@ create table if not exists public.pr43_contribution_reviews (
  result_id uuid not null references public.pr43_contribution_results(id) on delete restrict,
  reviewer_actor_id uuid not null references public.actors(id) on delete restrict,
  reviewer_profile_id uuid not null references public.profiles(id) on delete restrict,
- role text not null check (role in ('owner','organization','aluna')),
+ role text not null check (role in ('owner','organization','independent','aluna')),
  confirmed_quantity numeric(18,2) not null check (confirmed_quantity >= 0 and confirmed_quantity <= 1000000000),
  impact_result text,
  reviewed_at timestamptz not null default now(),
@@ -221,82 +221,128 @@ grant execute on function public.pr43_record_contributions(uuid,uuid,uuid,jsonb)
 -- Every metric is reviewed separately. The reviewer chooses what was actually verified.
 create or replace function public.pr43_review_result(p_result uuid,p_actor uuid,p_value numeric,p_impact_result text default null)
 returns smallint language plpgsql security definer set search_path='' as $$
-declare r public.pr43_contribution_results%rowtype; contributor public.contributions%rowtype;
-reviewer_org uuid; role_name text; owner_ok boolean; org_ok boolean; v_level smallint;
-current_level smallint; v_proof uuid; partner_value numeric; grant_level smallint;
+declare
+ r public.pr43_contribution_results%rowtype;
+ contributor public.contributions%rowtype;
+ reviewer_org uuid;
+ contributor_org uuid;
+ l2_org uuid;
+ l2_actor uuid;
+ reviewer_level smallint;
+ v_next smallint;
+ v_role text;
+ v_method text;
+ v_proof uuid;
 begin
- if auth.uid() is null or not public.can_act_as(p_actor) then raise exception 'Reviewer not authorized'; end if;
+ if auth.uid() is null or p_actor is null or not public.can_act_as(p_actor) then
+  raise exception 'Reviewer not authorized';
+ end if;
  select * into r from public.pr43_contribution_results where id=p_result for update;
  if not found then raise exception 'Result not found'; end if;
  select * into contributor from public.contributions where id=r.contribution_id;
- if p_value is null or p_value<0 or p_value>1000000000 then raise exception 'Invalid verified quantity'; end if;
- if p_value<>trunc(p_value) and r.metric_key in ('people_connected','nodes_installed','local_owners','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed') then
-  raise exception 'A whole number is required';
+ if not found then raise exception 'Linked contribution not found'; end if;
+ if r.verification_level=4 then raise exception 'Already at L4. Revoke to correct an error'; end if;
+ if p_value is null or p_value<0 or p_value>1000000000
+    or (p_value<>trunc(p_value) and r.metric_key in
+      ('people_connected','nodes_installed','local_owners','skills_contributed','sdg_metrics','community_data','mission_completed','wifi_completed','contribution_verified')) then
+  raise exception 'Invalid confirmed quantity';
+ end if;
+ if char_length(coalesce(p_impact_result,''))>3000
+   or char_length(trim(coalesce(p_impact_result,''))) between 1 and 9 then
+  raise exception 'Impact result must be empty or contain 10 to 3000 characters';
+ end if;
+ if exists(select 1 from public.pr43_contribution_reviews x
+            where x.result_id=p_result and x.revoked_at is null and x.reviewer_profile_id=auth.uid()) then
+  raise exception 'Same person cannot perform multiple verification levels';
  end if;
  select organization_id into reviewer_org from public.actors where id=p_actor;
- select max_level into grant_level from public.proof_verifier_grants where profile_id=auth.uid();
- if public.is_aluna_admin() then grant_level:=4; end if;
- if coalesce(grant_level,0)>=4 and r.verification_level>=3 and p_actor<>contributor.actor_id and not public.can_act_as(contributor.actor_id) then
-   role_name:='aluna';
- elsif public.can_act_as(contributor.actor_id) then
-   if p_actor<>contributor.actor_id then raise exception 'Confirm as the contributing actor'; end if;
-   role_name:='owner';
- elsif reviewer_org is not null then
-   if exists(select 1 from public.pr43_contribution_reviews x where x.result_id=p_result and x.role='owner' and x.revoked_at is null and x.reviewer_profile_id=auth.uid()) then
-     raise exception 'Review must be independent'; end if;
-   role_name:='organization';
- else raise exception 'Organization reviewer required'; end if;
- if role_name='organization' and contributor.mission_id is not null and not exists(select 1 from public.mission_participations mp where mp.mission_id=contributor.mission_id and mp.actor_id=p_actor) and not exists(select 1 from public.missions m where m.id=contributor.mission_id and m.created_by_actor_id=p_actor) and (contributor.community_id is null or not exists(select 1 from public.mesh_community_members cm where cm.community_id=contributor.community_id and cm.actor_id=p_actor)) then
-  raise exception 'Organization must be a project participant or manager';
- end if;
- if role_name='organization' and contributor.mission_id is null and contributor.community_id is not null and not exists(select 1 from public.mesh_community_members cm where cm.community_id=contributor.community_id and cm.actor_id=p_actor) then
-  raise exception 'Organization must be a community participant';
- end if;
- if role_name='organization' and exists(select 1 from public.pr43_contribution_reviews x where x.result_id=p_result and x.role='owner' and x.reviewer_profile_id=auth.uid()) then
-  raise exception 'Independent review required';
- end if;
- if role_name='owner' and exists(select 1 from public.pr43_contribution_reviews x where x.result_id=p_result and x.role='organization' and x.revoked_at is null and x.reviewer_profile_id=auth.uid()) then
-  raise exception 'Independent review required';
- end if;
- insert into public.pr43_contribution_reviews(result_id,reviewer_actor_id,reviewer_profile_id,role,confirmed_quantity,impact_result)
- values(p_result,p_actor,auth.uid(),role_name,p_value,nullif(trim(coalesce(p_impact_result,'')),''));
- select exists(select 1 from public.pr43_contribution_reviews where result_id=p_result and role='owner' and revoked_at is null) into owner_ok;
- select exists(select 1 from public.pr43_contribution_reviews where result_id=p_result and role='organization' and revoked_at is null) into org_ok;
- v_level:=case when role_name='aluna' then 4 when owner_ok and org_ok then 3 when org_ok then 2 else 1 end;
- current_level:=r.verification_level;
- if v_level<current_level then raise exception 'Cannot lower verification'; end if;
- if role_name='organization' then
-  select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization';
- elsif role_name='aluna' then partner_value:=p_value;
+ select organization_id into contributor_org from public.actors where id=contributor.actor_id;
+ select max_level into reviewer_level from public.proof_verifier_grants where profile_id=auth.uid();
+ v_next:=r.verification_level+1;
+
+ if v_next=1 then
+  if p_actor<>contributor.actor_id then raise exception 'L1 requires the original contributing actor'; end if;
+  v_role:='owner';v_method:='self_report';
+ elsif v_next=2 then
+  if reviewer_org is null or public.can_act_as(contributor.actor_id) then
+   raise exception 'L2 requires a separate organization and contributor';
+  end if;
+  if not (
+   exists(select 1 from public.mission_participations mp
+          where mp.mission_id=contributor.mission_id and mp.actor_id=p_actor)
+   or exists(select 1 from public.missions m
+          where m.id=contributor.mission_id and m.created_by_actor_id=p_actor)
+   or exists(select 1 from public.mesh_community_members cm
+          where cm.community_id=contributor.community_id and cm.actor_id=p_actor)
+  ) then raise exception 'L2 organization must be involved in the selected project'; end if;
+  v_role:='organization';v_method:='peer_attestation';
+ elsif v_next=3 then
+  if reviewer_org is null or coalesce(reviewer_level,0)<3 or public.can_act_as(contributor.actor_id) then
+   raise exception 'L3 requires an authorized independent organization';
+  end if;
+  select x.reviewer_actor_id into l2_actor from public.pr43_contribution_reviews x
+   where x.result_id=p_result and x.role='organization' and x.revoked_at is null;
+  select organization_id into l2_org from public.actors where id=l2_actor;
+  if l2_org is null or reviewer_org=l2_org or reviewer_org=contributor_org then
+   raise exception 'L3 cannot be the contributor or L2 organization';
+  end if;
+  if exists(select 1 from public.organization_members a
+      join public.organization_members b on b.profile_id=a.profile_id
+      where a.organization_id=reviewer_org and b.organization_id=l2_org)
+    or (contributor_org is not null and exists(
+      select 1 from public.organization_members a
+      join public.organization_members b on b.profile_id=a.profile_id
+      where a.organization_id=reviewer_org and b.organization_id=contributor_org)) then
+    raise exception 'L3 shares administration with an affiliated organization';
+  end if;
+  if exists(select 1 from public.mission_participations mp
+        where mp.mission_id=contributor.mission_id and mp.actor_id=p_actor)
+    or exists(select 1 from public.mesh_community_members cm
+        where cm.community_id=contributor.community_id and cm.actor_id=p_actor)
+    or exists(select 1 from public.missions m
+        where m.id=contributor.mission_id and m.created_by_actor_id=p_actor) then
+    raise exception 'L3 reviewer is involved in the project';
+  end if;
+  v_role:='independent';v_method:='partner_review';
+ elsif v_next=4 then
+  if not public.is_aluna_admin() or public.can_act_as(contributor.actor_id) then
+   raise exception 'L4 requires a separate authorized Aluna administrator';
+  end if;
+  v_role:='aluna';v_method:='ground_visit';
  else
-  select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization';
-  if partner_value is null then partner_value:=p_value; end if;
+  raise exception 'Verification sequence invalid';
  end if;
- if v_level>=3 and partner_value is null then select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization'; end if;
+
+ insert into public.pr43_contribution_reviews
+   (result_id,reviewer_actor_id,reviewer_profile_id,role,confirmed_quantity,impact_result)
+ values(p_result,p_actor,auth.uid(),v_role,p_value,nullif(trim(coalesce(p_impact_result,'')),''));
+
  if r.proof_id is null then
-  insert into public.proofs(actor_id,mission_id,city_id,contribution_id,evidence_type,evidence_description,result_text,occurred_on,verification_level)
+  insert into public.proofs
+   (actor_id,mission_id,city_id,contribution_id,evidence_type,evidence_description,result_text,occurred_on,verification_level)
   values(contributor.actor_id,contributor.mission_id,contributor.city_id,contributor.id,'partner_confirmation',
    'Project contribution review with linked records and supporting attachments.',
-   coalesce(nullif(trim(p_impact_result),''),contributor.title||' — reported project contribution'),current_date,greatest(1,v_level))
+   coalesce(nullif(trim(coalesce(p_impact_result,'')),''),contributor.title||' — reported project contribution'),
+   current_date,1)
   returning id into v_proof;
   update public.pr43_contribution_results set proof_id=v_proof where id=p_result;
-  insert into public.proof_verification_events(proof_id,previous_level,new_level,verifier_actor_id,verifier_profile_id,method,reason)
-   values(v_proof,null,1,p_actor,auth.uid(),'self_report','PR43 contribution result registered for verification.');
- else v_proof:=r.proof_id;end if;
- if v_level>1 and v_level>greatest(1,current_level) then
-  update public.proofs set verification_level=v_level where id=v_proof;
-  insert into public.proof_verification_events(proof_id,previous_level,new_level,verifier_actor_id,verifier_profile_id,method,reason)
-   values(v_proof,greatest(1,current_level),v_level,p_actor,auth.uid(),
-    case when v_level=4 then 'ground_visit' else 'partner_review' end,
-    'PR43 independent contribution verification (source-linked review).');
+ else
+  v_proof:=r.proof_id;
+  update public.proofs set verification_level=v_next where id=v_proof;
  end if;
+ insert into public.proof_verification_events
+  (proof_id,previous_level,new_level,verifier_actor_id,verifier_profile_id,method,reason)
+ values(v_proof,case when v_next=1 then null else v_next-1 end,v_next,p_actor,auth.uid(),
+  v_method,'PR43 role-separated verification with recorded actor, measured quantity and evidence.');
+
  update public.pr43_contribution_results
-  set verification_level=v_level,verified_quantity=case when v_level>=3 then partner_value else null end where id=p_result;
- return v_level;
+ set verification_level=v_next,
+     verified_quantity=case when v_next>=3 then p_value else null end
+ where id=p_result;
+ return v_next;
 end $$;
 revoke all on function public.pr43_review_result(uuid,uuid,numeric,text) from public;
 grant execute on function public.pr43_review_result(uuid,uuid,numeric,text) to authenticated;
-
 
 -- Scope-safe, server-side aggregation. Repeated network snapshots do not
 -- inflate the latest actual concurrent connections, installed nodes or owners.
