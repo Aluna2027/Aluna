@@ -63,10 +63,6 @@ create policy "PR43 save attachments" on public.pr43_contribution_files for inse
 create policy "PR43 independent reviewer uploads" on public.pr43_contribution_files
  for insert to authenticated with check (
   public.is_aluna_admin()
-  or (public.my_proof_verifier_level()>=3 and exists(
-    select 1 from public.organization_members reviewer
-    where reviewer.profile_id=auth.uid() and reviewer.member_role='admin'
-   ))
   or exists (
    select 1 from public.contributions c
    join public.mission_participations mp on mp.mission_id=c.mission_id
@@ -96,10 +92,6 @@ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 create policy "PR43 evidence read" on storage.objects for select to authenticated using(
  bucket_id='contribution-evidence' and (
   (storage.foldername(name))[1]=auth.uid()::text or public.is_aluna_admin()
-  or (public.my_proof_verifier_level()>=3 and exists(
-    select 1 from public.organization_members reviewer
-    where reviewer.profile_id=auth.uid() and reviewer.member_role='admin'
-   ))
   or exists(
    select 1 from public.pr43_contribution_files f
    join public.contributions c on c.id=f.contribution_id
