@@ -380,7 +380,7 @@ end $$;
 
 -- Admin-only assignment: reviewers must be accredited and independent of the contributor and L2 organization.
 create or replace function public.pr43_assign_l3(p_result uuid,p_reviewer_profile uuid,p_reviewer_actor uuid)
-returns void language plpgsql security definer set search_path='' as $
+returns void language plpgsql security definer set search_path='' as $$
 declare
  r public.pr43_contribution_results%rowtype;
  c public.contributions%rowtype;
@@ -430,7 +430,7 @@ begin
   reviewer_actor_id=excluded.reviewer_actor_id,
   assigned_by_profile_id=excluded.assigned_by_profile_id,
   assigned_at=now(),revoked_at=null;
-end $;
+end $$;
 revoke all on function public.pr43_assign_l3(uuid,uuid,uuid) from public,anon;
 grant execute on function public.pr43_assign_l3(uuid,uuid,uuid) to authenticated;
 
