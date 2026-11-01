@@ -1,0 +1,53 @@
+'use client';
+import {useMemo,useState} from 'react';
+type Actor={id:string;name:string;kind:string};
+type Project={id:string;name:string};
+type Result={id:string;metric_key:string;quantity:number;unit:string;verification_level:number;verified_quantity:number|null};
+type Item={id:string;title:string;description:string;contribution_type:string;contributed_on:string;mission_id:string|null;community_id:string|null;actor_id:string;pr43_contribution_results:Result[];pr43_contribution_files:{id:string;filename:string;storage_path:string}[]};
+const labels:Record<string,string>={people_connected:'People Connected',nodes_installed:'Wi-Fi Nodes Installed',local_owners:'Local Owners',money_invested:'Money Invested',volunteer_hours:'Volunteer Hours',skills_contributed:'Skills Contributed',sdg_metrics:'SDG Metrics',community_data:'Community Data',mission_completed:'Missions Completed',wifi_completed:'Community implementation completed'};
+export function PR43ProofReview({actors,missions,communities,items,initial}:{actors:Actor[];missions:Project[];communities:Project[];items:Item[];initial:{mission?:string;community?:string;contribution?:string}}){
+ const [actor,setActor]=useState(actors[0]?.id??'');
+ const [mission,setMission]=useState(initial.mission??'');
+ const [community,setCommunity]=useState(initial.community??'');
+ const [pending,setPending]=useState<string|null>(null);
+ const [message,setMessage]=useState('');
+ const [verified,setVerified]=useState<Record<string,boolean>>({});
+ const [values,setValues]=useState<Record<string,string>>({});
+ const [comments,setComments]=useState<Record<string,string>>({});
+ const [levels,setLevels]=useState<Record<string,number>>({});
+ const visible=useMemo(()=>items.filter(i=>initial.contribution===i.id||(!initial.contribution&&(mission?i.mission_id===mission:true)&&(community?i.community_id===community:true)&&Boolean(mission||community))),[items,mission,community,initial.contribution]);
+ const input='mt-1 w-full rounded-xl border border-line bg-panel-raised p-3';
+ async function review(result:Result){
+  if(!actor||!verified[result.id])return;setMessage('');setPending(result.id);
+  try{
+   const quantity=Number(values[result.id]??result.quantity);
+   const response=await fetch('/api/pr43/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({result:result.id,actor,quantity,impact_result:comments[result.id]??''})});
+   const data=await response.json();
+   if(!response.ok)throw Error(data.error??'Review failed');
+   setLevels(old=>({...old,[result.id]:data.level}));setMessage('Review recorded. Verification date saved automatically.');
+  }catch(e){setMessage(e instanceof Error?e.message:'Review failed');}finally{setPending(null);}
+ }
+ return <div className="space-y-5">
+  <label className="block text-sm">Verify as *<select className={input} value={actor} onChange={e=>setActor(e.target.value)}>{actors.map(a=><option value={a.id} key={a.id}>{a.name} · {a.kind}</option>)}</select></label>
+  <label className="block text-sm">Wi-Fi Mesh Community<select className={input} value={community} onChange={e=>{setCommunity(e.target.value);setMission('')}}><option value="">Choose a community</option>{communities.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
+  <label className="block text-sm">SDG Mission<select className={input} value={mission} onChange={e=>{setMission(e.target.value);setCommunity('')}}><option value="">Choose a mission</option>{missions.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label>
+  {message&&<p role="status" className="rounded-xl border border-line p-3 text-sm">{message}</p>}
+  <h3 className="font-semibold text-ink">Open Contributions ({visible.length})</h3>
+  {!visible.length&&<p className="text-sm text-muted">Choose a project to view contributions. Only contributors or authorized organization reviewers can confirm them.</p>}
+  {visible.map(item=><section key={item.id} className="space-y-4 rounded-2xl border border-line p-4">
+   <p className="deck-label">{item.contribution_type.replaceAll('_',' ')} · {item.contributed_on}</p>
+   <h3 className="font-semibold text-ink">{item.title}</h3>
+   <p className="whitespace-pre-wrap text-sm">{item.description}</p>
+   <p className="text-xs text-muted">{item.pr43_contribution_files.length} uploaded files linked to this contribution</p>
+   {item.pr43_contribution_results.map(result=>{
+    const currentLevel=levels[result.id]??result.verification_level;return <div key={result.id} className="space-y-3 rounded-xl border border-line bg-panel-raised p-3">
+      <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{labels[result.metric_key]??result.metric_key}</span><span className="text-sm text-gold">{currentLevel?'Level '+currentLevel+' verified':'Pending verification'}</span></div>
+      <p className="text-sm">Reported: {result.quantity} {result.unit}{result.verified_quantity!==null?' · Verified: '+result.verified_quantity:''}</p>
+      <label className="block text-sm">Confirmed quantity<input type="number" className={input} min="0" max="1000000000" step="any" value={values[result.id]??String(result.quantity)} onChange={e=>setValues(v=>({...v,[result.id]:e.target.value}))}/></label>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={verified[result.id]??false} onChange={e=>setVerified(v=>({...v,[result.id]:e.target.checked}))}/>Contribution type verified</label>
+      {verified[result.id]&&<><label className="block text-sm">Impact Result (optional)<textarea className={input} rows={2} value={comments[result.id]??''} onChange={e=>setComments(v=>({...v,[result.id]:e.target.value}))}/></label><p className="text-xs text-muted">Date of Proof: automatically recorded when submitted. Verification role and independence checked by Aluna.</p><button type="button" onClick={()=>review(result)} disabled={pending!==null||!actor} className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50">{pending===result.id?'Submitting…':'Submit verification'}</button></>}
+     </div>;
+   })}
+  </section>)}
+ </div>;
+}
