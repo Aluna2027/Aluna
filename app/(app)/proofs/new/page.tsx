@@ -5,11 +5,22 @@ import {createClient} from '@/lib/supabase/server';
 import {ownedActors} from '@/lib/social';
 import {PR43ProofReview} from '@/components/pr43-proof-review';
 export default async function NewProof({searchParams}:{searchParams:Promise<{mission?:string;community?:string;contribution?:string;post?:string}>}){
- const initial=await searchParams;if(initial.post)redirect(`/proofs/new/legacy?post=${encodeURIComponent(initial.post)}`);const client=await createClient();const actors=await ownedActors();
+ const initial=await searchParams;
+ if(initial.post)redirect(`/proofs/new/legacy?post=${encodeURIComponent(initial.post)}`);
+ const client=await createClient();
+ if(initial.contribution&&/^[0-9a-f-]{36}$/i.test(initial.contribution)){
+  const {data:existing}=await client.from('contributions').select('submission_id').eq('id',initial.contribution).maybeSingle();
+  if(existing&&!existing.submission_id){
+   const params=new URLSearchParams({contribution:initial.contribution});
+   if(initial.mission)params.set('mission',initial.mission);
+   redirect(`/proofs/new/legacy?${params.toString()}`);
+  }
+ }
+ const actors=await ownedActors();
  const [{data:missions},{data:communities},{data:contributions}]=await Promise.all([
  client.from('missions').select('id,title').is('removed_at',null).limit(1000),
  client.from('mesh_communities').select('id,name').is('removed_at',null).limit(1000),
- client.from('contributions').select('id,title,description,contribution_type,contributed_on,mission_id,community_id,actor_id,pr43_contribution_results(id,metric_key,quantity,unit,verification_level,verified_quantity),pr43_contribution_files(id,filename,storage_path)').order('created_at',{ascending:false}).limit(250)]);
+ client.from('contributions').select('id,title,description,contribution_type,contributed_on,mission_id,community_id,actor_id,pr43_contribution_results(id,metric_key,quantity,unit,verification_level,verified_quantity),pr43_contribution_files(id,filename,storage_path)').not('submission_id','is',null).order('created_at',{ascending:false}).limit(250)]);
  const rows=(contributions??[]) as unknown as Parameters<typeof PR43ProofReview>[0]['items'];
  const paths=rows.flatMap(row=>row.pr43_contribution_files.map(file=>file.storage_path));
  const {data:signed}=paths.length?await client.storage.from('contribution-evidence').createSignedUrls(paths,900):{data:[]};
