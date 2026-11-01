@@ -150,6 +150,7 @@ begin
  end if;
  return new;
 end $$;
+revoke execute on function public.pr43_guard_contribution() from public,anon,authenticated;
 drop trigger if exists contribution_place_guard on public.contributions;
 create trigger contribution_place_guard before insert on public.contributions for each row execute function public.pr43_guard_contribution();
 create unique index if not exists pr43_unique_sdg_completion on public.contributions(mission_id) where contribution_type='complete_sdg_mission';
