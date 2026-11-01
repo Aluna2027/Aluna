@@ -1,5 +1,6 @@
 'use client';
 import {useState} from 'react';
+import Link from 'next/link';
 import {contributionTypes,resultKeys} from '@/lib/contributions';
 type Actor={id:string;name:string;kind:string};
 type Project={id:string;name:string;city_id:string|null;community_id?:string|null;location?:string;owner_actor_id?:string;steward_actor_ids?:string[]};
@@ -49,7 +50,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
   }catch(e){setError((saved?'Your contribution was already recorded. ':'')+(e instanceof Error?e.message:'Unexpected error'));setBusy(false);}
  }
  return <form onSubmit={submit} className="max-w-3xl space-y-5">
-  {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">{error}{saved&&<a className="ml-2 underline" href="/contributions">View saved contribution</a>}</p>}
+  {error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">{error}{saved&&<Link className="ml-2 underline" href="/contributions">View saved contribution</Link>}</p>}
   <label className="block text-sm">Wi-Fi Mesh Community<select className={fields} value={community} onChange={e=>{setCommunity(e.target.value);if(e.target.value&&m?.community_id!==e.target.value)setMission('')}}><option value="">No community selected</option>{possibleCommunities.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
   <label className="block text-sm">SDG Mission<select className={fields} value={mission} onChange={e=>{setMission(e.target.value);if(e.target.value&&c?.id!==missions.find(x=>x.id===e.target.value)?.community_id)setCommunity('')}}><option value="">No mission selected</option>{possibleMissions.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
   <label className="block text-sm">City<input className={fields} readOnly value={city?cityNames[city]??'Linked project city':m?.location??'Determined from selected project'} /></label>
