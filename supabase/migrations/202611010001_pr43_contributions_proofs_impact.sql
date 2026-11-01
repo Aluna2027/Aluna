@@ -73,7 +73,36 @@ alter table public.pr43_contribution_reviews enable row level security;
 alter table public.pr43_contribution_files enable row level security;
 create policy "PR43 read results" on public.pr43_contribution_results for select to authenticated using(true);
 create policy "PR43 read reviews" on public.pr43_contribution_reviews for select to authenticated using(true);
-create policy "PR43 read attachments" on public.pr43_contribution_files for select to authenticated using(true);
+create policy "PR43 read attachments" on public.pr43_contribution_files for select to authenticated using (
+  public.is_aluna_admin()
+  or exists (
+    select 1 from public.contributions c
+    where c.id=contribution_id and public.can_act_as(c.actor_id)
+  )
+  or exists (
+    select 1 from public.pr43_l3_assignments assignment
+    join public.pr43_contribution_results r on r.id=assignment.result_id
+    where r.contribution_id=pr43_contribution_files.contribution_id
+      and r.verification_level>=2 and assignment.reviewer_profile_id=auth.uid()
+      and assignment.revoked_at is null
+  )
+  or exists (
+    select 1 from public.contributions c
+    join public.mission_participations mp on mp.mission_id=c.mission_id
+    join public.actors actor on actor.id=mp.actor_id and actor.organization_id is not null
+    join public.organization_members om on om.organization_id=actor.organization_id
+      and om.profile_id=auth.uid() and om.member_role='admin'
+    where c.id=contribution_id
+  )
+  or exists (
+    select 1 from public.contributions c
+    join public.mesh_community_members cm on cm.community_id=c.community_id
+    join public.actors actor on actor.id=cm.actor_id and actor.organization_id is not null
+    join public.organization_members om on om.organization_id=actor.organization_id
+      and om.profile_id=auth.uid() and om.member_role='admin'
+    where c.id=contribution_id
+  )
+);
 create policy "PR43 save attachments" on public.pr43_contribution_files for insert to authenticated
  with check (exists(select 1 from public.contributions c where c.id=contribution_id and public.can_act_as(c.actor_id)));
 
