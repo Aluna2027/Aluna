@@ -29,6 +29,23 @@ create index if not exists pr43_result_metric_idx on public.pr43_contribution_re
 -- maintain an index for audit/reconciliation and use latest verified community snapshots for stock metrics.
 create index if not exists pr43_result_source_reference_idx on public.pr43_contribution_results(metric_key,source_reference) where source_reference is not null;
 
+
+-- An explicit Aluna assignment, per result, gates independent review and evidence access.
+create table if not exists public.pr43_l3_assignments (
+ result_id uuid primary key references public.pr43_contribution_results(id) on delete restrict,
+ reviewer_profile_id uuid not null references public.profiles(id) on delete restrict,
+ reviewer_actor_id uuid not null references public.actors(id) on delete restrict,
+ assigned_by_profile_id uuid not null references public.profiles(id) on delete restrict,
+ assigned_at timestamptz not null default now(),
+ revoked_at timestamptz
+);
+create index if not exists pr43_l3_assignee_idx on public.pr43_l3_assignments(reviewer_profile_id) where revoked_at is null;
+alter table public.pr43_l3_assignments enable row level security;
+create policy "PR43 read own L3 assignments" on public.pr43_l3_assignments
+ for select to authenticated using (reviewer_profile_id=auth.uid() or public.is_aluna_admin());
+revoke all on public.pr43_l3_assignments from public,anon,authenticated;
+grant select on public.pr43_l3_assignments to authenticated;
+
 create table if not exists public.pr43_contribution_reviews (
  id uuid primary key default gen_random_uuid(),
  result_id uuid not null references public.pr43_contribution_results(id) on delete restrict,
@@ -64,6 +81,13 @@ create policy "PR43 independent reviewer uploads" on public.pr43_contribution_fi
  for insert to authenticated with check (
   public.is_aluna_admin()
   or exists (
+   select 1 from public.pr43_l3_assignments assignment
+   join public.pr43_contribution_results linked on linked.id=assignment.result_id
+   where linked.contribution_id=pr43_contribution_files.contribution_id
+     and linked.verification_level>=2
+     and assignment.reviewer_profile_id=auth.uid() and assignment.revoked_at is null
+  )
+  or exists (
    select 1 from public.contributions c
    join public.mission_participations mp on mp.mission_id=c.mission_id
    join public.actors a on a.id=mp.actor_id and a.organization_id is not null
@@ -92,6 +116,13 @@ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 create policy "PR43 evidence read" on storage.objects for select to authenticated using(
  bucket_id='contribution-evidence' and (
   (storage.foldername(name))[1]=auth.uid()::text or public.is_aluna_admin()
+  or exists(
+   select 1 from public.pr43_contribution_files attached
+   join public.pr43_contribution_results linked on linked.contribution_id=attached.contribution_id
+   join public.pr43_l3_assignments assignment on assignment.result_id=linked.id
+   where attached.storage_path=objects.name and linked.verification_level>=2
+     and assignment.reviewer_profile_id=auth.uid() and assignment.revoked_at is null
+  )
   or exists(
    select 1 from public.pr43_contribution_files f
    join public.contributions c on c.id=f.contribution_id
@@ -277,6 +308,11 @@ begin
   ) then raise exception 'L2 organization must be involved in the selected project'; end if;
   v_role:='organization';v_method:='peer_attestation';
  elsif v_next=3 then
+  if not exists (
+    select 1 from public.pr43_l3_assignments assignment
+    where assignment.result_id=p_result and assignment.reviewer_profile_id=auth.uid()
+      and assignment.reviewer_actor_id=p_actor and assignment.revoked_at is null
+  ) then raise exception 'L3 requires explicit Aluna assignment for this result'; end if;
   if reviewer_org is null or coalesce(reviewer_level,0)<3 or public.can_act_as(contributor.actor_id) then
    raise exception 'L3 requires an authorized independent organization';
   end if;
@@ -341,6 +377,63 @@ begin
  where id=p_result;
  return v_next;
 end $$;
+
+-- Admin-only assignment: reviewers must be accredited and independent of the contributor and L2 organization.
+create or replace function public.pr43_assign_l3(p_result uuid,p_reviewer_profile uuid,p_reviewer_actor uuid)
+returns void language plpgsql security definer set search_path='' as $
+declare
+ r public.pr43_contribution_results%rowtype;
+ c public.contributions%rowtype;
+ reviewer_org uuid;
+ contributor_org uuid;
+ l2_org uuid;
+begin
+ if auth.uid() is null or not public.is_aluna_admin() then raise exception 'Aluna administrator required'; end if;
+ select * into r from public.pr43_contribution_results where id=p_result for update;
+ if not found or r.verification_level<>2 then raise exception 'A result verified at L2 is required'; end if;
+ select * into c from public.contributions where id=r.contribution_id;
+ select organization_id into reviewer_org from public.actors where id=p_reviewer_actor;
+ select organization_id into contributor_org from public.actors where id=c.actor_id;
+ select a.organization_id into l2_org
+ from public.pr43_contribution_reviews rv join public.actors a on a.id=rv.reviewer_actor_id
+ where rv.result_id=p_result and rv.role='organization' and rv.revoked_at is null;
+ if reviewer_org is null or l2_org is null or reviewer_org=l2_org or reviewer_org=contributor_org
+    or p_reviewer_profile is null or p_reviewer_profile=auth.uid()
+    or not exists (select 1 from public.organization_members om
+        where om.organization_id=reviewer_org and om.profile_id=p_reviewer_profile and om.member_role='admin')
+    or not exists (select 1 from public.proof_verifier_grants g
+        where g.profile_id=p_reviewer_profile and g.max_level>=3)
+ then raise exception 'Reviewer is not an eligible independent organization administrator'; end if;
+ if exists(select 1 from public.organization_members x
+    join public.organization_members y on y.profile_id=x.profile_id
+    where x.organization_id=reviewer_org and y.organization_id=l2_org)
+   or (contributor_org is not null and exists (
+    select 1 from public.organization_members x
+    join public.organization_members y on y.profile_id=x.profile_id
+    where x.organization_id=reviewer_org and y.organization_id=contributor_org))
+   or exists(select 1 from public.actors own
+        where own.id=c.actor_id and own.profile_id=p_reviewer_profile)
+   or exists(select 1 from public.mission_participations mp
+        join public.actors involved on involved.id=mp.actor_id
+        where mp.mission_id=c.mission_id and involved.organization_id=reviewer_org)
+   or exists(select 1 from public.mesh_community_members cm
+        join public.actors involved on involved.id=cm.actor_id
+        where cm.community_id=c.community_id and involved.organization_id=reviewer_org)
+   or exists(select 1 from public.missions m
+        join public.actors creator on creator.id=m.created_by_actor_id
+        where m.id=c.mission_id and creator.organization_id=reviewer_org)
+ then raise exception 'Independent reviewer has a conflict of interest'; end if;
+ insert into public.pr43_l3_assignments (result_id,reviewer_profile_id,reviewer_actor_id,assigned_by_profile_id)
+ values(p_result,p_reviewer_profile,p_reviewer_actor,auth.uid())
+ on conflict (result_id) do update set
+  reviewer_profile_id=excluded.reviewer_profile_id,
+  reviewer_actor_id=excluded.reviewer_actor_id,
+  assigned_by_profile_id=excluded.assigned_by_profile_id,
+  assigned_at=now(),revoked_at=null;
+end $;
+revoke all on function public.pr43_assign_l3(uuid,uuid,uuid) from public,anon;
+grant execute on function public.pr43_assign_l3(uuid,uuid,uuid) to authenticated;
+
 revoke all on function public.pr43_review_result(uuid,uuid,numeric,text) from public;
 grant execute on function public.pr43_review_result(uuid,uuid,numeric,text) to authenticated;
 
