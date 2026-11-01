@@ -14,12 +14,18 @@ export function PR43ProofReview({actors,missions,communities,items,initial}:{act
  const [verified,setVerified]=useState<Record<string,boolean>>({});
  const [values,setValues]=useState<Record<string,string>>({});
  const [comments,setComments]=useState<Record<string,string>>({});
+ const [uploads,setUploads]=useState<Record<string,File[]>>({});
  const [levels,setLevels]=useState<Record<string,number>>({});
  const visible=useMemo(()=>items.filter(i=>initial.contribution===i.id||(!initial.contribution&&(mission?i.mission_id===mission:true)&&(community?i.community_id===community:true)&&Boolean(mission||community))),[items,mission,community,initial.contribution]);
  const input='mt-1 w-full rounded-xl border border-line bg-panel-raised p-3';
- async function review(result:Result){
+ async function review(result:Result,contributionId:string){
   if(!actor||!verified[result.id])return;setMessage('');setPending(result.id);
   try{
+   for(const file of uploads[result.id]??[]){
+    const f=new FormData();f.set('contribution',contributionId);f.set('file',file);
+    const up=await fetch('/api/pr43/evidence',{method:'POST',body:f});
+    if(!up.ok){const err=await up.json();throw Error(err.error??'Could not upload evidence');}
+   }
    const quantity=Number(values[result.id]??result.quantity);
    const response=await fetch('/api/pr43/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({result:result.id,actor,quantity,impact_result:comments[result.id]??''})});
    const data=await response.json();
@@ -44,8 +50,9 @@ export function PR43ProofReview({actors,missions,communities,items,initial}:{act
       <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{labels[result.metric_key]??result.metric_key}</span><span className="text-sm text-gold">{currentLevel?'Level '+currentLevel+' verified':'Pending verification'}</span></div>
       <p className="text-sm">Reported: {result.quantity} {result.unit}{result.verified_quantity!==null?' · Verified: '+result.verified_quantity:''}</p>
       <label className="block text-sm">Confirmed quantity<input type="number" className={input} min="0" max="1000000000" step="any" value={values[result.id]??String(result.quantity)} onChange={e=>setValues(v=>({...v,[result.id]:e.target.value}))}/></label>
+      <label className="block text-sm">Additional photos, videos or documents (optional)<input type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime,.pdf,.doc,.docx,.xls,.xlsx" className={input} onChange={e=>setUploads(old=>({...old,[result.id]:Array.from(e.target.files??[])}))}/></label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={verified[result.id]??false} onChange={e=>setVerified(v=>({...v,[result.id]:e.target.checked}))}/>Contribution type verified</label>
-      {verified[result.id]&&<><label className="block text-sm">Impact Result (optional)<textarea className={input} rows={2} value={comments[result.id]??''} onChange={e=>setComments(v=>({...v,[result.id]:e.target.value}))}/></label><p className="text-xs text-muted">Date of Proof: automatically recorded when submitted. Verification role and independence checked by Aluna.</p><button type="button" onClick={()=>review(result)} disabled={pending!==null||!actor} className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50">{pending===result.id?'Submitting…':'Submit verification'}</button></>}
+      {verified[result.id]&&<><label className="block text-sm">Impact Result (optional)<textarea className={input} rows={2} value={comments[result.id]??''} onChange={e=>setComments(v=>({...v,[result.id]:e.target.value}))}/></label><p className="text-xs text-muted">Date of Proof: automatically recorded when submitted. Verification role and independence checked by Aluna.</p><button type="button" onClick={()=>review(result,item.id)} disabled={pending!==null||!actor} className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50">{pending===result.id?'Submitting…':'Submit verification'}</button></>}
      </div>;
    })}
   </section>)}
