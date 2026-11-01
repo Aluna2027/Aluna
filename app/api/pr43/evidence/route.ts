@@ -25,6 +25,14 @@ export async function POST(req:Request){
    ]);
    allowedReviewer=Boolean(participations?.length||members?.length);
   }
+  if(!allowedReviewer){
+   const {data:assignments}=await client.from('pr43_l3_assignments').select('result_id').eq('reviewer_profile_id',user.id).is('revoked_at',null);
+   const ids=(assignments??[]).map(a=>a.result_id);
+   if(ids.length){
+    const {data:results}=await client.from('pr43_contribution_results').select('id').in('id',ids).eq('contribution_id',contribution.id).eq('verification_level',2).limit(1);
+    allowedReviewer=Boolean(results?.length);
+   }
+  }
   if(!allowedReviewer){const {data:admin}=await client.rpc('is_aluna_admin');allowedReviewer=Boolean(admin);}
  }
  if(!allowedReviewer)return NextResponse.json({error:'Not permitted'},{status:403});
