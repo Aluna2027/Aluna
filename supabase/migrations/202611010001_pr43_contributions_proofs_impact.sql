@@ -227,10 +227,10 @@ begin
  end if;
  if v_level>=3 and partner_value is null then select confirmed_quantity into partner_value from public.pr43_contribution_reviews where result_id=p_result and role='organization'; end if;
  if r.proof_id is null then
-  insert into public.proofs(actor_id,mission_id,city_id,contribution_id,evidence_type,evidence_description,result_text,occurred_on)
+  insert into public.proofs(actor_id,mission_id,city_id,contribution_id,evidence_type,evidence_description,result_text,occurred_on,verification_level)
   values(contributor.actor_id,contributor.mission_id,contributor.city_id,contributor.id,'partner_confirmation',
    'Project contribution review with linked records and supporting attachments.',
-   coalesce(nullif(trim(p_impact_result),''),contributor.title||' — reported project contribution'),current_date)
+   coalesce(nullif(trim(p_impact_result),''),contributor.title||' — reported project contribution'),current_date,greatest(1,v_level))
   returning id into v_proof;
   update public.pr43_contribution_results set proof_id=v_proof where id=p_result;
   insert into public.proof_verification_events(proof_id,previous_level,new_level,verifier_actor_id,verifier_profile_id,method,reason)
