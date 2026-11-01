@@ -25,7 +25,9 @@ create table if not exists public.pr43_contribution_results (
  constraint pr43_sdg_range check (sdg_numbers <@ array[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
 );
 create index if not exists pr43_result_metric_idx on public.pr43_contribution_results(metric_key,verification_level);
-create unique index if not exists pr43_result_unique_reference on public.pr43_contribution_results(metric_key,source_reference) where source_reference is not null;
+-- A measurement batch can legitimately report several metric types. Never make the batch reference globally unique;
+-- maintain an index for audit/reconciliation and use latest verified community snapshots for stock metrics.
+create index if not exists pr43_result_source_reference_idx on public.pr43_contribution_results(metric_key,source_reference) where source_reference is not null;
 
 create table if not exists public.pr43_contribution_reviews (
  id uuid primary key default gen_random_uuid(),
