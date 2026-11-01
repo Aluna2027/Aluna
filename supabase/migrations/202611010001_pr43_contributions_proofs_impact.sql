@@ -112,7 +112,7 @@ create unique index if not exists pr43_unique_wifi_completion on public.contribu
 create or replace function public.pr43_record_contributions(p_actor uuid,p_mission uuid,p_community uuid,p_items jsonb)
 returns uuid language plpgsql security definer set search_path='' as $$
 declare grp uuid:=gen_random_uuid(); entry jsonb; result jsonb; c_id uuid; t text; detail jsonb;
-declare key text; amount numeric; unit_name text; src text; indicator_name text; sdgs integer[];
+key text; amount numeric; unit_name text; src text; indicator_name text; sdgs integer[];
 begin
  if auth.uid() is null or not public.can_act_as(p_actor) then raise exception 'Actor not authorized'; end if;
  if p_mission is null and p_community is null then raise exception 'Project is required'; end if;
@@ -162,8 +162,8 @@ grant execute on function public.pr43_record_contributions(uuid,uuid,uuid,jsonb)
 create or replace function public.pr43_review_result(p_result uuid,p_actor uuid,p_value numeric,p_impact_result text default null)
 returns smallint language plpgsql security definer set search_path='' as $$
 declare r public.pr43_contribution_results%rowtype; contributor public.contributions%rowtype;
-declare reviewer_org uuid; role_name text; owner_ok boolean; org_ok boolean; v_level smallint;
-declare current_level smallint; v_proof uuid; partner_value numeric; grant_level smallint;
+reviewer_org uuid; role_name text; owner_ok boolean; org_ok boolean; v_level smallint;
+current_level smallint; v_proof uuid; partner_value numeric; grant_level smallint;
 begin
  if auth.uid() is null or not public.can_act_as(p_actor) then raise exception 'Reviewer not authorized'; end if;
  select * into r from public.pr43_contribution_results where id=p_result for update;
