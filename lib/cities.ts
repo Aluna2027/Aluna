@@ -13,5 +13,9 @@ export function populationCategory(population:number) { return populationCategor
 export function formatPopulation(population:number) { return `${(population/1_000_000).toFixed(1)}M`; }
 export function getCity(id:string) { return cities.find(c=>c.id===id); }
 export const cityTabs = [
-  { slug:'overview', title:'Overview' },{ slug:'feed', title:'Feed' },{ slug:'users', title:'Users' },{ slug:'universities', title:'Universities' },{ slug:'ngos', title:'NGOs' },{ slug:'companies', title:'Companies' },{ slug:'wifi-mesh-communities', title:'Wi-Fi Mesh Communities' },{ slug:'missions', title:'Missions' },{ slug:'fundraising', title:'Fundraising' },{ slug:'impact', title:'Impact' },{ slug:'resources', title:'Resources' },
+  { slug: 'overview', title: 'Overview' },
+  { slug: 'wifi-mesh-communities', title: 'Wi-Fi Mesh Communities' },
+  { slug: 'missions', title: 'Missions' },
+  { slug: 'fundraising', title: 'Fundraising' },
+  { slug: 'impact', title: 'Impact' },
 ] as const;
