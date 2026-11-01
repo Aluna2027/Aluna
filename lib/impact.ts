@@ -13,21 +13,20 @@ export async function getImpactMetrics(scope:ImpactScope={}):Promise<ImpactMetri
  const [{data:missions},{data:communities},{data:contributions},{data:proofs},{data:raised}]=await Promise.all([
   missionsQuery,
   (()=>{let q=client.from('mesh_communities').select('id,people_connected,nodes,local_owners,city_id').limit(1000);if(scope.communityId)q=q.eq('id',scope.communityId);if(cityId)q=q.eq('city_id',cityId);return q;})(),
-  (()=>{let q=client.from('contributions').select('id,actor_id,mission_id,community_id,city_id,contribution_type,quantity,quantity_unit,created_at,contributed_on').limit(2000);if(scope.actorId)q=q.eq('actor_id',scope.actorId);if(scope.missionId)q=q.eq('mission_id',scope.missionId);if(scope.communityId)q=q.eq('community_id',scope.communityId);if(cityId)q=q.eq('city_id',cityId);return q;})(),
+  (()=>{let q=client.from('contributions').select('id,actor_id,mission_id,community_id,city_id,contribution_type,quantity,quantity_unit,created_at,contributed_on,submission_id').limit(2000);if(scope.actorId)q=q.eq('actor_id',scope.actorId);if(scope.missionId)q=q.eq('mission_id',scope.missionId);if(scope.communityId)q=q.eq('community_id',scope.communityId);if(cityId)q=q.eq('city_id',cityId);return q;})(),
   (()=>{let q=client.from('proofs').select('id,actor_id,mission_id,city_id,contribution_id,verification_level,occurred_on,created_at').limit(2000);if(scope.actorId)q=q.eq('actor_id',scope.actorId);if(scope.missionId)q=q.eq('mission_id',scope.missionId);if(cityId)q=q.eq('city_id',cityId);return q;})(),
   client.rpc('impact_money_raised',{p_actor:scope.actorId??null,p_mission:scope.missionId??null,p_community:scope.communityId??null,p_city:cityId??null}),
  ]);
  const ms=missions??[], cons=contributions??[];
- const contributionIds=cons.map(c=>c.id);
- const {data:verifiedMeasurements}=contributionIds.length ? await client.from('pr43_contribution_results').select('metric_key,verified_quantity,verification_level,contribution_id').in('contribution_id',contributionIds).gte('verification_level',3).limit(10000) : {data:[]};
- const metrics=verifiedMeasurements??[];
- const total=(key:string)=>metrics.filter(r=>r.metric_key===key).reduce((n,r)=>n+Number(r.verified_quantity??0),0);
+ const {data:rollup}=await client.rpc('pr43_impact_rollup',{p_actor:scope.actorId??null,p_mission:scope.missionId??null,p_community:scope.communityId??null,p_city:cityId??null});
+ const r=(rollup??{}) as Record<string,number>;
+ const value=(key:string)=>Number(r[key]??0);
  const missionIds=new Set(ms.map(m=>m.id));
  const scopedCommunities=scope.missionId?new Set(ms.map(m=>m.community_id).filter(Boolean)):null;
  const cs=(communities??[]).filter(c=>!scopedCommunities||scopedCommunities.has(c.id));
  const ps=(proofs??[]).filter(p=>!scope.communityId||cons.some(c=>c.id===p.contribution_id)||missionIds.has(p.mission_id));
  const timeline=ps.map(p=>({date:p.occurred_on,label:`Proof recorded · L${p.verification_level}`,level:p.verification_level})).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
- return {peopleConnected:total('people_connected'),nodesInstalled:total('nodes_installed'),localOwners:total('local_owners'),missionsCompleted:total('mission_completed'),moneyRaised:Number(raised??0),moneyInvested:total('money_invested'),volunteerHours:total('volunteer_hours'),skillsContributed:total('skills_contributed'),organizationsInvolved:0,sdgMetrics:total('sdg_metrics'),communityData:total('community_data'),verifiedResults:ps.filter(p=>p.verification_level>=3&& !metrics.some(m=>m.contribution_id===p.contribution_id)).length+metrics.length,reportedResults:cons.length+ps.length,timeline};
+ return {peopleConnected:value('peopleConnected'),nodesInstalled:value('nodesInstalled'),localOwners:value('localOwners'),missionsCompleted:value('missionsCompleted'),moneyRaised:Number(raised??0),moneyInvested:value('moneyInvested'),volunteerHours:value('volunteerHours'),skillsContributed:value('skillsContributed'),organizationsInvolved:value('organizationsInvolved'),sdgMetrics:value('sdgMetrics'),communityData:value('communityData'),verifiedResults:value('verifiedResults')+ps.filter(p=>p.verification_level>=3&& !cons.some(c=>c.id===p.contribution_id&&c.submission_id)).length,reportedResults:cons.length+ps.length,timeline};
 }
 
 function emptyImpactMetrics():ImpactMetrics{return {peopleConnected:0,nodesInstalled:0,localOwners:0,missionsCompleted:0,moneyRaised:0,moneyInvested:0,volunteerHours:0,skillsContributed:0,organizationsInvolved:0,sdgMetrics:0,communityData:0,verifiedResults:0,reportedResults:0,timeline:[]};}
