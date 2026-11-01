@@ -16,6 +16,7 @@ export default async function ProofPage({params,searchParams}:{params:Promise<{i
   proof.contribution_id?client.from('contributions').select('title').eq('id',proof.contribution_id).maybeSingle():Promise.resolve({data:null}),
   ownedActors(),client.rpc('my_proof_verifier_level'),
  ]);
+ const {data:pr43Managed}=await client.from('pr43_contribution_results').select('id').eq('proof_id',id).maybeSingle();
  const details=await actorDetails([proof.actor_id,...(events??[]).map(e=>e.verifier_actor_id)]);
  const reviewerActors=actors.filter(a=>a.id!==proof.actor_id);const city=place?.source_key?getCity(place.source_key):null;const maxLevel=Number(reviewLevel??0);
  return <div className="space-y-6"><Link href="/proofs" className="text-sm text-gold">← Proofs</Link>{error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Review was not saved. Check your authorization, reason and the current level.</p>}{status&&<p role="status" className="text-gold">Review recorded.</p>}
