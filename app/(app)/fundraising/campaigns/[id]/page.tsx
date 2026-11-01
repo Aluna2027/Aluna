@@ -55,7 +55,7 @@ export default async function CampaignPage({params,searchParams}:{params:Promise
  const {data:visitor}=user?await client.from('profiles').select('display_name').eq('id',user.id).maybeSingle():{data:null};
  const visitorName=visitor?.display_name||user?.email?.split('@')[0]||'member';
  return <div className="space-y-6">
-  <DetailPageHeader kind="SDG FUNDRAISING" title={campaign.title} backHref="/fundraising" backLabel="Fundraising" visitorName={visitorName}/>
+  <DetailPageHeader kind="SDG FUNDRAISING" title={campaign.title} backHref="/fundraising" backLabel="Fundraising" visitorName={visitorName} mobileCompact/>
   {referral_status&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">Referral link {referral_status}.</p>}
   {remove_error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Could not delete this campaign. Please try again.</p>}
   {archived&&<p role="status" className="rounded-xl border border-gold p-3 text-gold">This campaign is archived. Its financial and referral history is preserved.</p>}
