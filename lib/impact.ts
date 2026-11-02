@@ -25,7 +25,22 @@ export async function getImpactMetrics(scope:ImpactScope={}):Promise<ImpactMetri
  const scopedCommunities=scope.missionId?new Set(ms.map(m=>m.community_id).filter(Boolean)):null;
  const cs=(communities??[]).filter(c=>!scopedCommunities||scopedCommunities.has(c.id));
  const ps=(proofs??[]).filter(p=>!scope.communityId||cons.some(c=>c.id===p.contribution_id)||missionIds.has(p.mission_id));
- const timeline=ps.map(p=>({date:p.occurred_on,label:`Proof recorded · L${p.verification_level}`,level:p.verification_level})).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
+ // The proof's occurred_on is its evidence date, not the date L2/L3/L4 review happened.
+ // Read audit events so the timeline reflects when each verification actually occurred.
+ const proofIds=ps.map(p=>p.id).slice(0,200);
+ const {data:verificationEvents}=proofIds.length?await client.from('proof_verification_events')
+  .select('proof_id,new_level,method,recorded_at')
+  .in('proof_id',proofIds)
+  .order('recorded_at',{ascending:false})
+  .limit(2000):{data:[]};
+ const methodLabels:Record<string,string>={self_report:'Self-report',peer_attestation:'Peer attestation',partner_review:'Partner review',aluna_review:'Aluna administrative review',ground_visit:'Physical site visit'};
+ const timeline=(verificationEvents??[])
+  .map(event=>({
+   date:event.recorded_at.slice(0,10),
+   label:`Verification recorded · ${methodLabels[event.method]??event.method.replaceAll('_',' ')}`,
+   level:event.new_level
+  }))
+  .slice(0,12);
  return {peopleConnected:value('peopleConnected'),nodesInstalled:value('nodesInstalled'),localOwners:value('localOwners'),missionsCompleted:value('missionsCompleted'),moneyRaised:Number(raised??0),moneyInvested:value('moneyInvested'),volunteerHours:value('volunteerHours'),skillsContributed:value('skillsContributed'),organizationsInvolved:value('organizationsInvolved'),sdgMetrics:value('sdgMetrics'),communityData:value('communityData'),verifiedResults:value('verifiedResults')+ps.filter(p=>p.verification_level>=3&& !cons.some(c=>c.id===p.contribution_id&&c.submission_id)).length,reportedResults:cons.length+ps.length,timeline};
 }
 
