@@ -3,7 +3,7 @@ import {useMemo,useState} from 'react';
 type Actor={id:string;name:string;kind:string};
 type Project={id:string;name:string};
 type Result={id:string;metric_key:string;quantity:number;unit:string;verification_level:number;verified_quantity:number|null};
-type Item={id:string;title:string;description:string;contribution_type:string;contributed_on:string;mission_id:string|null;community_id:string|null;actor_id:string;pr43_contribution_results:Result[];pr43_contribution_files:{id:string;filename:string;storage_path:string;url?:string|null}[]};
+type Item={id:string;title:string;description:string;details:Record<string,string>|null;contribution_type:string;contributed_on:string;mission_id:string|null;community_id:string|null;actor_id:string;pr43_contribution_results:Result[];pr43_contribution_files:{id:string;filename:string;storage_path:string;url?:string|null}[]};
 const labels:Record<string,string>={people_connected:'People Connected',nodes_installed:'Wi-Fi Nodes Installed',local_owners:'Local Owners',money_invested:'Money Invested',volunteer_hours:'Volunteer Hours',skills_contributed:'Skills Contributed',sdg_metrics:'SDG Metrics',community_data:'Community Data',mission_completed:'Missions Completed',wifi_completed:'Community implementation completed'};
 export function PR43ProofReview({actors,missions,communities,items,initial}:{actors:Actor[];missions:Project[];communities:Project[];items:Item[];initial:{mission?:string;community?:string;contribution?:string}}){
  const [actor,setActor]=useState(actors[0]?.id??'');
@@ -60,6 +60,16 @@ export function PR43ProofReview({actors,missions,communities,items,initial}:{act
    <p className="deck-label">{item.contribution_type.replaceAll('_',' ')} · {item.contributed_on}</p>
    <h3 className="font-semibold text-ink">{item.title}</h3>
    <p className="whitespace-pre-wrap text-sm">{item.description}</p>
+   {['equipment','services','materials','research'].includes(item.contribution_type) && <div className="rounded-xl border border-line p-3 text-sm">
+    <p className="font-semibold text-ink">Financial evidence under review</p>
+    <p className="mt-2">Classification: {item.details?.nature?.replaceAll('_',' ')??'Not specified'}</p>
+    <p>Reported amount / value: {item.details?.amount??'—'} {item.details?.currency??''}</p>
+    <p>Paid or provided by: {item.details?.paid_by??'Not specified'}</p>
+    <p>Funding source: {item.details?.funding_source?.replaceAll('_',' ')??'Not specified'}</p>
+    <p>Payment / delivery reference: {item.details?.payment_reference??'Not specified'}</p>
+    {item.contribution_type==='research'&&<p>Research output: {item.details?.research_output??'Not specified'} · Measurement reference: {item.details?.research_method??'Not specified'}</p>}
+    <p className="mt-2 text-xs text-muted">Verify the reported classification and amount against supporting evidence before approving. Uploaded evidence alone is not verification.</p>
+   </div>}
    <div className="space-y-2"><p className="text-xs text-muted">Uploaded supporting evidence</p>{item.pr43_contribution_files.length?item.pr43_contribution_files.map(file=>file.url?<a key={file.id} target="_blank" rel="noopener noreferrer" href={file.url} className="block break-all text-sm text-gold hover:underline">{file.filename} ↗</a>:<p key={file.id} className="text-sm">{file.filename} (unavailable)</p>):<p className="text-sm text-muted">No attached files.</p>}</div>
    {item.pr43_contribution_results.map(result=>{
     const currentLevel=levels[result.id]??result.verification_level;
