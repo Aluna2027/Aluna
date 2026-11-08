@@ -18,6 +18,35 @@
 
 A conservative path for long-term migration management is a separate, reviewed **current-schema baseline** (as Supabase's official deployment guidance permits for severe drift), rather than renumbering or marking dozens of entries applied without verified schema equivalence. Prototype a baseline in an isolated clone first, and obtain explicit release approval before any shared Demo ledger edits. This is an option, not authorization for a new migration.
 
+## Additional renamed-migration SQL matches — 2026-11-08
+
+This section checks **15 further local/remote pairs** whose names differ. For each pair the tracked GitHub SQL file was compared against `array_to_string(statements, E'\\n')` in the corresponding recorded remote migration.
+
+**Ten exact text matches:**
+- `20261015030000_campaign_archive_checkout_race_guard.sql` ↔ `campaign_archive_checkout_race_guard_20261015`
+- `20261015040000_scheduled_posts.sql` ↔ `scheduled_posts_20261016`
+- `20261016070000_media_only_posts.sql` ↔ `media_only_posts_20261016`
+- `202610160002_organization_claim_management.sql` ↔ `organization_claim_management_pr25c1`
+- `202610170001_organization_members_relationships.sql` ↔ `organization_members_relationships_pr32`
+- `202610180001_aluna_admin_role_management.sql` ↔ `aluna_admin_role_management_pr33`
+- `202610180002_aluna_profile_moderation_audit.sql` ↔ `aluna_profile_moderation_audit_pr33`
+- `202610180003_organization_domain_challenges.sql` ↔ `organization_domain_challenges_pr33`
+- `20261021053000_restrict_payment_webhook_rpc_execution.sql` ↔ `pr33_demo_restrict_payment_webhook_rpc_execution`
+- `202610280002_pr40_campaign_participation_and_totals.sql` ↔ `pr40_additive_campaign_participation_and_mission_totals`
+
+**Four matches after removing line comments and whitespace:**
+- `202610130002_document_attachments.sql` ↔ `document_attachments_for_posts_and_messages`
+- `202610180004_aluna_data_api_suspension_guard.sql` ↔ `aluna_data_api_suspension_guard_pr33`
+- `202610180005_activate_aluna_data_api_suspension_guard.sql` ↔ `activate_aluna_data_api_suspension_guard_demo`
+- `202610180006_aluna_storage_suspension_guard.sql` ↔ `aluna_storage_suspension_guard_pr33`
+
+**One material script difference, requiring policy review:**
+- `202610130003_personal_timeline_visibility.sql` ↔ `personal_timeline_visibility_20261013`. GitHub adds `DROP FUNCTION IF EXISTS feed_page(...)`, an explanatory migration comment, `REVOKE ALL ... FROM public`, and explicit `GRANT EXECUTE ... TO authenticated`. The recorded remote migration includes the core `CREATE OR REPLACE FUNCTION` with the same feed-selection body, **but not** those extra statements. The current `feed_page` definition has the expected 12 returned columns; its `anon` and `authenticated` execution privileges are both currently **true**. As `feed_page` is a SECURITY INVOKER function and the global feed is intended to be public, this does **not** by itself establish a vulnerability. However its actual ACL is not equal to the apparent GitHub intention, and needs a separate authorization/compatibility decision. **Do not replay the whole migration or revoke anonymous access without testing.**
+
+**Overall verified comparisons:** 41 distinct local-to-remote pairs (26 previously matched by name + 15 renamed). The renamed comparison found no other material SQL difference. No migration ledger or schema changes were made.
+
+**Remaining coverage:** 23 local files and 11 remote registrations are still not one-to-one matched. Some of these are split migrations, additional Dashboard SQL, or files whose corresponding ledger entry is missing. Do not infer that all missing entries require SQL execution.
+
 ## GitHub migrations: exact and candidate mappings
 
 | GitHub file | Recorded remote version/name, if exact name match | Candidate remote names (NOT verified) | Status |
