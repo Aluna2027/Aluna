@@ -33,6 +33,9 @@ export async function getImpactMetrics(scope:ImpactScope={}):Promise<ImpactMetri
   .in('proof_id',proofIds)
   .order('recorded_at',{ascending:false})
   .limit(2000):{data:[]};
+ const latestMethodByProof=new Map<string,string>();
+ for(const event of verificationEvents??[]){if(!latestMethodByProof.has(event.proof_id))latestMethodByProof.set(event.proof_id,event.method);}
+ const isInternalL4=(proofId:string)=>['aluna_super_admin_override','aluna_accredited_l4_review'].includes(latestMethodByProof.get(proofId)??'');
  const methodLabels:Record<string,string>={self_report:'Self-report',peer_attestation:'Peer attestation',partner_review:'Partner review',aluna_review:'Aluna administrative review',aluna_super_admin_override:'Aluna Super Admin internal approval (not independent)',aluna_accredited_l4_review:'Accredited Aluna internal approval (not independent)',ground_visit:'Physical site visit'};
  const timeline=(verificationEvents??[])
   .map(event=>({
@@ -42,7 +45,7 @@ export async function getImpactMetrics(scope:ImpactScope={}):Promise<ImpactMetri
    internal:['aluna_super_admin_override','aluna_accredited_l4_review'].includes(event.method)
   }))
   .slice(0,12);
- return {peopleConnected:value('peopleConnected'),nodesInstalled:value('nodesInstalled'),localOwners:value('localOwners'),missionsCompleted:value('missionsCompleted'),moneyRaised:Number(raised??0),moneyInvested:value('moneyInvested'),volunteerHours:value('volunteerHours'),skillsContributed:value('skillsContributed'),organizationsInvolved:value('organizationsInvolved'),sdgMetrics:value('sdgMetrics'),communityData:value('communityData'),verifiedResults:value('verifiedResults')+ps.filter(p=>p.verification_level>=3&& !cons.some(c=>c.id===p.contribution_id&&c.submission_id)).length,reportedResults:cons.length+ps.length,timeline};
+ return {peopleConnected:value('peopleConnected'),nodesInstalled:value('nodesInstalled'),localOwners:value('localOwners'),missionsCompleted:value('missionsCompleted'),moneyRaised:Number(raised??0),moneyInvested:value('moneyInvested'),volunteerHours:value('volunteerHours'),skillsContributed:value('skillsContributed'),organizationsInvolved:value('organizationsInvolved'),sdgMetrics:value('sdgMetrics'),communityData:value('communityData'),verifiedResults:value('verifiedResults')+ps.filter(p=>p.verification_level>=3&&!isInternalL4(p.id)&&!cons.some(c=>c.id===p.contribution_id&&c.submission_id)).length,reportedResults:cons.length+ps.length,timeline};
 }
 
 function emptyImpactMetrics():ImpactMetrics{return {peopleConnected:0,nodesInstalled:0,localOwners:0,missionsCompleted:0,moneyRaised:0,moneyInvested:0,volunteerHours:0,skillsContributed:0,organizationsInvolved:0,sdgMetrics:0,communityData:0,verifiedResults:0,reportedResults:0,timeline:[]};}
