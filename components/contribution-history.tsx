@@ -64,12 +64,19 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
  const financial = new Map<string, number>();
  const gifts = new Map<string, number>();
  for (const row of entries) {
-  for (const result of verified.get(row.id) ?? []) {
-   const target = result.metric_key === 'money_spent' ? financial
-    : result.metric_key === 'in_kind_value' ? gifts : null;
-   if (!target || !['EUR','USD'].includes(result.unit)) continue;
-   target.set(result.unit, (target.get(result.unit) ?? 0) + Number(result.verified_quantity ?? 0));
-  }
+  if (!['equipment','services','materials','research'].includes(row.contribution_type)) continue;
+  // A verified contribution result reflects review of the disclosed classification,
+  // monetary amount and supporting evidence. Never infer amounts from legacy records.
+  const nature = row.details?.nature;
+  const currency = row.details?.currency;
+  const rawAmount = row.details?.amount;
+  if (!['EUR','USD'].includes(currency ?? '') || rawAmount == null || rawAmount === '') continue;
+  const value = Number(rawAmount);
+  if (!Number.isFinite(value) || value < 0 || value > 1e9) continue;
+  const target = nature === 'purchased' ? financial
+   : nature === 'donated_in_kind' ? gifts : null;
+  if (!target) continue;
+  target.set(currency!, (target.get(currency!) ?? 0) + value);
  }
  const totals = (values: Map<string, number>) => [...values].map(([currency,value]) => amount(value, currency)).join(' + ') || 'No verified monetary value';
  return <section id="contribution-history" className="space-y-4" aria-label="Contribution History">
@@ -91,8 +98,9 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
      <div className="mt-4 space-y-3 border-t border-line pt-4">
       {items.map(row => {
        const metrics = verified.get(row.id) ?? [];
-       const monetary = metrics.find(result => result.metric_key === 'money_spent' || result.metric_key === 'in_kind_value');
        const nature = row.details?.nature;
+       const monetary = ['purchased','donated_in_kind'].includes(nature ?? '') && ['EUR','USD'].includes(row.details?.currency ?? '') && row.details?.amount !== undefined
+        && Number.isFinite(Number(row.details.amount)) && Number(row.details.amount) >= 0;
        return <article key={row.id} className="rounded-xl border border-line bg-panel-raised p-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
          <div><Link href={`/contributions/${row.id}`} className="font-semibold text-gold hover:underline">{row.title} →</Link>
@@ -101,7 +109,7 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
          </div>
          <span className="text-xs text-[#26E7D4]">L{Math.max(...metrics.map(m => m.verification_level))} verified</span>
         </div>
-        {monetary && <p className="mt-2 text-sm">{monetary.metric_key === 'in_kind_value' ? 'In-kind value' : 'Money Spent'}: {amount(Number(monetary.verified_quantity), monetary.unit)}
+        {monetary && <p className="mt-2 text-sm">{nature === 'donated_in_kind' ? 'In-kind value' : 'Money Spent'}: {amount(Number(row.details!.amount), row.details!.currency)}
          {nature === 'purchased' && row.details?.funding_source ? ` · ${row.details.funding_source.replaceAll('_',' ')}` : ''}</p>}
         {group.key === 'time' && <p className="mt-2 text-sm">Verified hours: {metrics.find(m => m.metric_key === 'volunteer_hours')?.verified_quantity ?? '—'}</p>}
        </article>;
