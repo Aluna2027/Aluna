@@ -28,7 +28,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
    const items=types.map(type=>{
     const title=String(fd.get(type+'_title')||'').trim(),description=String(fd.get(type+'_description')||'').trim(),date=String(fd.get(type+'_date')||today);
     const details:Record<string,string>={},metrics:{key:string;quantity:number;unit:string;reference?:string;indicator?:string;sdgs?:number[]}[]=[];
-    for(const k of ['hours','skill','completion_status','operational','reference','indicator','period','currency']){const v=String(fd.get(type+'_'+k)||'').trim();if(v)details[k]=v;}
+    for(const k of ['hours','skill','completion_status','operational','reference','indicator','period','currency','nature','amount','paid_by','funding_source','payment_reference','research_output','research_measurable','research_indicator','research_value','research_unit','research_period','research_method']){const v=String(fd.get(type+'_'+k)||'').trim();if(v)details[k]=v;}
     if(type==='data'){
      for(const metric of resultKeys){
       const v=String(fd.get('data_'+metric.key)||'').trim();
@@ -70,6 +70,29 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
    </>}
    {type==='time'&&<label className="block text-sm">Volunteer Hours *<input className={fields} type="number" min="0.25" max="100000" step="0.25" name="time_hours" required/></label>}
    {type==='skills'&&<label className="block text-sm">Skill performed *<input className={fields} name="skills_skill" required/></label>}
+   {['equipment','services','materials','research'].includes(type)&&<>
+    <p className="text-sm text-muted">Record actual project spending separately from the value of goods or services donated in kind. Donated value is never counted as project expenditure.</p>
+    <label className="block text-sm">Contribution nature *<select className={fields} name={type+'_nature'} required defaultValue="purchased"><option value="purchased">Purchased (money spent)</option><option value="donated_in_kind">Donated in kind</option><option value="provided_free">Provided free of charge</option></select></label>
+    <div className="grid gap-3 sm:grid-cols-2">
+     <label className="block text-sm">Currency *<select className={fields} name={type+'_currency'} required><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option></select></label>
+     <label className="block text-sm">Paid amount or contribution value *<input className={fields} name={type+'_amount'} type="number" min="0" max="1000000000" step="0.01" required placeholder="0.00"/></label>
+    </div>
+    <label className="block text-sm">Paid by / Provided by<input className={fields} name={type+'_paid_by'} maxLength={160} placeholder="Name of paying or providing party"/></label>
+    <label className="block text-sm">Funding source (for paid expenses)<select className={fields} name={type+'_funding_source'} defaultValue=""><option value="">Select funding source</option><option value="fundraising">Fundraising</option><option value="invested_funds">Invested funds</option><option value="other">Other</option></select></label>
+    <label className="block text-sm">Invoice / payment / delivery reference<input className={fields} name={type+'_payment_reference'} maxLength={200}/></label>
+   </>}
+   {type==='research'&&<>
+    <label className="block text-sm">Research output *<select name="research_research_output" required className={fields}><option value="dataset">Dataset</option><option value="report">Report</option><option value="study">Study</option><option value="sdg_measurement">SDG Measurement</option></select></label>
+    <label className="block text-sm">Produces measurable impact data?<select name="research_research_measurable" className={fields} defaultValue="no"><option value="no">No</option><option value="yes">Yes — provide measurement details</option></select></label>
+    <label className="block text-sm">Related SDG indicator (if applicable)<input name="research_research_indicator" className={fields} maxLength={200} placeholder="e.g. 9.c.1"/></label>
+    <div className="grid gap-3 sm:grid-cols-2">
+     <label className="block text-sm">Measured value<input name="research_research_value" className={fields} type="number" step="any" min="0"/></label>
+     <label className="block text-sm">Measurement unit<input name="research_research_unit" className={fields} maxLength={60}/></label>
+    </div>
+    <label className="block text-sm">Measurement period<input name="research_research_period" className={fields} maxLength={100}/></label>
+    <label className="block text-sm">Method / source reference<input name="research_research_method" className={fields} maxLength={200}/></label>
+    <p className="text-xs text-muted">Research measurements are recorded as source evidence. A verified Data record is still needed before the related Impact metric can be counted.</p>
+   </>}
    {type==='complete_sdg_mission'||type==='complete_wifi_community'?<><p className="text-sm">Only the project creator or steward can submit project completion.</p><fieldset className="space-y-2"><legend className="text-sm">Were the objectives achieved? *</legend>{['all','partial','none'].map(x=><label key={x} className="block text-sm"><input type="radio" name={type+'_completion_status'} value={x} required className="mr-2"/>{x==='all'?'All objectives achieved':x==='partial'?'Partially achieved':'Not achieved'}</label>)}</fieldset>{type==='complete_wifi_community'&&<label className="block text-sm">Network operational?<select name={type+'_operational'} className={fields}><option value="yes">Yes</option><option value="no">Not yet</option></select></label>}</>:null}
    <label className="block text-sm">Photos, videos and files (multiple)<input type="file" name={type+'_files'} multiple accept="image/*,video/mp4,video/webm,video/quicktime,.pdf,.doc,.docx,.xls,.xlsx" className={fields}/></label>
   </section>)}
