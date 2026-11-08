@@ -47,6 +47,28 @@ This section checks **15 further local/remote pairs** whose names differ. For ea
 
 **Remaining coverage:** 23 local files and 11 remote registrations are still not one-to-one matched. Some of these are split migrations, additional Dashboard SQL, or files whose corresponding ledger entry is missing. Do not infer that all missing entries require SQL execution.
 
+## Further unresolved-migration review — 2026-11-08
+
+The remaining original 23 local files and 11 remote-only records are **not** presumed safe to replay. The Phase19 `aluna_member_role` migration (`202610040002_aluna_member_role.sql`) was verified equivalent to remote `phase19_aluna_member_role` after removing whitespace and comments, extending verified script-equivalence coverage to **42 of 64** local files.
+
+Additional investigation found the objects and named functions from the following original local files are present, although their original scripts cannot yet be paired one-to-one with a stored remote script:
+- `202610050002_mission_manual_locations.sql`, `202610050003_allow_fundraising_for_any_mission.sql`, `202610050004_campaign_referral_performance.sql`, `202610050005_referral_created_at_report.sql`, `202610060001_sdg_missions.sql`, `202610060002_atomic_sdg_mission_update.sql`;
+- `202610180007_atomic_organization_access_audit.sql`, `202610180008_atomic_invitation_delivery_failure.sql`, `202610190001_onboarding_demographics_v4.sql`, `202610190002_require_onboarding_demographics.sql`, `20261021024500_restore_organization_security_parity.sql`.
+Catalog lookup confirmed **all 25 selected distinct function names** from these migration files currently exist (possibly modified subsequently). It also confirmed `mission_sdgs`, `campaign_referral_links`, and `campaign_referral_source_counts` tables, plus selected Phase19 media RLS policies, PR43 legacy guard, and evidence helper.
+
+### New discrepancy: referral anti-abuse migration not installed
+
+The tracked `20261022000200_pr33_security_definer_privacy_and_referrals.sql` adds a `public.referral_click_dedup` table and replaces 2-argument public referral functions with **3-argument functions requiring a visitor hash**, callable by service-role only. The **shared Demo does not contain `public.referral_click_dedup`**, and its live PostgreSQL catalog exposes only the 2-argument `visit_campaign_referral(text,text)` and `visit_fundraiser_referral(text,text)` functions, both executable by `anon`.
+
+Consequences:
+- The intended rate/dedup guard from that tracked migration is **not deployed** in shared Demo.
+- Repeated calls to the live two-argument functions can increase counters without the planned per-visitor daily deduplication. This is a potential analytics-integrity issue, not evidence of an observed exploit.
+- **Do not blindly replay the migration**, because it also affects profile and onboarding functions/privileges and could alter live auth flows.
+- Audit server routes and exact environment compatibility; plan a separate targeted security PR, test on a faithful isolated database snapshot, and obtain explicit release authorization before modifying shared Demo. Avoid bundling unrelated referral changes into PR45 L4 release.
+- This is stronger evidence than the earlier catalog check that certain older migrations are merely unregistered. The relevant changes are **actually absent**.
+
+No schema modifications, migration repairs, or production merges were performed during the investigation.
+
 ## GitHub migrations: exact and candidate mappings
 
 | GitHub file | Recorded remote version/name, if exact name match | Candidate remote names (NOT verified) | Status |
