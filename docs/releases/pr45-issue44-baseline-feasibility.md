@@ -33,6 +33,29 @@ Both projects were inspected with read-only system catalog COUNT queries. These 
 - The Windows backup files are not available through this conversation; therefore an isolated full restore rehearsal is **not completed**.
 - Authenticated mobile browser acceptance is still outstanding.
 
+## Reproducible catalog parity test — 2026-11-08
+
+A new **read-only** query is tracked at `scripts/pr45-restore-parity.sql`. Execute the identical SQL against shared Demo and a separately restored, faithful, isolated target. The output contains only category counts and deterministic catalog comparison digests, never raw users, passwords, or Storage bytes. Fingerprints are **diagnostic**, not backups or cryptographic proof of recovery.
+
+Initial measurement (before any fresh restore):
+
+| Category | Shared Demo | Existing PR45 QA clone | Match |
+|---|---:|---:|---|
+| Public columns | 482 | 375 | No |
+| Public constraints | 369 | 287 | No |
+| Public functions / function ACLs | 133 | 96 | No |
+| Public RLS flags | 58 | 47 | No |
+| Public and Storage policies | 101 | 81 | No |
+| Public triggers | 24 | 17 | No |
+| Extensions | 7 | 6 | No |
+| Auth users | 27 | 9 | No |
+| Storage objects | 25 | 3 | No |
+| Migration ledger rows | 52 | 45 | No |
+
+The computed catalog digests also differ in every inspected structural category. This is expected because the QA clone was built from a partial subset and additionally has PR45 schema changes, but proves that **the existing clone must not be labelled a completed disaster-recovery rehearsal**.
+
+**Remaining verification requires the actual backup files and a new isolated restore target.** An identical catalog fingerprint still cannot establish row-data consistency, file-byte integrity, Auth session validity, external integration configuration or successful application smoke tests. Compare those independently.
+
 ## Safe staged baseline approach (proposed, not executed)
 
 **Stage A — Freeze/backup:**
