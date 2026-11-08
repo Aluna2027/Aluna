@@ -75,6 +75,20 @@ This is a manual/mobile browser acceptance list. Static source inspection does n
 - These findings have been reviewed at the **code / database privilege** level; they are not a penetration test. Preserve the intended access checks on every future RPC edit. The remaining security advisor findings for older unrelated objects require their own separate security backlog evaluation.
 - Shared Demo has **not** received the PR45 migration; this disposition is for the isolated QA clone only.
 
+## 2026-11-08 — L4 role decision matrix (isolated QA, read-only)
+
+Executed `pr45_can_approve_l4()` with three simulated JWT subject contexts, each inside a `BEGIN READ ONLY` transaction, followed by `ROLLBACK`. Results:
+
+| Simulated database request identity | Expected | Actual |
+|---|---|---|
+| No authenticated identity | false | false |
+| Existing ordinary non-granted profile | false | false |
+| Existing Aluna Super Admin profile | true | true |
+
+No grants, reviews, or contributions were created or modified. All three decision checks passed. These are **read-only simulated-identity SQL checks**, *not* proof of real browser sessions or a full adversarial RLS test. Prior isolated end-to-end L4 approval tests still stand separately.
+
+The conversation attachments contain only screenshots, not the full Windows SQL/Auth/Storage backup files. Accordingly the full restoration rehearsal remains **OPEN** and must not be reported as PASS.
+
 ## Outstanding release blockers
 
 - Issue #44 ledger mapping/reconciliation or a separately approved and documented one-off migration strategy.
