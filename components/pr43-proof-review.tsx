@@ -100,7 +100,7 @@ export function PR43ProofReview({actors,missions,communities,items,initial,isSup
     const alreadyReviewed=Boolean(completed[result.id]||currentLevel>=4||(currentLevel>=1&&actor===item.actor_id));
     const notice=resultMessages[result.id];
     return <div key={result.id} className="space-y-3 rounded-xl border border-line bg-panel-raised p-3">
-      <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{labels[result.metric_key]??result.metric_key}</span><span className="text-sm text-gold">{currentLevel?'Level '+currentLevel+' verified':'Pending verification'}</span></div>
+      <div className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{labels[result.metric_key]??result.metric_key}</span><span className="text-sm text-gold">{currentLevel===4&&result.verified_quantity===null?'L4 Aluna Internal Approval (not independent)':currentLevel?'Level '+currentLevel+' verified':'Pending verification'}</span></div>
       <p className="text-sm">Reported: {result.quantity} {result.unit}{result.verified_quantity!==null?' · Verified: '+result.verified_quantity:''}</p>
       {!alreadyReviewed&&<><label className="block text-sm">Confirmed quantity<input type="number" className={input} min="0" max="1000000000" step="any" value={values[result.id]??String(result.quantity)} onChange={e=>setValues(v=>({...v,[result.id]:e.target.value}))}/></label>
       <label className="block text-sm">Additional photos, videos or documents (optional)<input type="file" disabled={alreadyReviewed} multiple accept="image/*,video/mp4,video/webm,video/quicktime,.pdf,.doc,.docx,.xls,.xlsx" className={input} onChange={e=>setUploads(old=>({...old,[result.id]:Array.from(e.target.files??[])}))}/></label>
