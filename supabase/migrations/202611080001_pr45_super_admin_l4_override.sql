@@ -10,7 +10,7 @@ alter table public.proof_verification_events
   add constraint proof_verification_events_method_check
   check (method in (
     'self_report','peer_attestation','partner_review','ground_visit',
-    'aluna_review','aluna_super_admin_override'
+    'aluna_review','aluna_super_admin_override','aluna_accredited_l4_review'
   ));
 
 -- Trained Aluna L4 verifiers are authorized by Super Admins, not self-assigned.
@@ -162,8 +162,9 @@ begin
   values
     (v_proof, case when v_result.verification_level = 0 then null
                    else v_result.verification_level end,
-     4, p_actor, auth.uid(), 'aluna_super_admin_override',
-     'Internal Aluna Super Admin L4 approval, NOT independent verification. ' || v_reason);
+     4, p_actor, auth.uid(),
+     case when public.is_aluna_super_admin() then 'aluna_super_admin_override' else 'aluna_accredited_l4_review' end,
+     'Internal Aluna L4 approval, NOT independent verification. ' || v_reason);
 
   update public.pr43_contribution_results
     set proof_id = v_proof, verification_level = 4,
