@@ -9,6 +9,7 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
  const [mission,setMission]=useState(initial.mission??'');
  const [community,setCommunity]=useState(initial.community??'');
  const [types,setTypes]=useState<string[]>(['data']);
+ const [natures,setNatures]=useState<Record<string,string>>({});
  const [busy,setBusy]=useState(false);
  const [saved,setSaved]=useState(false);
  const [error,setError]=useState('');
@@ -72,14 +73,14 @@ export function PR43ContributionForm({actors,missions,communities,cityNames,init
    {type==='skills'&&<label className="block text-sm">Skill performed *<input className={fields} name="skills_skill" required/></label>}
    {['equipment','services','materials','research'].includes(type)&&<>
     <p className="text-sm text-muted">Record actual project spending separately from the value of goods or services donated in kind. Donated value is never counted as project expenditure.</p>
-    <label className="block text-sm">Contribution nature *<select className={fields} name={type+'_nature'} required defaultValue="purchased"><option value="purchased">Purchased (money spent)</option><option value="donated_in_kind">Donated in kind</option><option value="provided_free">Provided free of charge</option></select></label>
+    <label className="block text-sm">Contribution nature *<select className={fields} name={type+'_nature'} required value={natures[type]??'purchased'} onChange={e=>setNatures(old=>({...old,[type]:e.target.value}))}><option value="purchased">Purchased (money spent)</option><option value="donated_in_kind">Donated in kind</option><option value="provided_free">Provided free of charge</option></select></label>
     <div className="grid gap-3 sm:grid-cols-2">
      <label className="block text-sm">Currency *<select className={fields} name={type+'_currency'} required><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option></select></label>
-     <label className="block text-sm">Paid amount or contribution value *<input className={fields} name={type+'_amount'} type="number" min="0" max="1000000000" step="0.01" required placeholder="0.00"/></label>
+     <label className="block text-sm">Paid amount or contribution value *<input className={fields} name={type+'_amount'} type="number" min="0" max="1000000000" step="0.01" required placeholder="0.00" readOnly={natures[type]==='provided_free'} value={natures[type]==='provided_free'?'0':undefined}/></label>
     </div>
-    <label className="block text-sm">Paid by / Provided by<input className={fields} name={type+'_paid_by'} maxLength={160} placeholder="Name of paying or providing party"/></label>
-    <label className="block text-sm">Funding source (for paid expenses)<select className={fields} name={type+'_funding_source'} defaultValue=""><option value="">Select funding source</option><option value="fundraising">Fundraising</option><option value="invested_funds">Invested funds</option><option value="other">Other</option></select></label>
-    <label className="block text-sm">Invoice / payment / delivery reference<input className={fields} name={type+'_payment_reference'} maxLength={200}/></label>
+    <label className="block text-sm">Paid by / Provided by<input className={fields} name={type+'_paid_by'} required={(natures[type]??'purchased')==='purchased'} maxLength={160} placeholder="Name of paying or providing party"/></label>
+    <label className="block text-sm">Funding source (for paid expenses)<select className={fields} name={type+'_funding_source'} required={(natures[type]??'purchased')==='purchased'} defaultValue=""><option value="">Select funding source</option><option value="fundraising">Fundraising</option><option value="invested_funds">Invested funds</option><option value="other">Other</option></select></label>
+    <label className="block text-sm">Invoice / payment / delivery reference<input className={fields} name={type+'_payment_reference'} required={(natures[type]??'purchased')==='purchased'} maxLength={200}/></label>
    </>}
    {type==='research'&&<>
     <label className="block text-sm">Research output *<select name="research_research_output" required className={fields}><option value="dataset">Dataset</option><option value="report">Report</option><option value="study">Study</option><option value="sdg_measurement">SDG Measurement</option></select></label>
