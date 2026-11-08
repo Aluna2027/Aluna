@@ -1,0 +1,122 @@
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { actorDetails } from '@/lib/social';
+
+const categories = [
+ { key: 'time', label: 'Time', description: 'Volunteer hours' },
+ { key: 'skills', label: 'Skills', description: 'Contributed expertise' },
+ { key: 'equipment', label: 'Equipment', description: 'Installed or supplied equipment' },
+ { key: 'services', label: 'Services', description: 'Professional and community services' },
+ { key: 'materials', label: 'Materials', description: 'Supplied materials' },
+ { key: 'research', label: 'Research', description: 'Research and community studies' },
+] as const;
+type ContributionRow = {
+ id: string; actor_id: string; contribution_type: string; title: string;
+ contributed_on: string; created_at: string; details: Record<string, string> | null;
+ mission_id: string | null; community_id: string | null;
+ missions: { title: string } | null; mesh_communities: { name: string } | null;
+};
+type VerifiedResult = {
+ contribution_id: string; metric_key: string; verified_quantity: number | null;
+ unit: string; verification_level: number;
+};
+function amount(value: number, currency: string) {
+ return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
+}
+export async function ContributionHistory({actorId,missionId,communityId,actorView=false}:{
+ actorId?: string; missionId?: string; communityId?: string; actorView?: boolean;
+}) {
+ const client = await createClient();
+ let linkedMissionIds: string[] = [];
+ if (communityId) {
+  const {data} = await client.from('missions').select('id').eq('community_id', communityId).is('removed_at', null).limit(500);
+  linkedMissionIds = (data ?? []).map(row => row.id);
+ }
+ let query = client.from('contributions')
+  .select('id,actor_id,contribution_type,title,contributed_on,created_at,details,mission_id,community_id,missions(title),mesh_communities(name)')
+  .in('contribution_type', categories.map(group => group.key))
+  .order('created_at', { ascending: false }).limit(500);
+ if (actorId) query = query.eq('actor_id', actorId);
+ if (missionId) query = query.eq('mission_id', missionId);
+ if (communityId) {
+  query = linkedMissionIds.length
+   ? query.or(`community_id.eq.${communityId},mission_id.in.(${linkedMissionIds.join(',')})`)
+   : query.eq('community_id', communityId);
+ }
+ const {data, error} = await query;
+ const rows = (data ?? []) as unknown as ContributionRow[];
+ const {data:rawResults} = rows.length
+  ? await client.from('pr43_contribution_results')
+    .select('contribution_id,metric_key,verified_quantity,unit,verification_level')
+    .in('contribution_id', rows.map(row => row.id)).gte('verification_level', 3).not('verified_quantity', 'is', null)
+    .limit(2000)
+  : { data: [] };
+ const results = (rawResults ?? []) as VerifiedResult[];
+ const verified = new Map<string, VerifiedResult[]>();
+ for (const item of results) {
+  const existing = verified.get(item.contribution_id) ?? [];
+  existing.push(item);
+  verified.set(item.contribution_id, existing);
+ }
+ // A record appears only when a result associated with it has passed independent review.
+ const entries = rows.filter(row => verified.has(row.id));
+ const actors = await actorDetails(actorView ? [] : entries.map(row => row.actor_id));
+ const financial = new Map<string, number>();
+ const gifts = new Map<string, number>();
+ for (const row of entries) {
+  for (const result of verified.get(row.id) ?? []) {
+   const target = result.metric_key === 'money_spent' ? financial
+    : result.metric_key === 'in_kind_value' ? gifts : null;
+   if (!target || !['EUR','USD'].includes(result.unit)) continue;
+   target.set(result.unit, (target.get(result.unit) ?? 0) + Number(result.verified_quantity ?? 0));
+  }
+ }
+ const totals = (values: Map<string, number>) => [...values].map(([currency,value]) => amount(value, currency)).join(' + ') || 'No verified monetary value';
+ return <section id="contribution-history" className="space-y-4" aria-label="Contribution History">
+  <div className="flex flex-wrap items-end justify-between gap-2">
+   <div><h2 className="text-xl font-bold text-ink">Contribution History</h2>
+    <p className="mt-1 text-sm text-muted">Independently verified contributions (L3/L4). Select a category to inspect the records and contributors.</p></div>
+   <span className="text-sm text-muted">{entries.length} verified records</span>
+  </div>
+  {error && <p role="alert" className="text-red-300">Unable to load contribution history.</p>}
+  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+   {categories.filter(group => !actorView || entries.some(row => row.contribution_type === group.key)).map(group => {
+    const items = entries.filter(row => row.contribution_type === group.key);
+    return <details key={group.key} className="group rounded-xl border border-line bg-panel p-4 open:sm:col-span-2 open:xl:col-span-3">
+     <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+      <div><h3 className="font-semibold text-ink">{group.label}</h3>
+       <p className="mt-1 text-xs text-muted">{group.description} · {items.length} verified</p></div>
+      <span className="text-gold group-open:rotate-90" aria-hidden="true">›</span>
+     </summary>
+     <div className="mt-4 space-y-3 border-t border-line pt-4">
+      {items.map(row => {
+       const metrics = verified.get(row.id) ?? [];
+       const monetary = metrics.find(result => result.metric_key === 'money_spent' || result.metric_key === 'in_kind_value');
+       const nature = row.details?.nature;
+       return <article key={row.id} className="rounded-xl border border-line bg-panel-raised p-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+         <div><Link href={`/contributions/${row.id}`} className="font-semibold text-gold hover:underline">{row.title} →</Link>
+          <p className="mt-1 text-xs text-muted">{row.contributed_on} · {row.missions?.title ?? row.mesh_communities?.name ?? 'Linked project'}</p>
+          {!actorView && <p className="mt-1 text-xs">Contributor: {actors.get(row.actor_id)?.name ?? 'Member'}</p>}
+         </div>
+         <span className="text-xs text-[#26E7D4]">L{Math.max(...metrics.map(m => m.verification_level))} verified</span>
+        </div>
+        {monetary && <p className="mt-2 text-sm">{monetary.metric_key === 'in_kind_value' ? 'In-kind value' : 'Money Spent'}: {amount(Number(monetary.verified_quantity), monetary.unit)}
+         {nature === 'purchased' && row.details?.funding_source ? ` · ${row.details.funding_source.replaceAll('_',' ')}` : ''}</p>}
+        {group.key === 'time' && <p className="mt-2 text-sm">Verified hours: {metrics.find(m => m.metric_key === 'volunteer_hours')?.verified_quantity ?? '—'}</p>}
+       </article>;
+      })}
+      {!items.length && <p className="text-sm text-muted">No independently verified contributions in this category.</p>}
+     </div>
+    </details>;
+   })}
+   {actorView && !entries.length && <p className="text-sm text-muted">No independently verified contributions for this selection yet.</p>}
+  </div>
+  <div className="rounded-xl border border-line bg-panel p-4 text-sm">
+   <p className="font-semibold text-ink">Verified financial contributions</p>
+   <p className="mt-2">Money Spent (Equipment + Services + Materials + Research): <span className="text-gold">{totals(financial)}</span></p>
+   <p className="mt-1">In-kind Value (separate from spending): <span className="text-gold">{totals(gifts)}</span></p>
+   <p className="mt-2 text-xs text-muted">EUR and USD are never added together without a documented exchange rate. Historical entries without verified monetary results are not inferred as spending.</p>
+  </div>
+ </section>;
+}
