@@ -11,7 +11,8 @@ Reviewed preview commit: `36fdc1d0c1177641c0e150003a5941017f082108`
 - Browser acceptance: direct L4 approved PR43 QA Evidence Upload Test (0.25 verified volunteer hours); Impact displayed 1.25 Volunteer Hours and 2 Verified Results. Verified history and impact timeline distinguished internal approval (not independent).
 - User confirmed the verified contributions are visible in Flying Innovators profile Impact.
 - Vercel preview build/check on the reviewed commit is READY/success.
-- **Not validated:** mobile-specific browser acceptance, standalone repository typecheck/lint/test jobs independently of Vercel build, and a restore rehearsal. Treat those as release gates, not PASS.
+- **Validated on 2026-11-08:** PR45 independent GitHub Actions checks on commit `9639cc6132214588582ac68e2912accea1889f85`: existing isolated onboarding/security regression tests, `npm run typecheck`, `npm run lint` and `npm run build` all passed. Both [push run](https://github.com/Aluna2027/Aluna/actions/runs/42450038283) and [PR run](https://github.com/Aluna2027/Aluna/actions/runs/42450041704) concluded success. The associated Vercel preview is READY.
+- **Not validated:** mobile-specific authenticated browser acceptance and a real restore rehearsal. The Windows backup SQL files remain local to the user's machine and were not available for an actual restore test.
 
 ## Shared Demo preflight (read-only inspection completed)
 
@@ -48,8 +49,8 @@ This drift specifically blocks automated remote migration pushes. It does not by
 ## Outstanding release blockers
 
 - Issue #44 ledger mapping/reconciliation or a separately approved and documented one-off migration strategy.
-- Fresh backup and restore confidence.
-- Standalone CI checks and mobile acceptance still not independently established.
+- Fresh backup and restore confidence: actual backup SQL/Auth/Storage files have not been made available for a recovery rehearsal, and the PR45 QA clone is not a faithful/full restored copy of the shared Demo.
+- CI checks PASS (as above), but authenticated mobile browser acceptance remains open; static inspection does not replace responsive browser QA.
 - Explicit authorization for shared Demo migration and subsequent PR merge.
 
 **This document does not authorize migration, merge or production changes.**
