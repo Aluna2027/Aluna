@@ -5,6 +5,19 @@
 - GitHub SQL files: **64**. Remote ledger rows: **52**. Exact version matches: **0**. Exact name matches: **26**.
 - Historical migration files can map one-to-many to remote migrations, and some changes were applied through the SQL Editor. Do not infer that unmatched files need executing.
 
+## Verified SQL-content equivalence — 2026-11-08
+
+**Read-only migration ledger comparison completed for every one of the 26 exact-name matched local/remote pairs.** Compared GitHub file text with SQL stored in remote `supabase_migrations.schema_migrations.statements`, not merely object presence or version suffix.
+
+- **20/26 byte-for-byte identical**: all 16 original 20260924 migrations; `pr40_fundraising_participation_enum`; and the three registered PR43 migration files.
+- **4/26 differ only in leading/trailing whitespace**: `creator_remove_archive_controls`, `profile_birthdate_organization_country`, `organization_mesh_remove_controls`, `restrict_anonymous_membership_rpc_execution`. Their trimmed source equals recorded SQL.
+- **2/26 have equivalent statements but differ in comments/spacing**: `post_upvote_downvote` (indentation and comma spacing); `allow_accepted_connection_removal` (extra source comment and line layout). Statement-by-statement visual comparison confirmed and normalized text matched.
+- **No material SQL discrepancy found in these 26 matched migrations**. Their recorded **version numbers still differ from the local filenames**, so automated `db push` remains unsafe.
+- The other **38 local SQL files and 26 remote recorded migrations** remain unresolved for exact SQL matching and chronology. No repairs or migrations were executed.
+- Note: the 26 comparisons establish *stored SQL script equivalence*; they do **not** prove that later migrations did not alter these database objects.
+
+A conservative path for long-term migration management is a separate, reviewed **current-schema baseline** (as Supabase's official deployment guidance permits for severe drift), rather than renumbering or marking dozens of entries applied without verified schema equivalence. Prototype a baseline in an isolated clone first, and obtain explicit release approval before any shared Demo ledger edits. This is an option, not authorization for a new migration.
+
 ## GitHub migrations: exact and candidate mappings
 
 | GitHub file | Recorded remote version/name, if exact name match | Candidate remote names (NOT verified) | Status |
