@@ -1,9 +1,8 @@
-import { MapPin, BookOpen, Target, ChartNoAxesColumnIncreasing, Pencil, UserRound, UsersRound, MessageCircle, MessagesSquare, Wallet, ShieldCheck, TrendingUp } from 'lucide-react';
+import { MapPin, BookOpen, Target, ChartNoAxesColumnIncreasing, Pencil, UserRound, UsersRound, MessageCircle, MessagesSquare, Wallet, TrendingUp } from 'lucide-react';
 import { DetailPageHeader, DetailSectionCard, DetailSdgIcons, DetailSdgRows, featuredSdg, MobileDetailIdentityCard } from '@/components/detail-design-elements';
 import { iconColors } from '@/lib/icon-colors';
 import { MissionParticipationControl, MissionParticipationIcons } from '@/components/mission-participation-control';
-import { ContributionList } from '@/components/contribution-list';
-import { ProofList } from '@/components/proof-list';
+import { ContributionHistory } from '@/components/contribution-history';
 import { ImpactView } from '@/components/impact-view';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -88,5 +87,6 @@ export default async function MissionPage({params,searchParams}:{params:Promise<
  {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`${base}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View mission proofs →</Link></Card></section>}
  {active==='Impact'&&<section id="contributions"><ContributionList missionId={id} iconColor={iconColors.missions}/></section>}
  {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.impact}/>Impact</div><ImpactView scope={{missionId:id}} metricIconColor={iconColors.impact}/></section>}
+ {active==='Impact'&&<ContributionHistory missionId={id}/> }
  </div>;
 }
