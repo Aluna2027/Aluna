@@ -22,7 +22,7 @@ export async function POST(request:Request){
     const numeric=Number(rawAmount);
     if(!['purchased','donated_in_kind','provided_free'].includes(nature)
        ||!['EUR','USD'].includes(currency)
-       ||typeof rawAmount!=='string'||!/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount)
+       ||typeof rawAmount!=='string'||!/^\d+(?:\.\d{1,2})?$/.test(rawAmount)
        ||!Number.isFinite(numeric)||numeric<0||numeric>1e9
        ||(nature!=='provided_free'&&numeric<=0)
        ||(nature==='provided_free'&&numeric!==0))
