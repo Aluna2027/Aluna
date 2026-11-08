@@ -18,9 +18,9 @@ export default async function ProofPage({params,searchParams}:{params:Promise<{i
  ]);
  const {data:pr43Managed}=await client.from('pr43_contribution_results').select('id').eq('proof_id',id).maybeSingle();
  const latestEvent=events?.[events.length-1];
- const internalL4=proof.verification_level===4&&latestEvent?.method==='aluna_super_admin_override';
+ const internalL4=proof.verification_level===4&&['aluna_super_admin_override','aluna_accredited_l4_review'].includes(latestEvent?.method??'');
  const levelLabel=(level:number)=>level===4&&internalL4?'L4 Aluna Internal Approval (not independent)':pr43Managed&&level===4?'L4 Aluna-Verified':verificationLevels[level];
- const methodLabel=(method:string)=>method==='aluna_super_admin_override'?'Aluna Super Admin internal approval (not independent)':method==='aluna_review'?'Aluna administrative review':method==='ground_visit'?'Physical site visit':method.replaceAll('_',' ');
+ const methodLabel=(method:string)=>method==='aluna_accredited_l4_review'?'Accredited Aluna L4 internal approval (not independent)':method==='aluna_super_admin_override'?'Aluna Super Admin internal approval (not independent)':method==='aluna_review'?'Aluna administrative review':method==='ground_visit'?'Physical site visit':method.replaceAll('_',' ');
  const details=await actorDetails([proof.actor_id,...(events??[]).map(e=>e.verifier_actor_id)]);
  const reviewerActors=actors.filter(a=>a.id!==proof.actor_id);const city=place?.source_key?getCity(place.source_key):null;const maxLevel=Number(reviewLevel??0);
  return <div className="space-y-6"><Link href="/proofs" className="text-sm text-gold">← Proofs</Link>{error&&<p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Review was not saved. Check your authorization, reason and the current level.</p>}{status&&<p role="status" className="text-gold">Review recorded.</p>}
