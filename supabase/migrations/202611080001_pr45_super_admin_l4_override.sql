@@ -1,6 +1,6 @@
 -- PR #45: explicit Super Admin L4 override for internal Aluna approval.
--- This is not independent L3/L4 verification. Keep verified_quantity NULL so
--- impact rollups and independently verified financial totals do not include it.
+-- Internal L4 approval contributes to verified Impact totals using the confirmed
+-- value while remaining explicitly labelled as Aluna internal, not independent.
 -- Only users in aluna_super_admins may execute this RPC, including for their own contributions.
 -- Never apply to the shared Demo database before isolated acceptance tests.
 
@@ -168,7 +168,7 @@ begin
 
   update public.pr43_contribution_results
     set proof_id = v_proof, verification_level = 4,
-        verified_quantity = null
+        verified_quantity = p_value
     where id = p_result;
 
   return 4;
