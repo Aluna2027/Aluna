@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 
 export type ImpactScope={actorId?:string;missionId?:string;communityId?:string;cityKey?:string};
-export type ImpactMetrics={peopleConnected:number;nodesInstalled:number;localOwners:number;missionsCompleted:number;moneyRaised:number;moneyInvested:number;volunteerHours:number;skillsContributed:number;organizationsInvolved:number;sdgMetrics:number;communityData:number;verifiedResults:number;reportedResults:number;timeline:Array<{date:string;label:string;level:number}>};
+export type ImpactMetrics={peopleConnected:number;nodesInstalled:number;localOwners:number;missionsCompleted:number;moneyRaised:number;moneyInvested:number;volunteerHours:number;skillsContributed:number;organizationsInvolved:number;sdgMetrics:number;communityData:number;verifiedResults:number;reportedResults:number;timeline:Array<{date:string;label:string;level:number;internal:boolean}>};
 
 export async function getImpactMetrics(scope:ImpactScope={}):Promise<ImpactMetrics>{
  const client=await createClient(); let cityId:string|undefined;
@@ -33,12 +33,13 @@ export async function getImpactMetrics(scope:ImpactScope={}):Promise<ImpactMetri
   .in('proof_id',proofIds)
   .order('recorded_at',{ascending:false})
   .limit(2000):{data:[]};
- const methodLabels:Record<string,string>={self_report:'Self-report',peer_attestation:'Peer attestation',partner_review:'Partner review',aluna_review:'Aluna administrative review',ground_visit:'Physical site visit'};
+ const methodLabels:Record<string,string>={self_report:'Self-report',peer_attestation:'Peer attestation',partner_review:'Partner review',aluna_review:'Aluna administrative review',aluna_super_admin_override:'Aluna Super Admin internal approval (not independent)',aluna_accredited_l4_review:'Accredited Aluna internal approval (not independent)',ground_visit:'Physical site visit'};
  const timeline=(verificationEvents??[])
   .map(event=>({
    date:event.recorded_at.slice(0,10),
    label:`Verification recorded · ${methodLabels[event.method]??event.method.replaceAll('_',' ')}`,
-   level:event.new_level
+   level:event.new_level,
+   internal:['aluna_super_admin_override','aluna_accredited_l4_review'].includes(event.method)
   }))
   .slice(0,12);
  return {peopleConnected:value('peopleConnected'),nodesInstalled:value('nodesInstalled'),localOwners:value('localOwners'),missionsCompleted:value('missionsCompleted'),moneyRaised:Number(raised??0),moneyInvested:value('moneyInvested'),volunteerHours:value('volunteerHours'),skillsContributed:value('skillsContributed'),organizationsInvolved:value('organizationsInvolved'),sdgMetrics:value('sdgMetrics'),communityData:value('communityData'),verifiedResults:value('verifiedResults')+ps.filter(p=>p.verification_level>=3&& !cons.some(c=>c.id===p.contribution_id&&c.submission_id)).length,reportedResults:cons.length+ps.length,timeline};
