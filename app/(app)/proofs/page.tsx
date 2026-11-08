@@ -53,6 +53,6 @@ export default async function ProofsPage(){
     </div>
    </article>)}</div>
   </Card>}
-  <ProofList/>
+  <ProofList allowCreate/>
  </div>;
 }
