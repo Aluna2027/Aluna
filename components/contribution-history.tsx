@@ -58,7 +58,7 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
   existing.push(item);
   verified.set(item.contribution_id, existing);
  }
- // A record appears only when a result associated with it has passed independent review.
+ // A record appears when a linked result has L3/L4 approval with a confirmed value; internal L4 approvals remain distinct from independent review.
  const entries = rows.filter(row => verified.has(row.id));
  const actors = await actorDetails(actorView ? [] : entries.map(row => row.actor_id));
  const financial = new Map<string, number>();
@@ -82,7 +82,7 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
  return <section id="contribution-history" className="space-y-4" aria-label="Contribution History">
   <div className="flex flex-wrap items-end justify-between gap-2">
    <div><h2 className="text-xl font-bold text-ink">Contribution History</h2>
-    <p className="mt-1 text-sm text-muted">Independently verified contributions (L3/L4). Select a category to inspect the records and contributors.</p></div>
+    <p className="mt-1 text-sm text-muted">Verified contributions (L3/L4), including labelled internal Aluna L4 approvals. Internal approval is not independent verification. Select a category to inspect records and contributors.</p></div>
    <span className="text-sm text-muted">{entries.length} verified records (latest 500 checked)</span>
   </div>
   {error && <p role="alert" className="text-red-300">Unable to load contribution history.</p>}
@@ -114,11 +114,11 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
         {group.key === 'time' && <p className="mt-2 text-sm">Verified hours: {metrics.find(m => m.metric_key === 'volunteer_hours')?.verified_quantity ?? '—'}</p>}
        </article>;
       })}
-      {!items.length && <p className="text-sm text-muted">No independently verified contributions in this category.</p>}
+      {!items.length && <p className="text-sm text-muted">No verified contributions in this category.</p>}
      </div>
     </details>;
    })}
-   {actorView && !entries.length && <p className="text-sm text-muted">No independently verified contributions for this selection yet.</p>}
+   {actorView && !entries.length && <p className="text-sm text-muted">No verified contributions for this selection yet.</p>}
   </div>
   <div className="rounded-xl border border-line bg-panel p-4 text-sm">
    <p className="font-semibold text-ink">Verified financial contributions in displayed records</p>
