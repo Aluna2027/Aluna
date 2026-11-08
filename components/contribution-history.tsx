@@ -83,7 +83,7 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
   <div className="flex flex-wrap items-end justify-between gap-2">
    <div><h2 className="text-xl font-bold text-ink">Contribution History</h2>
     <p className="mt-1 text-sm text-muted">Independently verified contributions (L3/L4). Select a category to inspect the records and contributors.</p></div>
-   <span className="text-sm text-muted">{entries.length} verified records</span>
+   <span className="text-sm text-muted">{entries.length} verified records (latest 500 checked)</span>
   </div>
   {error && <p role="alert" className="text-red-300">Unable to load contribution history.</p>}
   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -121,10 +121,10 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
    {actorView && !entries.length && <p className="text-sm text-muted">No independently verified contributions for this selection yet.</p>}
   </div>
   <div className="rounded-xl border border-line bg-panel p-4 text-sm">
-   <p className="font-semibold text-ink">Verified financial contributions</p>
-   <p className="mt-2">Money Spent (Equipment + Services + Materials + Research): <span className="text-gold">{totals(financial)}</span></p>
-   <p className="mt-1">In-kind Value (separate from spending): <span className="text-gold">{totals(gifts)}</span></p>
-   <p className="mt-2 text-xs text-muted">EUR and USD are never added together without a documented exchange rate. Historical entries without verified monetary results are not inferred as spending.</p>
+   <p className="font-semibold text-ink">Verified financial contributions in displayed records</p>
+   <p className="mt-2">Money Spent in displayed records (Equipment + Services + Materials + Research): <span className="text-gold">{totals(financial)}</span></p>
+   <p className="mt-1">In-kind Value in displayed records (separate from spending): <span className="text-gold">{totals(gifts)}</span></p>
+   <p className="mt-2 text-xs text-muted">EUR and USD are not added together without a documented exchange rate. These are record-level figures from the current history window, not an authoritative all-time project financial balance.</p>
   </div>
  </section>;
 }
