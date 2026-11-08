@@ -1,7 +1,6 @@
-import { Wifi, Earth, MapPin, ShieldAlert, Map as MapIcon, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen, CircleCheck, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Wifi, Earth, MapPin, ShieldAlert, Map as MapIcon, Pencil, Trash2, UsersRound, Network, UserRoundCheck, BookOpen, CircleCheck, TrendingUp } from 'lucide-react';
 import { DetailPageHeader, DetailMetricCard, DetailSectionCard, MobileDetailIdentityCard } from '@/components/detail-design-elements';
-import { ContributionList } from '@/components/contribution-list';
-import { ProofList } from '@/components/proof-list';
+import { ContributionHistory } from '@/components/contribution-history';
 import { ImpactView } from '@/components/impact-view';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -73,6 +72,7 @@ export default async function CommunityPage({params,searchParams}:{params:Promis
  {active==='Impact'&&<section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><Link href={`/communities/${id}?tab=impact#proofs`} className="mt-4 inline-block text-gold">View community proofs →</Link></Card></section>}
  {active==='Impact'&&<section id="contributions"><ContributionList communityId={id} iconColor={iconColors.missions}/></section>}
  {active==='Impact'&&<section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.impact}/>Impact</div><ImpactView scope={{communityId:id}} metricIconColor={iconColors.impact}/></section>}
+ {active==='Impact'&&<ContributionHistory communityId={id}/> }
  {!['Overview','Members','Feed','Missions','Fundraising','Impact'].includes(active)&&<Placeholder title={active} description={`${active} for this mesh community will be added in a later phase.`}/>} 
  </div>;
 }
