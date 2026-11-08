@@ -30,6 +30,8 @@ jobs:
         run: npm ci
       - name: Existing isolated authorization and onboarding regression tests
         run: node --test tests/security/pr33_onboarding_gate.test.cjs tests/security/pr33_referral_visit.test.cjs tests/security/pr33_moderation_compensation.test.cjs tests/security/pr33_domain_verification.test.cjs
+      - name: PR45 L4 approval and impact contract regression tests
+        run: node --test tests/security/pr45_l4_contract.test.cjs
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
