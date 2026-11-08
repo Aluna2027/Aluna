@@ -1,3 +1,4 @@
+import { createdOrEdited } from '@/lib/display-timestamps';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { cities, getCity } from '@/lib/cities';
@@ -33,7 +34,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
  const pageNumber=Math.max(0,Math.min(1000,Number.parseInt(page??'0',10)||0));
  let matchingPlaceIds:string[]=[];let matchingSdgMissionIds:string[]=[];
  if(queryText){const needle=queryText.toLocaleLowerCase('en');const matchingSourceKeys=cities.filter(c=>c.name.toLocaleLowerCase('en').includes(needle)||c.country.toLocaleLowerCase('en').includes(needle)||c.countryCode.toLocaleLowerCase('en').includes(needle)).map(c=>c.id);if(matchingSourceKeys.length){const {data:matchingPlaces}=await client.from('places').select('id').in('source_key',matchingSourceKeys.slice(0,500));matchingPlaceIds=(matchingPlaces??[]).map(item=>item.id);}const sdgMatch=needle.match(/^sdg\s*(\d{1,2})$/)||needle.match(/^(\d{1,2})$/);if(sdgMatch){const sdgNumber=Number(sdgMatch[1]);if(sdgNumber>=1&&sdgNumber<=17){const {data:sdgRows}=await client.from('mission_sdgs').select('mission_id').eq('sdg_number',sdgNumber).limit(500);matchingSdgMissionIds=(sdgRows??[]).map(row=>row.mission_id);}}}
- let query=client.from('missions').select('id,title,goal,location_text,funding_goal_amount,currency_code,city_id,manual_place,manual_country,community_id,created_by_actor_id,places(name,source_key)').is('removed_at',null).order('created_at',{ascending:false}).range(pageNumber*20,pageNumber*20+19);
+ let query=client.from('missions').select('id,title,goal,location_text,funding_goal_amount,currency_code,city_id,manual_place,manual_country,community_id,created_by_actor_id,created_at,updated_at,places(name,source_key)').is('removed_at',null).order('created_at',{ascending:false}).range(pageNumber*20,pageNumber*20+19);
  if(selectedCity){if(!place)return <p className="text-muted">This city is not available in the database yet.</p>;query=query.eq('city_id',place.id);}
  if(community&&/^[0-9a-f-]{36}$/i.test(community))query=query.eq('community_id',community);
 
@@ -98,6 +99,7 @@ export default async function Missions({searchParams}:{searchParams:Promise<{cit
    <p className="mt-5 flex items-center gap-2 text-base text-muted"><MapPin aria-hidden="true" size={18}/>{placeLabel}</p>
    <div className="mt-6 space-y-1">{selected.map((n,i)=><p key={n} className={i===0?'text-base text-gold':'text-base text-muted'}>{sdgLabel(n)}</p>)}</div>
    <div className="mt-7 border-t border-line pt-7"><p className="line-clamp-3 text-base leading-relaxed text-ink">{m.goal}</p></div>
+   <p className="mt-5 text-xs text-muted">{createdOrEdited(m.created_at,m.updated_at)}</p>
    <p className="mt-5 flex items-center gap-3 text-base text-ink"><Wallet aria-hidden="true" className="text-[#26E7D4]" size={21}/>Funding goal: {money(m.funding_goal_amount,m.currency_code)}</p>
   </Link>
   <div className="mt-auto pt-6">
