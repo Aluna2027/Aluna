@@ -7,8 +7,8 @@ export async function POST(request:Request){
  const client=await createClient();
  const {data:{user}}=await client.auth.getUser();
  if(!user)return NextResponse.json({error:'Sign in required'},{status:401});
- const {data:superAdmin,error:authError}=await client.rpc('is_aluna_super_admin');
- if(authError||superAdmin!==true)return NextResponse.json({error:'Only an Aluna Super Admin may approve internally at L4'},{status:403});
+ const {data:authorized,error:authError}=await client.rpc('pr45_can_approve_l4');
+ if(authError||authorized!==true)return NextResponse.json({error:'Aluna L4 verifier authorization required'},{status:403});
  try{
   const body=await request.json();
   const result=String(body.result??''),actor=String(body.actor??''),reason=String(body.reason??'').trim();
