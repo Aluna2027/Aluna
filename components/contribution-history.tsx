@@ -18,7 +18,7 @@ type ContributionRow = {
 };
 type VerifiedResult = {
  contribution_id: string; metric_key: string; verified_quantity: number | null;
- unit: string; verification_level: number;
+ unit: string; verification_level: number; proof_id: string | null;
 };
 function amount(value: number, currency: string) {
  return new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value);
@@ -47,11 +47,27 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
  const rows = (data ?? []) as unknown as ContributionRow[];
  const {data:rawResults} = rows.length
   ? await client.from('pr43_contribution_results')
-    .select('contribution_id,metric_key,verified_quantity,unit,verification_level')
+    .select('contribution_id,metric_key,verified_quantity,unit,verification_level,proof_id')
     .in('contribution_id', rows.map(row => row.id)).gte('verification_level', 3).not('verified_quantity', 'is', null)
     .limit(2000)
   : { data: [] };
  const results = (rawResults ?? []) as VerifiedResult[];
+ const proofIds = [...new Set(results.map(result => result.proof_id).filter((id): id is string => Boolean(id)))];
+ const {data:reviewEvents} = proofIds.length
+  ? await client.from('proof_verification_events')
+    .select('proof_id,method,recorded_at,id')
+    .in('proof_id',proofIds)
+    .order('recorded_at',{ascending:false})
+    .order('id',{ascending:false})
+    .limit(2000)
+  : {data:[]};
+ const latestReviewMethod = new Map<string,string>();
+ for (const event of reviewEvents ?? []) {
+  if (!latestReviewMethod.has(event.proof_id)) latestReviewMethod.set(event.proof_id,event.method);
+ }
+ const isAlunaInternal=(result:VerifiedResult) => result.verification_level===4
+  && result.proof_id!==null
+  && ['aluna_super_admin_override','aluna_accredited_l4_review'].includes(latestReviewMethod.get(result.proof_id)??'');
  const verified = new Map<string, VerifiedResult[]>();
  for (const item of results) {
   const existing = verified.get(item.contribution_id) ?? [];
@@ -107,7 +123,7 @@ export async function ContributionHistory({actorId,missionId,communityId,actorVi
           <p className="mt-1 text-xs text-muted">{row.contributed_on} · {row.missions?.title ?? row.mesh_communities?.name ?? 'Linked project'}</p>
           {!actorView && <p className="mt-1 text-xs">Contributor: {actors.get(row.actor_id)?.name ?? 'Member'}</p>}
          </div>
-         <span className="text-xs text-[#26E7D4]">L{Math.max(...metrics.map(m => m.verification_level))} verified</span>
+         <span className="text-xs text-[#26E7D4]">{metrics.some(isAlunaInternal) ? 'L4 Aluna Internal Approval (not independent)' : `L${Math.max(...metrics.map(m => m.verification_level))} verified`}</span>
         </div>
         {monetary && <p className="mt-2 text-sm">{nature === 'donated_in_kind' ? 'In-kind value' : 'Money Spent'}: {amount(Number(row.details!.amount), row.details!.currency)}
          {nature === 'purchased' && row.details?.funding_source ? ` · ${row.details.funding_source.replaceAll('_',' ')}` : ''}</p>}
