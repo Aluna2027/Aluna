@@ -36,20 +36,20 @@ revoke all on public.pr45_l4_verifier_grants, public.pr45_l4_verifier_grant_even
   from public, anon, authenticated;
 
 create or replace function public.pr45_can_approve_l4()
-returns boolean language sql stable security definer set search_path='' as $
+returns boolean language sql stable security definer set search_path='' as $$
  select auth.uid() is not null
    and (public.is_aluna_super_admin() or exists (
      select 1 from public.pr45_l4_verifier_grants
      where profile_id=auth.uid() and revoked_at is null
    ))
-$;
+$$;
 revoke all on function public.pr45_can_approve_l4() from public,anon,authenticated;
 grant execute on function public.pr45_can_approve_l4() to authenticated;
 
 create or replace function public.pr45_set_l4_verifier(
  p_profile uuid, p_trained_on date, p_reason text, p_revoke boolean default false
 ) returns void
-language plpgsql security definer set search_path='' as $
+language plpgsql security definer set search_path='' as $$
 declare v_reason text := trim(coalesce(p_reason,''));
 begin
  if auth.uid() is null or not public.is_aluna_super_admin() then
@@ -79,7 +79,7 @@ begin
    (profile_id,changed_by_profile_id,action,reason)
  values (p_profile,auth.uid(),case when p_revoke then 'revoked' else 'granted' end,v_reason);
 end;
-$;
+$$;
 revoke all on function public.pr45_set_l4_verifier(uuid,date,text,boolean) from public,anon,authenticated;
 grant execute on function public.pr45_set_l4_verifier(uuid,date,text,boolean) to authenticated;
 
