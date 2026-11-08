@@ -67,6 +67,14 @@ Use the **isolated-preview deployment bound to QA Supabase**, not a freshly gene
 
 This is a manual/mobile browser acceptance list. Static source inspection does not mark any of these PASS.
 
+## 2026-11-08 — QA clone security-advisor disposition (read only)
+
+- The advisor reports `rls_enabled_no_policy` (INFO) for `pr45_l4_verifier_grants` and `pr45_l4_verifier_grant_events`. Both are explicitly protected by RLS, and system-catalog privilege inspection confirms **neither anon nor authenticated has direct SELECT or INSERT**. This is an intentional server-only / privileged-RPC access model, not by itself a database vulnerability.
+- The advisor reports `authenticated_security_definer_function_executable` (WARN) for `pr45_can_approve_l4()`, `pr45_set_l4_verifier(...)` and `pr45_super_admin_approve_result(...)`. These are intentionally callable as authenticated RPCs; the two privileged mutations check `auth.uid()` and Super Admin/trained-verifier authorization inside the database, with actor authorization and reviewer-independence restrictions. `anon` EXECUTE is **false** on all three functions in the isolated clone.
+- The Aluna L4 admin page uses `requireAlunaSuperAdmin()` before `adminDb()` on a **server-only** module. The service-role key is read from `SUPABASE_SERVICE_ROLE_KEY` and is not client-exposed by that module. Its server-action uses the authenticated RPC to perform grants/revocations, rather than direct browser table writes.
+- These findings have been reviewed at the **code / database privilege** level; they are not a penetration test. Preserve the intended access checks on every future RPC edit. The remaining security advisor findings for older unrelated objects require their own separate security backlog evaluation.
+- Shared Demo has **not** received the PR45 migration; this disposition is for the isolated QA clone only.
+
 ## Outstanding release blockers
 
 - Issue #44 ledger mapping/reconciliation or a separately approved and documented one-off migration strategy.
