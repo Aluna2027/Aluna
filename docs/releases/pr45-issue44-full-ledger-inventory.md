@@ -69,6 +69,20 @@ Consequences:
 
 No schema modifications, migration repairs, or production merges were performed during the investigation.
 
+## 2026-11-08 — Further runtime-object audit of the 22 unpaired SQL files
+
+**Method:** read-only PostgreSQL catalog inspection, compared against tracked GitHub migration statements. Object presence indicates a current schema capability, **not** proof that the original complete script was run or that all historical ACLs survived subsequent edits.
+
+- **Confirmed current columns:** `mesh_communities.sdg_number`, `mesh_communities.sdg_title`; `missions.manual_place`, `missions.manual_country`; `posts.media_path`, `posts.media_type`; `direct_messages.media_path`, `direct_messages.media_type`; `profiles.aluna_role`, `profiles.first_name`, `profiles.last_name` (11 columns total).
+- **Confirmed constraints:** `mesh_communities_sdg_number_check` enforces SDG 9, `mesh_communities_sdg_title_check` enforces the SDG 9 title, `missions_location_mode_check`, `missions_manual_place_length_check`, `missions_manual_country_check`, and the first/last name length checks. These were inspected from `pg_constraint`.
+- **Confirmed current RPC signatures:** `create_mission_v2`, `create_mission_v3`, `set_mission_sdgs`, `update_mission_v2`, `campaign_referral_report`, `complete_member_onboarding_v2`, `complete_member_onboarding_v3`, `complete_member_onboarding_v4`. `check_campaign_mission()` is SECURITY INVOKER and lacks anonymous EXECUTE.
+- **Security nuance:** the legacy `complete_member_onboarding_v2` is SECURITY DEFINER and the anon role has EXECUTE, but the inspected body immediately requires `auth.uid() is not null` and updates `profiles` using `where id = auth.uid()`. No direct anonymous privilege escalation is established by this ACL alone. The later v3/v4 functions are not anonymously executable.
+- Existing files whose objects were previously checked include the organization-audit, legacy contribution guard, evidence metadata, and anonymous RPC hardening SQL. Their stored-script one-to-one mapping remains unresolved.
+- **Confirmed truly unapplied** (earlier investigation): `20261022000200_pr33_security_definer_privacy_and_referrals.sql` referral dedup table and hashed-visitor 3-argument RPCs; keep it as a separate release/security issue, not a ledger-only repair.
+- **Intentionally pending PR45:** `202611080001_pr45_super_admin_l4_override.sql`, tested in QA clone only; shared Demo does not have its grants or RPCs.
+
+The above reduces *runtime-object uncertainty* but **does not increase the 42/64 exact or normalized stored-script equivalence total**. Do not relabel the other files as fully applied. A safe historical reconciliation still needs a reliable full-schema baseline, current restoration confidence, and explicit approved ledger/migration steps.
+
 ## GitHub migrations: exact and candidate mappings
 
 | GitHub file | Recorded remote version/name, if exact name match | Candidate remote names (NOT verified) | Status |
