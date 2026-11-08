@@ -46,6 +46,27 @@ This drift specifically blocks automated remote migration pushes. It does not by
 8. Complete desktop/mobile smoke tests and independent CI/repository checks (typecheck/lint/test). If failures occur, halt, diagnose, and use a preapproved recovery plan (such as immediately disabling the new RPC's EXECUTE access); do not use an untested destructive rollback.
 9. Obtain explicit approval before **any** merge, production deploy, or mutation to shared Demo.
 
+## 2026-11-08 — Schema compatibility evidence (read only)
+
+The shared Demo and the isolated PR45 clone were compared directly using PostgreSQL system catalogs.
+
+- Across eight PR45-relevant existing tables (`aluna_super_admins`, `pr43_contribution_results`, `pr43_contribution_reviews`, `proof_verification_events`, `proofs`, `contributions`, `profiles`, `actors`), **87 of 87 column names and types match**.
+- Existing constraints differ only in the comparison of examined objects as follows: `aluna_super_admins_profile_id_fkey` uses ON DELETE CASCADE in shared Demo and RESTRICT in QA clone; three profile length/gender constraints are present only in Demo; and QA clone's `proof_verification_events_method_check` already includes two PR45 L4 methods (as expected).
+- Shared Demo has no PR45 grant tables or RPCs, so the planned `CREATE TABLE`/function declarations do not collide with those names. It does have `is_aluna_super_admin()` and `can_act_as(uuid)`, an existing proof-method constraint, and a review-role constraint that permits `aluna`.
+- These checks show **no obvious prerequisite-schema blocker** for the singular PR45 migration. They are not a substitute for a transactional dry-run against a faithful restore and do not authorize a schema change.
+- The clone does not faithfully match the Demo's other schema objects or all data, so isolated functional acceptance does not establish full database-restore integrity.
+
+### Mobile release acceptance still required
+
+Use the **isolated-preview deployment bound to QA Supabase**, not a freshly generated preview unless its environment is confirmed first. Under a narrow viewport (approximately 375 px) verify:
+1. Contribution History categories expand/collapse and show both labelled internal L4 and ordinary verified records without horizontal page overflow.
+2. Proof review form permits scrolling to all fields, viewing evidence and submitting an authorized internal L4 approval with readable feedback.
+3. Global, Mission and Flying Innovators Profile Impact show correct QA totals and text describing internal/non-independent approval.
+4. Super Admin L4 verifier grant and revoke forms fit on a mobile screen and do not expose actions to an ordinary account.
+5. Verify links and the fixed Aluna mobile header do not cover input controls.
+
+This is a manual/mobile browser acceptance list. Static source inspection does not mark any of these PASS.
+
 ## Outstanding release blockers
 
 - Issue #44 ledger mapping/reconciliation or a separately approved and documented one-off migration strategy.
