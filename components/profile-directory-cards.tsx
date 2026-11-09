@@ -1,3 +1,4 @@
+import { createdOrEdited } from '@/lib/display-timestamps';
 import Link from 'next/link';
 import { CircleCheck, Heart, MapPin, RadioTower, UsersRound, Wallet, Wifi, Target, HandCoins } from 'lucide-react';
 import { iconColors } from '@/lib/icon-colors';
@@ -31,7 +32,7 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
  const {data:memberships,error:membershipError}=await (createdOnly?membershipQuery.eq('member_role','steward').order('joined_at',{ascending:false}).range(page*20,page*20+19):membershipQuery.limit(100));
  const ids=[...new Set((memberships??[]).filter(m=>!createdOnly||m.member_role==='steward').map(m=>m.community_id))];
  const {data:items,error}=ids.length
- ?await client.from('mesh_communities').select('id,name,city_id,location_text,people_connected,nodes,places(name,country_code,source_key)').in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100)
+ ?await client.from('mesh_communities').select('id,name,city_id,location_text,people_connected,nodes,created_at,updated_at,places(name,country_code,source_key)').in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100)
  :{data:[],error:null};
  return <section>
   <SectionHeading title="Wi-Fi Mesh Communities" href="/communities" explore="Explore Communities" icon="wifi"/>
@@ -50,6 +51,7 @@ export async function ProfileCommunityCards({actorId,createdOnly=false,page=0,pa
      <p className="flex items-center gap-3 text-base text-muted">{!createdOnly&&<UsersRound size={19} className="text-[#26E7D4]"/>}People connected: {Number(item.people_connected??0).toLocaleString('en-US')}</p>
      <p className="flex items-center gap-3 text-base text-muted">{!createdOnly&&<RadioTower size={19} className="text-[#A78BFA]"/>}Wi-Fi nodes: {Number(item.nodes??0).toLocaleString('en-US')}</p>
     </div>
+    <p className="mt-5 text-xs text-muted">{createdOrEdited(item.created_at,item.updated_at)}</p>
     <div className="mt-auto pt-7">
      <div className="flex min-h-16 items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck size={19}/>{createdOnly?'Organization community':'Member'}</div>
      <Link href={'/communities/'+item.id} className="mt-4 block text-center text-sm text-muted hover:text-gold">View Community →</Link>
@@ -68,8 +70,8 @@ export async function ProfileMissionCards({actorId='',communityId,createdOnly=fa
   createdOnly?Promise.resolve({data:[]}):client.from('mission_participations').select('mission_id').eq('actor_id',actorId).limit(100)
  ]);
  const ids=[...new Set([...(created??[]).map(m=>m.id),...(joined??[]).map(m=>m.mission_id)])];
- const {data:items,error}=communityId?await client.from('missions').select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,places(name,source_key)').eq('community_id',communityId).is('removed_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):ids.length?await client.from('missions')
-  .select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,places(name,source_key)')
+ const {data:items,error}=communityId?await client.from('missions').select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,created_at,updated_at,places(name,source_key)').eq('community_id',communityId).is('removed_at',null).order('created_at',{ascending:false}).range(page*20,page*20+19):ids.length?await client.from('missions')
+  .select('id,title,goal,location_text,manual_place,manual_country,funding_goal_amount,currency_code,created_by_actor_id,created_at,updated_at,places(name,source_key)')
   .in('id',ids).is('removed_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
  const missionIds=(items??[]).map(m=>m.id);
  const {data:sdgRows}=missionIds.length?await client.from('mission_sdgs').select('mission_id,sdg_number').in('mission_id',missionIds).order('sdg_number'):{data:[]};
@@ -110,6 +112,7 @@ export async function ProfileMissionCards({actorId='',communityId,createdOnly=fa
      <div className="mt-7 border-t border-line pt-7"><p className="line-clamp-3 text-base leading-relaxed text-ink">{m.goal}</p></div>
      <p className="mt-5 flex items-center gap-3 text-base text-ink">{!createdOnly&&<Wallet size={21} className="text-[#26E7D4]"/>}Funding goal: {money(m.funding_goal_amount,m.currency_code)}</p>
     </Link>
+    <p className="mt-5 text-xs text-muted">{createdOrEdited(m.created_at,m.updated_at)}</p>
     <div className="mt-auto pt-6">
      {owned&&<p className="mb-2 text-sm font-semibold text-gold">Created by you</p>}
      <MissionParticipationControl missionId={m.id} actors={myActors} participations={(myParticipations??[]).filter(p=>p.mission_id===m.id)}/>
@@ -135,12 +138,12 @@ export async function ProfileFundraisingCards({actorId='',communityId,createdOnl
  const ids=[...new Set([...(created??[]).map(c=>c.id),...(fundraisers??[]).map(f=>f.campaign_id)])];
  const {data:items,error}=communityId
   ?await client.from('fundraising_campaigns')
-   .select('id,title,mission_id,actor_id,goal_amount,currency_code,missions!inner(title,manual_place,manual_country,places(name,source_key))')
+   .select('id,title,mission_id,actor_id,goal_amount,currency_code,created_at,updated_at,missions!inner(title,manual_place,manual_country,places(name,source_key))')
    .eq('missions.community_id',communityId).is('missions.removed_at',null)
    .is('removed_at',null).is('archived_at',null)
    .order('created_at',{ascending:false}).range(page*20,page*20+19)
   :ids.length?await client.from('fundraising_campaigns')
-   .select('id,title,mission_id,actor_id,goal_amount,currency_code,missions(title,manual_place,manual_country,places(name,source_key))')
+   .select('id,title,mission_id,actor_id,goal_amount,currency_code,created_at,updated_at,missions(title,manual_place,manual_country,places(name,source_key))')
    .in('id',ids).is('removed_at',null).is('archived_at',null).order('created_at',{ascending:false}).limit(100):{data:[],error:null};
  const communityActorIds=new Set((communityId?await ownedActors():[]).map(a=>a.id));
   const missionIds=[...new Set((items??[]).map(c=>c.mission_id))];
@@ -188,6 +191,7 @@ export async function ProfileFundraisingCards({actorId='',communityId,createdOnl
      <div role="progressbar" aria-label="Campaign funding progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} className="mt-3 h-3 overflow-hidden rounded-full bg-[#2A3040]"><div className="h-full rounded-full bg-[#26E7D4]" style={{width:pct+'%'}}/></div>
      <div className="mt-3 flex justify-between gap-2 text-sm text-muted"><span>{pct}% funded</span><span>{total.count} donors</span></div>
     </div>
+    <p className="mt-5 text-xs text-muted">{createdOrEdited(c.created_at,c.updated_at)}</p>
     <div className="mt-auto pt-9">
      <Link href={'/fundraising/campaigns/'+c.id} className="flex min-h-[63px] w-full items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy hover:bg-gold-soft"><Heart size={21}/>Donate</Link>
      <div className="mt-5 flex items-center justify-between gap-3">
