@@ -117,8 +117,7 @@ begin
   if not public.is_aluna_super_admin() and (
     public.can_act_as(v_contribution.actor_id)
     or exists (select 1 from public.pr43_contribution_reviews x
-      where x.result_id=p_result and x.reviewer_profile_id=auth.uid()
-        and x.revoked_at is null)
+      where x.result_id=p_result and x.reviewer_profile_id=auth.uid())
   ) then
     raise exception 'Delegated Aluna verifier cannot approve own or previously reviewed result';
   end if;
