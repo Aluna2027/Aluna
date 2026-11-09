@@ -19,7 +19,7 @@ test('PR45 privileged RPCs require authenticated identity and authorization', ()
   assert.match(sql, /if auth\.uid\(\) is null or not public\.pr45_can_approve_l4\(\) then/i);
   assert.match(sql, /p_actor is null or not public\.can_act_as\(p_actor\)/i);
   assert.match(sql, /if not public\.is_aluna_super_admin\(\) and \([\s\S]*public\.can_act_as\(v_contribution\.actor_id\)[\s\S]*reviewer_profile_id=auth\.uid\(\)/i);
-  const priorReviewGuard = sql.match(/exists \(select 1 from public\\.pr43_contribution_reviews x([\\s\\S]*?)\\)/i);
+  const priorReviewGuard = sql.match(/exists \(select 1 from public\.pr43_contribution_reviews x([\s\S]*?)\)/i);
   assert.ok(priorReviewGuard, 'Missing delegated prior-review guard');
   assert.doesNotMatch(priorReviewGuard[1], /revoked_at/i, 'A revoked prior review must still prevent delegated L4 approval');
 });
