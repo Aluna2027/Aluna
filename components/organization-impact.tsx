@@ -1,20 +1,38 @@
 import Link from 'next/link';
-import { ShieldCheck, TrendingUp } from 'lucide-react';
-import { ContributionList } from '@/components/contribution-list';
-import { ProofList } from '@/components/proof-list';
+import { TrendingUp } from 'lucide-react';
 import { ImpactView } from '@/components/impact-view';
+import { ContributionHistory } from '@/components/contribution-history';
 import { createClient } from '@/lib/supabase/server';
-import { Card } from '@/components/ui';
 import { iconColors } from '@/lib/icon-colors';
 
-export async function OrganizationImpact({actorId,subject='organization'}:{actorId:string;subject?:'organization'|'profile'}){
+export async function OrganizationImpact({actorId,subject='organization',project,basePath}:{
+ actorId:string;subject?:'organization'|'profile';project?:string;basePath?:string;
+}){
  const client=await createClient();
- const {data:verified}=await client.from('proofs').select('verification_level').eq('actor_id',actorId).limit(500);
- const levels=verified??[];
- return <section className="space-y-5">
-  <section id="proofs"><ProofList actorId={actorId} iconColor={iconColors.proofs}/></section>
-  <section id="verification"><Card title={<span className="flex items-center gap-3"><ShieldCheck size={24} color={iconColors.verification}/>Verification</span>}><p>Proof reviews show the reviewer, method, reason and complete level history on each proof.</p><p className="mt-3 text-sm text-muted">{levels.filter(r=>r.verification_level>=3).length} verified (L3/L4) · {levels.filter(r=>r.verification_level<3).length} reported (L1/L2). Verification is not implied by an uploaded proof.</p><Link href="#proofs" className="mt-4 inline-block text-gold">View {subject} proofs →</Link></Card></section>
-  <section id="contributions"><ContributionList actorId={actorId} iconColor={iconColors.missions}/></section>
-  <section id="impact"><div className="mb-4 flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.impact}/>Impact</div><ImpactView scope={{actorId}} metricIconColor={iconColors.impact}/></section>
+ const {data:contributions}=await client.from('contributions')
+  .select('mission_id,community_id,missions(title),mesh_communities(name)')
+  .eq('actor_id',actorId).limit(1000);
+ const projects = new Map<string,string>();
+ for(const c of contributions??[]){
+  if(c.mission_id)projects.set('mission:'+c.mission_id,(c.missions as unknown as {title:string}|null)?.title ?? 'SDG Mission');
+  else if(c.community_id)projects.set('community:'+c.community_id,(c.mesh_communities as unknown as {name:string}|null)?.name ?? 'Wi-Fi Mesh Community');
+ }
+ const selected=project&&projects.has(project)?project:undefined;
+ const [kind,id]=selected?.split(':')??[];
+ const scope={actorId,...(kind==='mission'?{missionId:id}:kind==='community'?{communityId:id}:{})};
+ const base=basePath??(subject==='profile'?'/profile':'/organizations');
+ return <section className="space-y-5" id="impact">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+   <h2 className="flex items-center gap-3 text-lg font-semibold text-ink"><TrendingUp size={24} color={iconColors.impact}/>Impact</h2>
+   <details className="relative">
+    <summary className="cursor-pointer rounded-xl border border-line bg-panel px-4 py-2 text-sm text-gold">{selected?projects.get(selected):'All projects'} ▾</summary>
+    <div className="absolute right-0 z-20 mt-1 max-h-72 w-72 overflow-y-auto rounded-xl border border-line bg-panel p-2 shadow-xl">
+     <Link className="block rounded-lg px-3 py-2 text-sm text-gold hover:bg-panel-raised" href={base+'?tab=impact'}>All projects</Link>
+     {[...projects].sort((a,b)=>a[1].localeCompare(b[1])).map(([key,name])=><Link key={key} className="block rounded-lg px-3 py-2 text-sm text-ink hover:bg-panel-raised" href={base+'?tab=impact&project='+encodeURIComponent(key)}>{name}</Link>)}
+    </div>
+   </details>
+  </div>
+  <ImpactView scope={scope} metricIconColor={iconColors.impact}/>
+  <ContributionHistory actorId={actorId} missionId={kind==='mission'?id:undefined} communityId={kind==='community'?id:undefined} actorView/>
  </section>;
 }

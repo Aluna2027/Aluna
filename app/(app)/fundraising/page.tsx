@@ -1,3 +1,4 @@
+import { createdOrEdited } from '@/lib/display-timestamps';
 import Link from 'next/link';
 import { Search, Heart, MapPin } from 'lucide-react';
 import { DirectorySdgIcon } from '@/components/directory-sdg-icon';
@@ -72,7 +73,7 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
  }
 
  let query=client.from('fundraising_campaigns')
-  .select('id,title,story,goal_amount,currency_code,mission_id,actor_id,missions(title,manual_place,manual_country,places(name,source_key))')
+  .select('id,title,story,goal_amount,currency_code,mission_id,actor_id,created_at,updated_at,missions(title,manual_place,manual_country,places(name,source_key))')
   .is('removed_at',null).is('archived_at',null)
   .order('created_at',{ascending:false}).range(offset*20,offset*20+19);
  if(view==='campaigns')query=actorIds.length?query.in('actor_id',actorIds):query.eq('id','00000000-0000-0000-0000-000000000000');
@@ -173,6 +174,7 @@ export default async function Fundraising({searchParams}:{searchParams:Promise<{
       <div className="mt-3 flex justify-between gap-2 text-sm text-muted"><span>{pct}% funded</span><span>{total.count} donors</span></div>
      </div>
      {view==='fundraisers'&&relatedFundraisers.length>0&&<div className="mt-4 space-y-3 border-t border-line pt-3">{relatedFundraisers.map(f=>{const personal=byFundraiser.get(f.id);return <div key={f.id} className="rounded-xl border border-line p-3"><Link href={`/fundraising/${f.slug}`} className="mb-2 block text-sm font-semibold text-gold hover:underline">Your fundraiser: {f.title} →</Link><Progress amount={Number(personal?.amount_raised??0)} count={Number(personal?.donor_count??0)} goal={Number(f.goal_amount)} currency={c.currency_code}/></div>})}</div>}
+     <p className="mt-5 text-xs text-muted">{createdOrEdited(c.created_at,c.updated_at)}</p>
      <div className="mt-auto pt-9">
       <Link href={`/fundraising/campaigns/${c.id}`} className="flex min-h-[63px] w-full items-center justify-center gap-3 rounded-xl bg-gold px-4 text-lg font-semibold text-navy hover:bg-gold-soft"><Heart aria-hidden="true" size={21}/>Donate</Link>
       <div className="mt-5 flex items-center justify-between gap-3">

@@ -12,7 +12,7 @@ import { SocialProfileTabs } from '@/components/social-profile-tabs';
 import { type PublicProfile, tabSlug, userTabs } from '@/lib/profiles';
 import { CheckCircle2, MessageCircle, UsersRound } from 'lucide-react';
 
-export async function UserProfile({profile,tab,isOwner=false,actorId,base,error}:{profile:PublicProfile;tab?:string;isOwner?:boolean;actorId?:string;base?:string;error?:string}) {
+export async function UserProfile({profile,tab,isOwner=false,actorId,base,error,project}:{profile:PublicProfile;tab?:string;isOwner?:boolean;actorId?:string;base?:string;error?:string;project?:string}) {
  const availableTabs=isOwner?userTabs:userTabs.filter(t=>t!=='Donations');
  const requestedTab=tab==='contributions'||tab==='proofs'?'impact':tab;
  const active=availableTabs.find(t=>tabSlug(t)===requestedTab)??'About';
@@ -44,7 +44,7 @@ export async function UserProfile({profile,tab,isOwner=false,actorId,base,error}
   </>:active==='Wi-Fi Mesh Communities'&&actorId?<ActorCommunities actorId={actorId}/>
   :active==='Missions'&&actorId?<ActorMissions actorId={actorId}/>
   :active==='Fundraising'&&actorId?<ActorFundraising actorId={actorId}/>
-  :active==='Impact'&&actorId?<OrganizationImpact actorId={actorId} subject="profile"/>
+  :active==='Impact'&&actorId?<OrganizationImpact actorId={actorId} subject="profile" project={project} basePath={href}/>
   :active==='Donations'&&isOwner?<Card title="Your donations"><p className="mb-4">Your payments and receipts are private.</p><Link href="/donations" className="text-gold">View my donations →</Link></Card>
   :actorId&&['Posts','Connections','Followers','Following'].includes(active)?<>
    {isOwner&&active==='Posts'&&composerActors.length>0&&<PostComposer actors={composerActors} returnTo={href+'?tab=posts'}/>}

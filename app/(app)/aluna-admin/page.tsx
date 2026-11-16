@@ -46,6 +46,7 @@ export default async function AlunaAdmin({searchParams}:{searchParams:Promise<{s
     <div className="grid gap-4 sm:grid-cols-2">
       <Card title="Verified Domains"><p className="mb-3 text-sm text-muted">Inspect official organization domains. Website verification and domain approval remain separate.</p><Link href="/aluna-admin/verified-domains" className="text-gold">Open Verified Domains →</Link></Card>
       <Card title="Audit Log"><p className="mb-3 text-sm text-muted">Search recent organization-management and access events.</p><Link href="/aluna-admin/audit" className="text-gold">Open Audit Log →</Link></Card>
+      <Card title="L4 Verifier Management"><p className="mb-3 text-sm text-muted">Accredit trained Aluna L4 verifiers and revoke their authority with an audit trail.</p><Link href="/aluna-admin/l4-verifiers" className="text-gold">Manage L4 Verifiers →</Link></Card>
     </div>
     <Card title="Organization Access"><p className="mb-3 text-sm text-muted">Review exceptional organization claims, issue representative invitations, and inspect access audit records.</p><Link href="/aluna-admin/organization-access" className="inline-block rounded-lg border border-gold px-4 py-2 text-gold">Open Organization Access →</Link></Card>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

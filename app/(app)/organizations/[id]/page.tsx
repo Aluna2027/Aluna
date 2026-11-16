@@ -18,8 +18,8 @@ import { ArchiveOrganizationConfirmation } from '@/components/archive-organizati
 import { claimOrganization, verifyClaimDns } from '../access/actions';
 import { adminDb } from '@/lib/org-access';
 
-export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string;manage?:string;page?:string}>}) {
- const {id}=await params;const {tab,status,error,manage,page}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+export default async function OrganizationPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;status?:string;error?:string;manage?:string;page?:string;project?:string}>}) {
+ const {id}=await params;const {tab,status,error,manage,page,project}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  const {data:org}=await client.from('organizations').select('id,name,organization_type,country,description,is_verified,logo_url,location_text,website,wba_total_score,wba_human_rights_score,wba_decent_work_score,wba_acting_ethically_score,management_type').eq('id',id).is('removed_at',null).maybeSingle();if(!org)notFound();
  const organization=org as Organization;const tabs=organizationTabs[organization.organization_type];if(!tabs)notFound();
  const legacyAliases:Record<string,string>={about:'profile',people:'members','wi-fi-mesh-communities':'wi-fi-mesh',contributions:'impact',proofs:'impact',research:'profile',projects:'missions',funding:'fundraising',sponsorship:'connections',partnerships:'connections'};
@@ -73,7 +73,7 @@ export default async function OrganizationPage({params,searchParams}:{params:Pro
  :active==='Posts'&&actor?<OrganizationPosts actorId={actor.id} name={organization.name} kind={organization.organization_type} isAdmin={isAdmin} organizationId={id}/>
  :active==='Connections'&&actor?<div className="space-y-5"><ActorSocial actorId={actor.id} section="Connections" organizationView/>{organization.organization_type==='company'&&<OrganizationRelationshipCards organizationId={id} isAdmin={isAdmin} managing={isManaging}/>}</div>
  :active==='Following'&&actor?<ActorSocial actorId={actor.id} section="Following" organizationView/>
- :active==='Impact'&&actor?<OrganizationImpact actorId={actor.id}/>
+ :active==='Impact'&&actor?<OrganizationImpact actorId={actor.id} project={project} basePath={`/organizations/${id}`}/>
  :<Placeholder title={active} description={`${active} for ${organization.name} will appear here in a later phase.`}/>}
 
  </div>;

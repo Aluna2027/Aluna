@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { UserProfile } from '@/components/user-profile';
 import { isMissingPublicProfilesView, type PublicProfile } from '@/lib/profiles';
 
-export default async function Person({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;error?:string}>}) {
- const {id}=await params;const {tab,error}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+export default async function Person({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{tab?:string;error?:string;project?:string}>}) {
+ const {id}=await params;const {tab,error,project}=await searchParams;const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
  let profileResult=await client.from('public_profiles').select('id,display_name,first_name,last_name,bio,avatar_url,location_text,website,skills,interests,aluna_role').eq('id',id).maybeSingle();
  if(profileResult.error&&isMissingPublicProfilesView(profileResult.error.message)){
   profileResult=await client.from('profiles').select('id,display_name,first_name,last_name,bio,avatar_url,location_text,website,skills,interests,aluna_role').eq('id',id).maybeSingle();
@@ -12,5 +12,5 @@ export default async function Person({params,searchParams}:{params:Promise<{id:s
  if(profileResult.error)throw new Error('Unable to load profile');
  const profile=profileResult.data;if(!profile)notFound();
  const {data:actor}=await client.from('actors').select('id').eq('profile_id',id).maybeSingle();
- return <UserProfile profile={profile as PublicProfile} tab={tab} actorId={actor?.id} isOwner={user.id===id} base={`/people/${id}`} error={error}/>;
+ return <UserProfile profile={profile as PublicProfile} tab={tab} actorId={actor?.id} isOwner={user.id===id} base={`/people/${id}`} error={error} project={project}/>;
 }

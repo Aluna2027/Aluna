@@ -1,3 +1,4 @@
+import { createdOrEdited } from '@/lib/display-timestamps';
 import Link from 'next/link';
 import { Search, Wifi, MapPin, UsersRound, RadioTower, UserRoundPlus, CircleCheck, Ellipsis } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -21,7 +22,7 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
  const pageNumber=Math.max(0,Math.min(1000,Number.parseInt(page??'0',10)||0));
  let matchingPlaceIds:string[]=[];
  if(queryText){const needle=queryText.toLocaleLowerCase('en');const matchingSourceKeys=cities.filter(c=>c.name.toLocaleLowerCase('en').includes(needle)||c.country.toLocaleLowerCase('en').includes(needle)||c.countryCode.toLocaleLowerCase('en').includes(needle)).map(c=>c.id);if(matchingSourceKeys.length){const {data:matchingPlaces}=await client.from('places').select('id').in('source_key',matchingSourceKeys.slice(0,500));matchingPlaceIds=(matchingPlaces??[]).map(item=>item.id);}}
- let query=client.from('mesh_communities').select('id,city_id,name,location_text,description,population,people_connected,nodes,local_owners,is_verified,created_at,places(name,country_code,source_key)').is('removed_at',null).order('created_at',{ascending:false}).range(pageNumber*20,pageNumber*20+19);
+ let query=client.from('mesh_communities').select('id,city_id,name,location_text,description,population,people_connected,nodes,local_owners,is_verified,created_at,updated_at,places(name,country_code,source_key)').is('removed_at',null).order('created_at',{ascending:false}).range(pageNumber*20,pageNumber*20+19);
  if(selectedCity){if(!place)return <p className="text-muted">This city is not available in the database yet.</p>;query=query.eq('city_id',place.id);}
  if(view!=='all')query=memberCommunityIds.length?query.in('id',memberCommunityIds):query.eq('id','00000000-0000-0000-0000-000000000000');
  if(queryText){const safe=queryText.replace(/[%_,()]/g,' ').replace(/\s+/g,' ').trim();const filters=[safe?`name.ilike.%${safe}%`:null,safe?`location_text.ilike.%${safe}%`:null,matchingPlaceIds.length?`city_id.in.(${matchingPlaceIds.join(',')})`:null].filter(Boolean).join(',');if(filters)query=query.or(filters);else query=query.eq('id','00000000-0000-0000-0000-000000000000');}
@@ -86,6 +87,7 @@ export default async function Communities({searchParams}:{searchParams:Promise<{
        <p className="flex items-center gap-3 text-base text-muted"><RadioTower aria-hidden="true" size={19} className="shrink-0 text-[#A78BFA]"/><span>Wi-Fi nodes: {metric(item.nodes)}</span></p>
       </div>
      </div>
+     <p className="mt-5 text-xs text-muted">{createdOrEdited(item.created_at,item.updated_at)}</p>
      <div className="mt-auto pt-7">
       {joined&&<div role="status" className="flex min-h-16 w-full items-center justify-center gap-3 rounded-xl border border-[#26E7D4] bg-[#17312F] px-4 text-lg font-semibold text-[#26E7D4]"><CircleCheck aria-hidden="true" size={19}/>{managedIds.has(item.id)?'Managed · Joined':'Joined'}</div>}
       {joined&&!isManager&&leaveable.length>0&&<div className="mt-3 space-y-2">{leaveable.map(member=><form key={member.actor_id} action={leaveCommunityFromDirectory} className="text-center"><input type="hidden" name="community_id" value={item.id}/><input type="hidden" name="actor_id" value={member.actor_id}/><ConfirmSubmitButton message="Are you sure you want to leave this Wi-Fi Mesh Community?" className="text-sm text-muted underline underline-offset-4 hover:text-ink">Leave Community{leaveable.length>1?` · ${actors.find(actor=>actor.id===member.actor_id)?.name??'Account'}`:''}</ConfirmSubmitButton></form>)}</div>}
