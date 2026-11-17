@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeHashtagKey } from '@/lib/post-text';
 import { actorDetails, attachPostMedia, attachVoteCounts, ownedActors, type FeedPost } from '@/lib/social';
 import { FeedList } from '@/components/feed-list';
 
@@ -14,8 +15,8 @@ export default async function HashtagPage({
   searchParams: Promise<{ before?: string; before_id?: string }>;
 }) {
   const [{ tag: supplied }, cursor] = await Promise.all([params, searchParams]);
-  const tag = supplied.normalize('NFKC').toLowerCase();
-  if (!/^[\p{L}\p{N}_]{1,64}$/u.test(tag)) notFound();
+  const tag = normalizeHashtagKey(supplied);
+  if (!tag) notFound();
 
   const client = await createClient();
   const { data: { user } } = await client.auth.getUser();

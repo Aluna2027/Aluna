@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractHashtags, activeMentionQuery, isMentionDisplayAt } from '../../lib/post-text.ts';
+import { extractHashtags, activeMentionQuery, isMentionDisplayAt, normalizeHashtagKey } from '../../lib/post-text.ts';
+
+test('hashtag search accepts combining marks introduced by Unicode lowercasing', () => {
+  const [tag] = extractHashtags('#İstanbul');
+  assert.equal(tag.key, 'i\u0307stanbul');
+  assert.equal(normalizeHashtagKey(tag.key), tag.key);
+  assert.equal(normalizeHashtagKey('İstanbul'), tag.key);
+  assert.equal(normalizeHashtagKey('ＳＤＧ９'), 'sdg9');
+  for (const invalid of ['two words', '<script>', 'tag,or(private)', '\u0307', 'a'.repeat(65)]) {
+    assert.equal(normalizeHashtagKey(invalid), null);
+  }
+});
 
 test('hashtags normalize case and preserve every occurrence', () => {
   const hashtags = extractHashtags('#SDG9 supports #sdg9 and #DigitalInclusion');

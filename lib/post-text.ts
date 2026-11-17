@@ -9,14 +9,20 @@ export type MentionQuery = { start: number; end: number; query: string };
 const word = /[\p{L}\p{N}_]/u;
 const hashtagPattern = /(^|[^\p{L}\p{N}_])#([\p{L}\p{N}_]+)/gu;
 
+/** Lowercasing may introduce combining marks, e.g. Turkish capital dotted I. */
+export function normalizeHashtagKey(input: string): string | null {
+  const key = input.normalize('NFKC').toLowerCase();
+  return /^[\p{L}\p{N}_][\p{L}\p{N}\p{M}_]{0,63}$/u.test(key) ? key : null;
+}
+
 export function extractHashtags(body: string): Hashtag[] {
   const results: Hashtag[] = [];
   for (const match of body.matchAll(hashtagPattern)) {
     const prefix = match[1] ?? '';
     const label = match[2] ?? '';
     const start = (match.index ?? 0) + prefix.length;
-    const key = label.normalize('NFKC').toLowerCase();
-    if (!key || Array.from(key).length > 64) continue;
+    const key = normalizeHashtagKey(label);
+    if (!key) continue;
     results.push({ label, key, start, end: start + 1 + label.length });
   }
   return results;
