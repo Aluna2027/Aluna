@@ -14,16 +14,29 @@ export default async function HashtagPage({ params }: { params: Promise<{ tag: s
   const { data: { user } } = await client.auth.getUser();
   if (!user) notFound();
 
-  // RLS remains the source of truth. Matching the parsed tag again prevents
-  // #SDG9 accidentally matching #SDG90 or appearing inside a larger word.
-  // A bounded search is used until the approved indexed PR47 migration lands.
-  const { data: matches, error } = await client.from('posts')
-    .select('id,actor_id,body,visibility,repost_of_id,created_at,media_path,media_type')
-    .ilike('body', '%#' + tag.replace(/[%_\\]/g, '') + '%')
-    .order('created_at', { ascending: false })
-    .limit(100);
-  const selected = (matches ?? []).filter(post => extractHashtags(post.body)
-    .some(item => item.key === tag)).slice(0, 20);
+  // Indexed post_hashtags respects each post's read permission via RLS.
+  // Preview fallback remains available until the reviewed migration is applied.
+  const { data: references, error: indexError } = await client.from('post_hashtags')
+    .select('post_id,created_at').eq('tag', tag)
+    .order('created_at', { ascending: false }).limit(50);
+  const ids = (references ?? []).map(row => row.post_id);
+  const indexed = !indexError;
+  const { data: matches, error } = indexed
+    ? ids.length
+      ? await client.from('posts')
+          .select('id,actor_id,body,visibility,repost_of_id,created_at,media_path,media_type')
+          .in('id', ids)
+      : { data: [], error: null }
+    : await client.from('posts')
+        .select('id,actor_id,body,visibility,repost_of_id,created_at,media_path,media_type')
+        .ilike('body', '%#' + tag.replace(/[%_\\]/g, '') + '%')
+        .order('created_at', { ascending: false }).limit(100);
+  const rows = (matches ?? []).filter(post => extractHashtags(post.body)
+    .some(item => item.key === tag));
+  const byId = new Map(rows.map(row => [row.id,row]));
+  const selected = indexed
+    ? ids.flatMap(id => byId.has(id) ? [byId.get(id)!] : []).slice(0,20)
+    : rows.slice(0,20);
   const authors = await actorDetails(selected.map(post => post.actor_id));
   const feed = selected.map(post => ({
     ...post,
