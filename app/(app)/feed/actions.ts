@@ -14,7 +14,7 @@ function ext(file:File){return file.name.split('.').pop()?.toLowerCase().replace
 export async function createPost(form:FormData) {
  const client=await current(),returnTo=destination(form);const body=bodyText(form,'body',5000);if(!body)redirect(withError(returnTo,'post'));
  const actor_id=String(form.get('actor_id')??'');const visibility=form.get('visibility')==='followers'?'followers':'public';
- const mentionRefs=toDatabaseMentions(body,String(form.get('mentions')??''));
+ const mentionRefs=toDatabaseMentions(String(form.get('body')??''),String(form.get('mentions')??''),true);
  const repost_of_id=String(form.get('repost_of_id')??'')||null;
  const community_id=String(form.get('community_id')??'')||null;
  const mission_id=String(form.get('mission_id')??'')||null;
