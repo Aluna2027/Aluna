@@ -42,12 +42,18 @@ export function readMentionDrafts(body: string, raw: string | null): PostMention
  * Postgres text offsets count Unicode code points, whereas textarea selection
  * offsets count UTF-16 code units. Convert only after sanitizing user input.
  */
-export function toDatabaseMentions(body: string, raw: string | null): {
+export function toDatabaseMentions(body: string, raw: string | null, trimBody = false): {
   actorId: string; start: number; label: string;
 }[] {
-  return readMentionDrafts(body, raw).map(mention => ({
-    actorId: mention.actorId,
-    start: Array.from(body.slice(0, mention.start)).length,
-    label: mention.label,
-  }));
+  const trimmed = trimBody ? body.trim() : body;
+  const leading = trimBody ? body.length - body.trimStart().length : 0;
+  return readMentionDrafts(body, raw).flatMap(mention => {
+    const start = mention.start - leading;
+    if (!isMentionDisplayAt(trimmed, start, mention.label)) return [];
+    return [{
+      actorId: mention.actorId,
+      start: Array.from(trimmed.slice(0, start)).length,
+      label: mention.label,
+    }];
+  });
 }
