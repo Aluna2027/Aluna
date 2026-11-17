@@ -4,13 +4,15 @@ import {CalendarDays, Clock3, X} from 'lucide-react';
 import {createClient} from '@/lib/supabase/client';
 import {allowedDocuments} from '@/components/composer-tools';
 import type {Actor} from '@/lib/social';
+import type {SelectedMention} from '@/components/mention-textarea';
+import {toDatabaseMentions} from '@/lib/post-annotations';
 
 type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null};
-type Props={actors:Actor[];actorId:string;body:string;file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
+type Props={actors:Actor[];actorId:string;body:string;mentions:SelectedMention[];file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
 const pad=(n:number)=>String(n).padStart(2,'0');
 function localValues(when:Date){return {day:when.getFullYear()+'-'+pad(when.getMonth()+1)+'-'+pad(when.getDate()),time:pad(when.getHours())+':'+pad(when.getMinutes())};}
 function futureDate(day:string,time:string){const date=new Date(day+'T'+time+':00');return Number.isFinite(date.getTime())&&date.getTime()>Date.now()+30000&&date.getTime()<Date.now()+365*86400000?date:null;}
-export function PostScheduler({actors,actorId,body,file,visibility,communityId,missionId,onSuccess}:Props){
+export function PostScheduler({actors,actorId,body,mentions,file,visibility,communityId,missionId,onSuccess}:Props){
  const initial=localValues(new Date(Date.now()+3600000));
  const [panel,setPanel]=useState<'none'|'schedule'|'list'>('none');
  const [day,setDay]=useState(initial.day),[time,setTime]=useState(initial.time);
@@ -30,7 +32,7 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
   setWorking(true);let id:string|null=null;
   try{
    const client=createClient();const {data:{user}}=await client.auth.getUser();if(!user)throw Error('Please log in.');
-   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility:communityId||missionId?'public':visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString()}).select('id').single();
+   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility:communityId||missionId?'public':visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body.trim(),JSON.stringify(mentions))}:{})}).select('id').single();
    if(error||!data)throw Error('Could not create scheduled post.');id=data.id;
    if(file){
     const type=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'document';
