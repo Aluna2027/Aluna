@@ -52,8 +52,10 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
   function update(next: string, position: number) {
     // Keep selections only if their literal text still exists at the updated
     // location. Changes within or before a mention invalidate stale offsets.
-    const priorStart = [...value].findIndex((char, i) => char !== next[i]);
-    const common = priorStart < 0 ? Math.min(value.length, next.length) : priorStart;
+    // Textarea offsets use UTF-16 code units; spreading into code points would
+    // corrupt selection positions when a post contains emoji before @.
+    let common = 0;
+    while (common < value.length && common < next.length && value[common] === next[common]) common++;
     let suffix = 0;
     while (suffix < value.length - common && suffix < next.length - common &&
       value[value.length - 1 - suffix] === next[next.length - 1 - suffix]) suffix++;
