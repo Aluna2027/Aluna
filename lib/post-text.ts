@@ -33,7 +33,7 @@ export function activeMentionQuery(body: string, cursor: number): MentionQuery |
   if (at < 0 || (at > 0 && word.test(before[at - 1]))) return null;
   const query = before.slice(at + 1);
   if (query.length > 64 || /[\r\n@]/u.test(query)) return null;
-  if (query.startsWith(' ') || query.endsWith('  ')) return null;
+  if (query.startsWith(' ') || query.endsWith('  ') || query.endsWith(' ')) return null;
   return { start: at, end: cursor, query };
 }
 
