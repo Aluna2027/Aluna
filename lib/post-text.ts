@@ -7,7 +7,7 @@ export type Hashtag = { label: string; key: string; start: number; end: number }
 export type MentionQuery = { start: number; end: number; query: string };
 
 const word = /[\p{L}\p{N}_]/u;
-const hashtagPattern = /(^|[^\p{L}\p{N}_])#([\p{L}\p{N}_]+)/gu;
+const hashtagPattern = /(^|[^\p{L}\p{N}\p{M}_])#([\p{L}\p{N}_][\p{L}\p{N}\p{M}_]*)/gu;
 
 /** Lowercasing may introduce combining marks, e.g. Turkish capital dotted I. */
 export function normalizeHashtagKey(input: string): string | null {
