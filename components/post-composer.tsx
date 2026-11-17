@@ -106,7 +106,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
      setSubmitting(false);
      return;
    }
-   const mentionRefs=toDatabaseMentions(body,JSON.stringify(mentions));
+   const mentionRefs=toDatabaseMentions(String(data.get('body')??''),JSON.stringify(mentions),true);
    const {error:postError}=await client.from('posts').insert({
      id:postId,actor_id:actorId,body,
      visibility:communityId||missionId?'public':visibility,
