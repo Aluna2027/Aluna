@@ -24,7 +24,9 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
   const composing = useRef(false);
   const active = activeMentionQuery(value, cursor);
   const query = active?.query.trim() ?? '';
-  const show = active !== null && query.length > 0 && !composing.current;
+  const completed = active !== null && selections.some(item =>
+    item.start === active.start && cursor >= item.start + item.label.length + 1);
+  const show = active !== null && query.length > 0 && !completed && !composing.current;
 
   useEffect(() => {
     if (!show) return;
