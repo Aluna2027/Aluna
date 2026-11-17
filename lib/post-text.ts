@@ -11,14 +11,12 @@ const hashtagPattern = /(^|[^\p{L}\p{N}_])#([\p{L}\p{N}_]+)/gu;
 
 export function extractHashtags(body: string): Hashtag[] {
   const results: Hashtag[] = [];
-  const seen = new Set<string>();
   for (const match of body.matchAll(hashtagPattern)) {
     const prefix = match[1] ?? '';
     const label = match[2] ?? '';
     const start = (match.index ?? 0) + prefix.length;
     const key = label.normalize('NFKC').toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
+    if (!key) continue;
     results.push({ label, key, start, end: start + 1 + label.length });
   }
   return results;
