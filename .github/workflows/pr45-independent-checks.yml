@@ -1,8 +1,9 @@
-name: PR45 independent checks
+name: PR45 and PR47 independent checks
 on:
   push:
     branches:
       - feature/impact-history-financial-contributions-20261108
+      - feature/pr47-mentions-hashtags-20261117
   pull_request:
     branches:
       - main
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   verify:
-    if: github.event_name != 'pull_request' || github.head_ref == 'feature/impact-history-financial-contributions-20261108'
+    if: github.event_name != 'pull_request' || github.head_ref == 'feature/impact-history-financial-contributions-20261108' || github.head_ref == 'feature/pr47-mentions-hashtags-20261117'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -32,6 +33,9 @@ jobs:
         run: node --test tests/security/pr33_onboarding_gate.test.cjs tests/security/pr33_referral_visit.test.cjs tests/security/pr33_moderation_compensation.test.cjs tests/security/pr33_domain_verification.test.cjs
       - name: PR45 L4 approval and impact contract regression tests
         run: node --test tests/security/pr45_l4_contract.test.cjs
+      - name: PR47 annotation and migration contract regression tests
+        if: github.ref_name == 'feature/pr47-mentions-hashtags-20261117' || github.head_ref == 'feature/pr47-mentions-hashtags-20261117'
+        run: node --experimental-strip-types --test tests/pr47/*.test.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
