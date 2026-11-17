@@ -46,3 +46,11 @@ test('rejects non-array and oversized mention payloads safely', () => {
   assert.deepEqual(readMentionDrafts('@Zoë', JSON.stringify({ actorId: user })), []);
   assert.deepEqual(readMentionDrafts('@Zoë', 'x'.repeat(16001)), []);
 });
+
+test('scheduled JSON survives load and save with stable actor and original name', () => {
+  const body = '🌍 @Zoë Organization';
+  const refs = [{actorId:user,start:2,label:'Zoë Organization'}];
+  assert.deepEqual(toDatabaseMentions(body, JSON.stringify(fromDatabaseMentions(body, refs))), refs);
+  assert.deepEqual(fromDatabaseMentions(body, null), []);
+  assert.deepEqual(fromDatabaseMentions(body, []), []);
+});

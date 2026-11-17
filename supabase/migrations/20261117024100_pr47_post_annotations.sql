@@ -234,7 +234,7 @@ create trigger pr47_cleanup_post_mentions
 
 -- Keep the existing scheduler's locking, ownership, status and retry rules.
 -- Only the validated annotation payload is added to the publish transition.
-drop function public.edit_scheduled_post(uuid, text, timestamptz, text);
+-- Retain the original signature for existing PostgREST callers.
 create function public.edit_scheduled_post(
   p_id uuid, p_body text, p_scheduled_for timestamptz, p_visibility text,
   p_mention_refs jsonb
@@ -257,6 +257,23 @@ begin
   return true;
 end
 $fn$;
+
+-- Legacy callers preserve references when the text is unchanged.
+-- Changed text clears references rather than retaining stale offsets.
+create or replace function public.edit_scheduled_post(
+  p_id uuid, p_body text, p_scheduled_for timestamptz, p_visibility text
+) returns boolean
+language plpgsql security definer set search_path = '' as $fn$
+declare v_row public.scheduled_posts%rowtype;
+begin
+  select * into v_row from public.scheduled_posts where id = p_id for update;
+  if not found or not public.can_act_as(v_row.actor_id) then raise exception 'Not permitted'; end if;
+  return public.edit_scheduled_post(p_id, p_body, p_scheduled_for, p_visibility,
+    case when trim(p_body) = v_row.body then v_row.mention_refs else '[]'::jsonb end);
+end
+$fn$;
+revoke all on function public.edit_scheduled_post(uuid, text, timestamptz, text) from public, anon, authenticated;
+grant execute on function public.edit_scheduled_post(uuid, text, timestamptz, text) to authenticated;
 
 create or replace function public.publish_due_scheduled_posts(p_limit integer default 25)
 returns integer

@@ -70,7 +70,10 @@ export function fromDatabaseMentions(body: string, input: unknown): PostMention[
   const mentions: PostMention[] = [];
   for (const candidate of input) {
     if (!candidate || typeof candidate !== 'object') continue;
-    const { actor_id, start_offset, label } = candidate as Record<string, unknown>;
+    const row = candidate as Record<string, unknown>;
+    const actor_id = row.actorId ?? row.actor_id;
+    const start_offset = row.start ?? row.start_offset;
+    const { label } = row;
     if (typeof actor_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actor_id)
       || typeof start_offset !== 'number' || !Number.isInteger(start_offset)
       || start_offset < 0 || start_offset >= points.length
