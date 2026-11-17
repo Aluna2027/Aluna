@@ -3,6 +3,7 @@
 import { FormEvent, useRef, useState } from 'react';
 import { ComposerTools, allowedDocuments } from '@/components/composer-tools';
 import { MentionTextarea, type SelectedMention } from '@/components/mention-textarea';
+import { toDatabaseMentions } from '@/lib/post-annotations';
 import { PostScheduler } from '@/components/post-scheduler';
 import { useRouter } from 'next/navigation';
 import { createPost } from '@/app/(app)/feed/actions';
@@ -95,53 +96,29 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
      return;
    }
 
-   if(!body){
-     // Do not expose a placeholder post in the feed before its file is uploaded.
-     const postId=crypto.randomUUID();
-     const path=`${user.id}/${postId}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
-     const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
-     if(storageError){
-       setUploadError('Could not upload the attachment. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-     const {error:postError}=await client.from('posts').insert({
-       id:postId,actor_id:actorId,body:'',
-       visibility:communityId||missionId?'public':visibility,
-       repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
-       media_path:path,media_type:mediaType,
-     });
-     if(postError){
-       setUploadError('Could not create the post. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-   }else{
-     // Preserve existing text + attachment behavior.
-     const {data:post,error:postError}=await client.from('posts').insert({
-       actor_id:actorId,body,visibility:communityId||missionId?'public':visibility,
-       repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
-     }).select('id').single();
-     if(postError||!post){
-       setUploadError('Could not create the post. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-     const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
-     const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
-     if(storageError){
-       await client.from('posts').delete().eq('id',post.id);
-       setUploadError('Could not upload the attachment. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-     const {error:updateError}=await client.from('posts').update({media_path:path,media_type:mediaType}).eq('id',post.id);
-     if(updateError){
-       await client.from('posts').delete().eq('id',post.id);
-       setUploadError('Could not attach the file to the post.');
-       setSubmitting(false);
-       return;
-     }
+   // Stage the attachment before publishing. The post (and therefore any
+   // mention notification) is only created once the upload has succeeded.
+   const postId=crypto.randomUUID();
+   const path=`${user.id}/${postId}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
+   const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
+   if(storageError){
+     setUploadError('Could not upload the attachment. Please try again.');
+     setSubmitting(false);
+     return;
+   }
+   const mentionRefs=toDatabaseMentions(body,JSON.stringify(mentions));
+   const {error:postError}=await client.from('posts').insert({
+     id:postId,actor_id:actorId,body,
+     visibility:communityId||missionId?'public':visibility,
+     repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
+     media_path:path,media_type:mediaType,
+     ...(mentionRefs.length?{mention_refs:mentionRefs}:{}),
+   });
+   if(postError){
+     await client.storage.from('post-media').remove([path]);
+     setUploadError('Could not create the post. Please try again.');
+     setSubmitting(false);
+     return;
    }
 
    form.reset();setFile(null);setBody('');setMentions([]);
