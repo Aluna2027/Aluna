@@ -32,7 +32,7 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
   setWorking(true);let id:string|null=null;
   try{
    const client=createClient();const {data:{user}}=await client.auth.getUser();if(!user)throw Error('Please log in.');
-   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility:communityId||missionId?'public':visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body.trim(),JSON.stringify(mentions))}:{})}).select('id').single();
+   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility:communityId||missionId?'public':visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body,JSON.stringify(mentions),true)}:{})}).select('id').single();
    if(error||!data)throw Error('Could not create scheduled post.');id=data.id;
    if(file){
     const type=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'document';
