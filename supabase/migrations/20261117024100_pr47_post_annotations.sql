@@ -98,7 +98,10 @@ begin
     if tg_op = 'UPDATE' then
       select exists (
         select 1 from jsonb_array_elements(old.mention_refs) prior
-         where prior = item
+         -- Text edits may shift an already validated reference after a rename.
+         -- Actor and historical label remain stable; new positions were checked above.
+         where prior->>'actorId' = item->>'actorId'
+           and prior->>'label' = item->>'label'
       ) into was_existing;
     elsif tg_op = 'INSERT' then
       select exists (

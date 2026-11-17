@@ -68,7 +68,7 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
   setWorking(true);
   const client=createClient();const mentionRefs=toDatabaseMentions(draft,JSON.stringify(draftMentions),true);
   let r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility,p_mention_refs:mentionRefs});
-  if(r.error&&!mentionRefs.length)r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility});
+  if(r.error?.code==='PGRST202'&&!mentionRefs.length)r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility});
   setWorking(false);
   if(r.error){setError('Could not edit. This post may have published.');return;}
   setEditing(null);await load();

@@ -54,3 +54,12 @@ test('scheduled JSON survives load and save with stable actor and original name'
   assert.deepEqual(fromDatabaseMentions(body, null), []);
   assert.deepEqual(fromDatabaseMentions(body, []), []);
 });
+
+test('editing text before an old-name mention preserves its stable actor and Unicode offset', () => {
+  const body = '🌍 News: @Zoë Organization';
+  const stored = [{actorId:user,start:Array.from('🌍 News: ').length,label:'Zoë Organization'}];
+  const loaded = fromDatabaseMentions(body,stored);
+  assert.equal(loaded[0].actorId,user);
+  assert.equal(loaded[0].start,body.indexOf('@'));
+  assert.deepEqual(toDatabaseMentions(body,JSON.stringify(loaded),true),stored);
+});
