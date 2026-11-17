@@ -28,7 +28,7 @@ test('mention query supports full names and only a suitable @ boundary', () => {
     start: 7, end: body.length, query: 'Frank Hakkenbroek',
   });
   assert.equal(activeMentionQuery('hello@example.org', 17), null);
-  assert.equal(activeMentionQuery('Thanks @Frank ', 14), null);
+  assert.deepEqual(activeMentionQuery('Thanks @Frank ', 14), { start: 7, end: 14, query: 'Frank ' });
 });
 
 test('mention selection offsets remain in UTF-16 for emoji prefixes', () => {
