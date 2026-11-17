@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { toDatabaseMentions } from '@/lib/post-annotations';
 
 function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;if(/^\/(?:profile|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})(?:\?tab=(?:about|posts|connections|followers|following))?$/i.test(path))return path;return /^\/(feed|following|posts\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
 function withError(path:string,error:string){return `${path}${path.includes('?')?'&':'?'}error=${error}`;}
@@ -13,6 +14,7 @@ function ext(file:File){return file.name.split('.').pop()?.toLowerCase().replace
 export async function createPost(form:FormData) {
  const client=await current(),returnTo=destination(form);const body=bodyText(form,'body',5000);if(!body)redirect(withError(returnTo,'post'));
  const actor_id=String(form.get('actor_id')??'');const visibility=form.get('visibility')==='followers'?'followers':'public';
+ const mentionRefs=toDatabaseMentions(body,String(form.get('mentions')??''));
  const repost_of_id=String(form.get('repost_of_id')??'')||null;
  const community_id=String(form.get('community_id')??'')||null;
  const mission_id=String(form.get('mission_id')??'')||null;
@@ -20,7 +22,7 @@ export async function createPost(form:FormData) {
  const media_type=media?(imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':documentTypes.has(media.type)?'document':null):null;
  if(media&&(!media_type||media.size>50*1024*1024))redirect(withError(returnTo,'media'));
  if(media&&media_type==='image'&&returnTo==='/feed')redirect(withError(returnTo,'media'));
- const {data:post,error}=await client.from('posts').insert({actor_id,body,visibility:community_id||mission_id?'public':visibility,repost_of_id,community_id,mission_id}).select('id').single();if(error||!post)redirect(withError(returnTo,'post'));
+ const {data:post,error}=await client.from('posts').insert({actor_id,body,visibility:community_id||mission_id?'public':visibility,repost_of_id,community_id,mission_id,...(mentionRefs.length?{mention_refs:mentionRefs}:{})}).select('id').single();if(error||!post)redirect(withError(returnTo,'post'));
  if(media&&media_type){
    const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
    const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${media.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
