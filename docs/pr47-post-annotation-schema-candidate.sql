@@ -1,0 +1,71 @@
+-- PR47 DESIGN CANDIDATE ONLY. NOT A MIGRATION. DO NOT RUN ON SHARED DEMO.
+-- Move into a CLI-generated, uniquely versioned supabase/migrations file ONLY
+-- after code/security review, an isolated rollback rehearsal and approval.
+--
+-- Important prerequisite: the notifications.kind check currently allows only
+-- follow/connection/comment/reaction/message/membership. Adding mention requires
+-- a new check definition with all six historical values plus mention.
+--
+-- Proposed additive schema:
+--
+-- ALTER TABLE public.posts
+--   ADD COLUMN mention_refs jsonb NOT NULL DEFAULT '[]'::jsonb;
+-- ALTER TABLE public.scheduled_posts
+--   ADD COLUMN mention_refs jsonb NOT NULL DEFAULT '[]'::jsonb;
+--
+-- CREATE TABLE public.post_mentions (
+--   post_id uuid NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+--   actor_id uuid NOT NULL REFERENCES public.actors(id) ON DELETE CASCADE,
+--   start_offset integer NOT NULL CHECK (start_offset >= 0),
+--   label text NOT NULL,
+--   PRIMARY KEY (post_id, start_offset)
+-- );
+--
+-- CREATE TABLE public.post_hashtags (
+--   post_id uuid NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+--   tag text NOT NULL,
+--   created_at timestamptz NOT NULL,
+--   PRIMARY KEY (post_id, tag)
+-- );
+-- CREATE INDEX ON public.post_hashtags (tag, created_at DESC, post_id);
+--
+-- Both new tables MUST have RLS enabled, no client INSERT/UPDATE/DELETE grants,
+-- and a SELECT policy restricting rows to EXISTS(SELECT 1 FROM public.posts
+-- WHERE posts.id = post_id), thus inheriting the actual posts SELECT policy.
+-- Add explicit authenticated-only SELECT grants only after policy validation.
+--
+-- Proposed validation/synchronization trigger design:
+-- 1. BEFORE INSERT/UPDATE of body/mention_refs on posts and scheduled_posts:
+--    - reject nonarray refs and > 30 mentions
+--    - validate UUIDs, positions, nonoverlap, current Actor existence,
+--      and matching selected name (profiles.display_name / organizations.name)
+--    - require literal @label at code-point position in body, with a word boundary
+--    - preserve already-validated references when an account is renamed
+--    - keep scheduled post edits consistent with mention_refs
+-- 2. AFTER INSERT/UPDATE on posts:
+--    - replace the post_mentions rows for that post with validated refs
+--    - replace post_hashtags using a Unicode-aware, case-insensitive parser
+--    - send one notification per newly mentioned actor, never for self-mentions
+--      or when the recipient cannot view the actual published post
+--    - do not notify during draft scheduling; only at actual post publication
+--    - ensure edit retries cannot emit duplicate notifications
+-- 3. Scheduled publication must copy scheduled_posts.mention_refs to posts;
+--    preserve the existing retry/permission checks of
+--    public.publish_due_scheduled_posts exactly.
+--
+-- Material implementation concerns requiring security review:
+-- * SECURITY DEFINER triggers and helper functions must have explicit
+--   search_path, ownership, and REVOKE EXECUTE FROM PUBLIC/anon/authenticated.
+-- * Distinguish recipients of a follower-only post from an unentitled actor.
+-- * Organization actor notification must remain readable by current active
+--   admins via the existing notifications recipient_actor_id policy.
+-- * Bulk lookup tables cannot reveal post associations invisible to viewer.
+-- * SQL regex Unicode word semantics must match TypeScript hashtags; if not,
+--   use a validated submitted tag list instead of silently diverging.
+-- * No notification for an attachment that failed to publish.
+-- * No unsolicited data updates/backfill of historical posts.
+--
+-- RELEASE GATE: Verify target project zujkasvuxrleisbsnrxv, exact new GitHub
+-- migration filename/version equals Supabase ledger version and applied schema.
+-- The full historical native CLI alignment remains unverified, and must not
+-- be represented as PASS. No db push, migration repair or replay of old files.
