@@ -98,7 +98,6 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
       ref={textareaRef} name="body" value={value}
       rows={rows} placeholder={placeholder} required={required} maxLength={5000}
       aria-autocomplete="list" aria-controls={show ? listId : undefined}
-      aria-expanded={show && results.length > 0}
       aria-activedescendant={show && results[index] ? listId + '-' + index : undefined}
       className="w-full resize-y border-0 bg-transparent p-2 text-ink"
       onCompositionStart={() => { composing.current = true; }}

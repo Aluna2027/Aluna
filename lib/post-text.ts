@@ -16,7 +16,7 @@ export function extractHashtags(body: string): Hashtag[] {
     const label = match[2] ?? '';
     const start = (match.index ?? 0) + prefix.length;
     const key = label.normalize('NFKC').toLowerCase();
-    if (!key) continue;
+    if (!key || Array.from(key).length > 64) continue;
     results.push({ label, key, start, end: start + 1 + label.length });
   }
   return results;

@@ -1,4 +1,4 @@
-import { isMentionDisplayAt } from '@/lib/post-text';
+import { isMentionDisplayAt } from './post-text.ts';
 
 export type PostMention = {
   actorId: string;
@@ -24,9 +24,14 @@ export function sanitizeMentionDrafts(body: string, input: unknown): PostMention
     valid.push({ actorId, start, label });
   }
   valid.sort((a, b) => a.start - b.start);
-  return valid.filter((item, index) =>
-    index === 0 || item.start >= valid[index - 1].start + valid[index - 1].label.length + 1
-  );
+  const result: PostMention[] = [];
+  let end = -1;
+  for (const item of valid) {
+    if (item.start < end) continue;
+    result.push(item);
+    end = item.start + item.label.length + 1;
+  }
+  return result;
 }
 
 export function readMentionDrafts(body: string, raw: string | null): PostMention[] {
@@ -56,4 +61,23 @@ export function toDatabaseMentions(body: string, raw: string | null, trimBody = 
       label: mention.label,
     }];
   });
+}
+
+/** Convert persisted PostgreSQL code-point offsets back to textarea UTF-16 offsets. */
+export function fromDatabaseMentions(body: string, input: unknown): PostMention[] {
+  if (!Array.isArray(input) || input.length > 30) return [];
+  const points = Array.from(body);
+  const mentions: PostMention[] = [];
+  for (const candidate of input) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const { actor_id, start_offset, label } = candidate as Record<string, unknown>;
+    if (typeof actor_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actor_id)
+      || typeof start_offset !== 'number' || !Number.isInteger(start_offset)
+      || start_offset < 0 || start_offset >= points.length
+      || typeof label !== 'string' || !label.trim() || label.length > 150) continue;
+    const start = points.slice(0, start_offset).join('').length;
+    if (!isMentionDisplayAt(body, start, label)) continue;
+    mentions.push({ actorId: actor_id, start, label });
+  }
+  return sanitizeMentionDrafts(body, mentions);
 }

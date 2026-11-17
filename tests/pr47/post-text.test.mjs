@@ -22,6 +22,10 @@ test('hashtags avoid matching inside words', () => {
   ]);
 });
 
+test('hashtag keys longer than the indexed limit stay plain text', () => {
+  assert.deepEqual(extractHashtags('#' + 'a'.repeat(65)), []);
+});
+
 test('mention query supports full names and only a suitable @ boundary', () => {
   const body = 'Thanks @Frank Hakkenbroek';
   assert.deepEqual(activeMentionQuery(body, body.length), {

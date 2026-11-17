@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
 
   const [people, organizations] = await Promise.all([
     client.from('public_profiles').select('id,display_name,avatar_url')
-      .ilike('display_name', `%${query}%`).limit(8),
+      .ilike('display_name', `${query}%`).order('display_name', { ascending: true }).limit(8),
     client.from('organizations').select('id,name,logo_url')
-      .is('removed_at', null).ilike('name', `%${query}%`).limit(8),
+      .is('removed_at', null).ilike('name', `${query}%`).order('name', { ascending: true }).limit(8),
   ]);
   if (people.error || organizations.error) {
     return NextResponse.json({ results: [] }, { status: 503 });
@@ -55,10 +55,6 @@ export async function GET(request: NextRequest) {
         href: `/organizations/${item.id}`,
         avatar: item.logo_url,
       })),
-  ].sort((a, b) => {
-    const aPrefix = a.name.toLocaleLowerCase().startsWith(query.toLocaleLowerCase()) ? 0 : 1;
-    const bPrefix = b.name.toLocaleLowerCase().startsWith(query.toLocaleLowerCase()) ? 0 : 1;
-    return aPrefix - bPrefix || a.name.localeCompare(b.name);
-  }).slice(0, 5);
+  ].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5);
   return NextResponse.json({ results }, { headers: { 'Cache-Control': 'no-store' } });
 }
