@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { isMissingPublicProfilesView } from '@/lib/profiles';
+import type { RenderedMention } from '@/components/post-body';
 export type Actor = {id:string;name:string;kind:string;href:string};
-export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|'document'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number;actor_votes?:Record<string,1|-1>};
+export type FeedPost = {id:string;actor_id:string;body:string;visibility:string;repost_of_id:string|null;created_at:string;author_name:string;author_kind:string;reaction_count:number;comment_count:number;media_path?:string|null;media_type?:'image'|'video'|'document'|null;media_url?:string|null;upvote_count?:number;downvote_count?:number;score?:number;actor_votes?:Record<string,1|-1>;mentions?:RenderedMention[]};
 
 export async function ownedActors() {
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return [] as Actor[];
@@ -50,11 +51,31 @@ export async function attachVoteCounts(posts:FeedPost[],actors:Actor[]=[]) {
 }
 
 export async function attachPostMedia(posts:FeedPost[]) {
+ if(!posts.length)return posts;
+ const client=await createClient();
  const paths=[...new Set(posts.map(p=>p.media_path).filter((p):p is string=>!!p))];
- if(!paths.length)return posts;
- const client=await createClient();const {data}=await client.storage.from('post-media').createSignedUrls(paths,3600);
- const urls=new Map((data??[]).filter(item=>item.signedUrl).map(item=>[item.path,item.signedUrl]));
- return posts.map(post=>({...post,media_url:post.media_path?urls.get(post.media_path)??null:null}));
+ const ids=posts.map(p=>p.id);
+ const [signed,mentionResult]=await Promise.all([
+  paths.length?client.storage.from('post-media').createSignedUrls(paths,3600):Promise.resolve({data:[]}),
+  client.from('post_mentions').select('post_id,actor_id,start_offset,label').in('post_id',ids),
+ ]);
+ const urls=new Map((signed.data??[]).filter(item=>item.signedUrl).map(item=>[item.path,item.signedUrl]));
+ // Pre-migration preview compatibility: no annotations if post_mentions
+ // does not yet exist, without weakening post visibility checks.
+ const rows=mentionResult.error?[]:mentionResult.data??[];
+ const details=await actorDetails([...new Set(rows.map(row=>row.actor_id))]);
+ const byPost=new Map<string,RenderedMention[]>();
+ for(const row of rows){
+  const actor=details.get(row.actor_id);
+  if(!actor)continue;
+  const list=byPost.get(row.post_id)??[];
+  list.push({actorId:row.actor_id,start:row.start_offset,label:row.label,href:actor.href});
+  byPost.set(row.post_id,list);
+ }
+ return posts.map(post=>({...post,
+  media_url:post.media_path?urls.get(post.media_path)??null:null,
+  mentions:byPost.get(post.id)??[],
+ }));
 }
 
 export function relativeDate(value:string) {return new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));}
