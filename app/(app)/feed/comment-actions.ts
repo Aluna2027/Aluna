@@ -1,5 +1,7 @@
 'use server';
 import { createClient } from '@/lib/supabase/server';
+import { attachCommentMentions } from '@/lib/comments';
+import { toDatabaseMentions } from '@/lib/post-annotations';
 import { actorDetails } from '@/lib/social';
 
 export async function commentPage(postId:string,after?:{created_at:string;id:string}){
@@ -10,13 +12,14 @@ export async function commentPage(postId:string,after?:{created_at:string;id:str
  const {data,error}=await query;
  if(error)throw new Error('Could not load comments');
  const authors=await actorDetails((data??[]).map(c=>c.actor_id));
- return (data??[]).map(c=>({...c,author:authors.get(c.actor_id)??null}));
+ return attachCommentMentions((data??[]).map(c=>({...c,author:authors.get(c.actor_id)??null})));
 }
-export async function createCommentInline(postId:string,actorId:string,body:string){
+export async function createCommentInline(postId:string,actorId:string,body:string,mentionsRaw:string='[]'){
  const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return {ok:false as const};
  const text=body.trim();if(!text||text.length>2000)return {ok:false as const};
- const {data,error}=await client.from('comments').insert({post_id:postId,actor_id:actorId,body:text}).select('id,actor_id,body,created_at').single();
+ const refs=toDatabaseMentions(body,mentionsRaw,true);
+ const {data,error}=await client.from('comments').insert({post_id:postId,actor_id:actorId,body:text,...(refs.length?{mention_refs:refs}:{})}).select('id,actor_id,body,created_at').single();
  if(error||!data)return {ok:false as const};
- const authors=await actorDetails([data.actor_id]);return {ok:true as const,comment:{...data,author:authors.get(data.actor_id)??null}};
+ const authors=await actorDetails([data.actor_id]);const [comment]=await attachCommentMentions([{...data,author:authors.get(data.actor_id)??null}]);return {ok:true as const,comment};
 }
 export async function deleteCommentInline(id:string){const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return false;const {data,error}=await client.from('comments').delete().eq('id',id).select('id');return !error&&!!data?.length;}

@@ -13,15 +13,23 @@ type Props = {
   rows?: number;
   placeholder?: string;
   required?: boolean;
+  maxLength?: number;
+  disabled?: boolean;
 };
 
-export function MentionTextarea({ value, onChange, selections, textareaRef, rows = 4, placeholder, required }: Props) {
+export function MentionTextarea({ value, onChange, selections, textareaRef, rows = 4, placeholder, required, maxLength=5000, disabled=false }: Props) {
   const listId = useId();
   const [cursor, setCursor] = useState(0);
   const [results, setResults] = useState<Candidate[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const composing = useRef(false);
+  const listRef=useRef<HTMLDivElement>(null);
+  const requestRef=useRef<AbortController|null>(null);
+  const nextRef=useRef<string|null>(null);
+  const busyRef=useRef(false);
+  const [hasMore,setHasMore]=useState(false);
+  const [pageError,setPageError]=useState(false);
   const active = activeMentionQuery(value, cursor);
   const query = active?.query.trim() ?? '';
   const completed = active !== null && selections.some(item =>
@@ -30,7 +38,9 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
 
   useEffect(() => {
     if (!show) return;
-    const controller = new AbortController();
+    requestRef.current?.abort();
+    nextRef.current=null;setHasMore(false);setResults([]);setIndex(0);setPageError(false);
+    const controller = new AbortController();requestRef.current=controller;busyRef.current=true;
     const delay = setTimeout(async () => {
       setLoading(true);
       try {
@@ -39,18 +49,26 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
           credentials: 'same-origin',
         });
         if (!response.ok) { setResults([]); return; }
-        const payload: { results?: Candidate[] } = await response.json();
-        setResults((payload.results ?? []).slice(0, 5));
+        const payload: { results?: Candidate[];nextCursor?:string|null } = await response.json();
+        setResults(payload.results ?? []);nextRef.current=payload.nextCursor??null;setHasMore(!!payload.nextCursor);
         setIndex(0);
       } catch {
         if (!controller.signal.aborted) setResults([]);
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted){setLoading(false);busyRef.current=false;}
       }
     }, 200);
-    return () => { controller.abort(); clearTimeout(delay); };
+    return () => { controller.abort();requestRef.current?.abort();busyRef.current=false; clearTimeout(delay); };
   }, [query, show]);
 
+  useEffect(()=>{listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest'});},[index]);
+  async function loadMore(){
+    const cursor=nextRef.current;if(!cursor||busyRef.current)return;
+    busyRef.current=true;setLoading(true);setPageError(false);
+    const controller=new AbortController();requestRef.current=controller;
+    try{const response=await fetch('/api/mentions?q='+encodeURIComponent(query)+'&cursor='+encodeURIComponent(cursor),{signal:controller.signal,credentials:'same-origin'});if(!response.ok)throw new Error();const payload=await response.json() as {results:Candidate[];nextCursor:string|null};if(controller.signal.aborted)return;setResults(old=>[...old,...payload.results.filter(row=>!old.some(item=>item.id===row.id))]);nextRef.current=payload.nextCursor;setHasMore(!!payload.nextCursor);}catch{if(!controller.signal.aborted)setPageError(true);}finally{if(!controller.signal.aborted){busyRef.current=false;setLoading(false);}}
+  }
+  useEffect(()=>()=>{requestRef.current?.abort();},[]);
   function update(next: string, position: number) {
     // Keep selections only if their literal text still exists at the updated
     // location. Changes within or before a mention invalidate stale offsets.
@@ -96,7 +114,7 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
   return <div className="relative">
     <textarea
       ref={textareaRef} name="body" value={value}
-      rows={rows} placeholder={placeholder} required={required} maxLength={5000}
+      rows={rows} placeholder={placeholder} required={required} maxLength={maxLength} disabled={disabled}
       aria-autocomplete="list" aria-controls={show ? listId : undefined}
       aria-activedescendant={show && results[index] ? listId + '-' + index : undefined}
       className="w-full resize-y border-0 bg-transparent p-2 text-ink"
@@ -110,15 +128,15 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
       }}
       onKeyDown={event => {
         if (!show || !results.length) return;
-        if (event.key === 'ArrowDown') { event.preventDefault(); setIndex(i => (i + 1) % results.length); }
+        if (event.key === 'ArrowDown') { event.preventDefault(); if(index===results.length-1&&hasMore){void loadMore();}else setIndex(i => (i + 1) % results.length); }
         if (event.key === 'ArrowUp') { event.preventDefault(); setIndex(i => (i - 1 + results.length) % results.length); }
         if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); select(results[index]); }
         if (event.key === 'Escape') { event.preventDefault(); setResults([]); setCursor(-1); }
       }}
     />
-    {show && (loading || results.length > 0) && <div
-      id={listId} role="listbox" aria-label="Mention a person or organization"
-      className="absolute left-0 right-0 top-full z-40 max-h-64 overflow-y-auto rounded-xl border border-line bg-panel p-2 shadow-xl"
+    {show && (loading || hasMore || results.length > 0) && <div
+      ref={listRef} onScroll={event=>{const el=event.currentTarget;if(el.scrollHeight-el.scrollTop-el.clientHeight<48)void loadMore();}} id={listId} role="listbox" aria-label="Mention a person or organization"
+      className="absolute left-0 right-0 top-full z-40 max-h-64 overflow-y-auto overscroll-contain touch-pan-y rounded-xl border border-line bg-panel p-2 shadow-xl"
     >
       {loading && !results.length && <p className="p-2 text-sm text-muted">Searching…</p>}
       {results.map((item, i) => <button
@@ -133,6 +151,7 @@ export function MentionTextarea({ value, onChange, selections, textareaRef, rows
         <span className="min-w-0"><span className="block truncate text-ink">{item.name}</span>
           <span className="text-xs text-muted">{item.kind === 'user' ? 'Person' : 'Organization'}</span></span>
       </button>)}
+      {hasMore&&<button type="button" disabled={loading} onMouseDown={event=>event.preventDefault()} onClick={()=>{void loadMore();}} className="w-full p-2 text-sm text-gold">{loading?'Loading…':pageError?'Retry loading profiles':'Load more profiles'}</button>}
     </div>}
   </div>;
 }

@@ -13,11 +13,16 @@ export async function GET(request: NextRequest) {
   const query = input.replace(/[%_\\]/g, '').slice(0, 64);
   if (query.length < 1) return NextResponse.json({ results: [] });
 
+  let cursor: {people?:string;organizations?:string;peopleDone?:boolean;organizationsDone?:boolean}={};
+  try {const raw=request.nextUrl.searchParams.get('cursor');if(raw){cursor=JSON.parse(Buffer.from(raw,'base64url').toString());if(!cursor||typeof cursor!=='object'||[cursor.people,cursor.organizations].some(id=>id!==undefined&&!/^[0-9a-f-]{36}$/i.test(id)))throw new Error();}}catch{return NextResponse.json({results:[]},{status:400});}
+  const pageSize=12;
+  let personQuery=client.from('public_profiles').select('id,display_name,avatar_url').ilike('display_name', `${query}%`).order('id').limit(pageSize);
+  let orgQuery=client.from('organizations').select('id,name,logo_url').is('removed_at',null).ilike('name',`${query}%`).order('id').limit(pageSize);
+  if(cursor.people)personQuery=personQuery.gt('id',cursor.people);
+  if(cursor.organizations)orgQuery=orgQuery.gt('id',cursor.organizations);
   const [people, organizations] = await Promise.all([
-    client.from('public_profiles').select('id,display_name,avatar_url')
-      .ilike('display_name', `${query}%`).order('display_name', { ascending: true }).limit(8),
-    client.from('organizations').select('id,name,logo_url')
-      .is('removed_at', null).ilike('name', `${query}%`).order('name', { ascending: true }).limit(8),
+    cursor.peopleDone?Promise.resolve({data:[],error:null}):personQuery,
+    cursor.organizationsDone?Promise.resolve({data:[],error:null}):orgQuery,
   ]);
   if (people.error || organizations.error) {
     return NextResponse.json({ results: [] }, { status: 503 });
@@ -55,6 +60,8 @@ export async function GET(request: NextRequest) {
         href: `/organizations/${item.id}`,
         avatar: item.logo_url,
       })),
-  ].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5);
-  return NextResponse.json({ results }, { headers: { 'Cache-Control': 'no-store' } });
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const next={people:people.data?.at(-1)?.id??cursor.people,organizations:organizations.data?.at(-1)?.id??cursor.organizations,peopleDone:!!cursor.peopleDone||(people.data?.length??0)<pageSize,organizationsDone:!!cursor.organizationsDone||(organizations.data?.length??0)<pageSize};
+  const nextCursor=next.peopleDone&&next.organizationsDone?null:Buffer.from(JSON.stringify(next)).toString('base64url');
+  return NextResponse.json({ results, nextCursor }, { headers: { 'Cache-Control': 'no-store' } });
 }
