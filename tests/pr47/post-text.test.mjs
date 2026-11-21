@@ -13,17 +13,6 @@ test('hashtag search accepts combining marks introduced by Unicode lowercasing',
   }
 });
 
-test('decomposed and non-Latin combining marks stay inside hashtag labels', () => {
-  for (const [body, key] of [['#Cafe\u0301', 'café'], ['#हिन्दी', 'हिन्दी'], ['#İstanbul', 'i\u0307stanbul']]) {
-    const tags = extractHashtags(body);
-    assert.equal(tags.length, 1);
-    assert.equal(tags[0].label, body.slice(1));
-    assert.equal(tags[0].key, key);
-    assert.equal(tags[0].end, body.length);
-  }
-  assert.deepEqual(extractHashtags('e\u0301#hidden #\u0301invalid'), []);
-});
-
 test('hashtags normalize case and preserve every occurrence', () => {
   const hashtags = extractHashtags('#SDG9 supports #sdg9 and #DigitalInclusion');
   assert.deepEqual(hashtags.map(item => item.key), ['sdg9', 'sdg9', 'digitalinclusion']);

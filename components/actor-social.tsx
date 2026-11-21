@@ -1,3 +1,5 @@
+import { InlineComments } from '@/components/inline-comments';
+import { initialComments } from '@/lib/comments';
 import { DocumentAttachment } from '@/components/document-attachment';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -32,7 +34,8 @@ async function ActorPosts({actorId}:{actorId:string}){
  const returnTo=managingActor
   ? `${managingActor.kind==='user'?'/profile':managingActor.href}?tab=posts`
   : null;
- const {data}=await client.from('posts').select('id,body,created_at,media_path,media_type').eq('actor_id',actorId).order('created_at',{ascending:false}).limit(20);
+ const {data}=await client.from('posts').select('id,body,created_at,media_path,media_type,comments(count)').eq('actor_id',actorId).order('created_at',{ascending:false}).limit(20);
+ const previews=await initialComments((data??[]).map(p=>p.id));
  const paths=(data??[]).map(p=>p.media_path).filter((p):p is string=>!!p);
  const {data:signed}=paths.length?await client.storage.from('post-media').createSignedUrls(paths,3600):{data:[]};
  const urls=new Map((signed??[]).filter(item=>item.signedUrl).map(item=>[item.path,item.signedUrl]));
@@ -44,7 +47,7 @@ async function ActorPosts({actorId}:{actorId:string}){
   {url&&post.media_type==='video'&&<video src={url} controls preload="metadata" className="mt-3 max-h-[520px] w-full rounded-xl border border-line"/>}
   {url&&post.media_type==='document'&&post.media_path&&<DocumentAttachment url={url} path={post.media_path}/>}
   <Link href={`/posts/${post.id}`} className="mt-3 inline-block text-sm text-gold hover:underline">View post →</Link>
- </article>;})}{!data?.length&&<p>No posts yet.</p>}</div></Card>;
+ <InlineComments postId={post.id} actors={owned} initial={previews.get(post.id)??[]} total={post.comments[0]?.count??0}/></article>;})}{!data?.length&&<p>No posts yet.</p>}</div></Card>;
 }
 async function ActorRelations({actorId,section,organizationView=false}:{actorId:string;section:Section;organizationView?:boolean}){
  const client=await createClient();

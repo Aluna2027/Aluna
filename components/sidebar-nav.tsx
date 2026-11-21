@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { NotificationBadge } from '@/components/notification-count';
 import { useEffect,useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Bell,Building2,ChevronDown,CircleUserRound,Globe2,LayoutDashboard,Mail,Newspaper,RadioTower,Target,HeartHandshake,HandHeart,BadgeCheck,ShieldCheck } from 'lucide-react';
@@ -29,9 +30,9 @@ export function SidebarNav({onNavigate,isAlunaSuperAdmin=false}:{onNavigate?:()=
  useEffect(()=>{if(!secondary.some(i=>pathname===i.href||pathname.startsWith(i.href+'/')))setMoreOpen(false);},[pathname]);
  const cls=(href:string)=>`flex items-center gap-2 rounded-xl px-3 py-3 text-sm transition-colors ${pathname===href||pathname.startsWith(href+'/')?'bg-nav-active text-ink':'hover:bg-panel-raised'}`;
  return <nav aria-label="Main navigation" className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-  {primary.map(({href,label,icon:Icon})=><Link key={href} href={href} onClick={()=>{setMoreOpen(false);onNavigate?.();}} className={cls(href)}><Icon size={18}/>{label}</Link>)}
+  {primary.map(({href,label,icon:Icon})=><Link key={href} href={href} onClick={()=>{setMoreOpen(false);onNavigate?.();}} className={cls(href)}><Icon size={18}/>{label}{href==='/notifications'&&<NotificationBadge/>}</Link>)}
   {isAlunaSuperAdmin&&<Link href="/aluna-admin" onClick={()=>{setMoreOpen(false);onNavigate?.();}} className={cls("/aluna-admin")}><ShieldCheck size={18}/>Admin</Link>}
   <button type="button" aria-expanded={moreOpen} onClick={()=>setMoreOpen(v=>!v)} className="flex items-center gap-2 rounded-xl px-3 py-3 text-left text-sm hover:bg-panel-raised"><ChevronDown size={18} className={moreOpen?'rotate-180 transition-transform':'transition-transform'}/>More</button>
-  {moreOpen&&secondary.map(({href,label,icon:Icon})=><Link key={href} href={href} onClick={onNavigate} className={`${cls(href)} lg:pl-7`}><Icon size={18}/>{label}</Link>)}
+  {moreOpen&&secondary.map(({href,label,icon:Icon})=><Link key={href} href={href} onClick={onNavigate} className={`${cls(href)} lg:pl-7`}><Icon size={18}/>{label}{href==='/notifications'&&<NotificationBadge/>}</Link>)}
  </nav>;
 }
