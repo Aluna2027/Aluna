@@ -2,6 +2,9 @@
 
 import { FormEvent, useRef, useState } from 'react';
 import { ComposerTools, allowedDocuments } from '@/components/composer-tools';
+import { MentionTextarea, type SelectedMention } from '@/components/mention-textarea';
+import { toDatabaseMentions } from '@/lib/post-annotations';
+import { defaultPostAudience, submittedPostAudience, type PostAudience } from '@/lib/post-audience';
 import { PostScheduler } from '@/components/post-scheduler';
 import { useRouter } from 'next/navigation';
 import { createPost } from '@/app/(app)/feed/actions';
@@ -10,15 +13,6 @@ import type { Actor } from '@/lib/social';
 
 const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);
 const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);
-
-function fileExtension(file:File){
- return file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g,'')||(file.type.startsWith('image/')?'jpg':'mp4');
-}
-
-function destination(returnTo:string){
- if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(returnTo)) return `${returnTo}?tab=${returnTo.startsWith('/missions/')?'posts':'feed'}`;
- return returnTo;
-}
 
 async function normalizeGlobalFeedImage(file:File){
  const url=URL.createObjectURL(file);
@@ -38,16 +32,19 @@ async function normalizeGlobalFeedImage(file:File){
  } finally {URL.revokeObjectURL(url);}
 }
 
-export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missionId}:{actors:Actor[];returnTo?:string;repostOf?:string;communityId?:string;missionId?:string}) {
+export function PostComposer({actors,returnTo='/feed',repostOf,repostVisibility,communityId,missionId}:{actors:Actor[];returnTo?:string;repostOf?:string;repostVisibility?:string;communityId?:string;missionId?:string}) {
+ const contextual=!!(communityId||missionId);
  const router=useRouter();
  const [submitting,setSubmitting]=useState(false);
  const [uploadError,setUploadError]=useState<string|null>(null);
  const [file,setFile]=useState<File|null>(null);
  const [body,setBody]=useState('');
+ const [mentions,setMentions]=useState<SelectedMention[]>([]);
  const [actorId,setActorId]=useState(actors[0]?.id??'');
- const [visibility,setVisibility]=useState('public');
+ const [visibility,setVisibility]=useState<PostAudience>(repostVisibility==='members'?'members':defaultPostAudience(contextual));
+ const client=createClient();
  const textarea=useRef<HTMLTextAreaElement>(null);
- const insertEmoji=(value:string)=>{const el=textarea.current;const start=el?.selectionStart??body.length,end=el?.selectionEnd??start;setBody(text=>text.slice(0,start)+value+text.slice(end));requestAnimationFrame(()=>{el?.focus();el?.setSelectionRange(start+value.length,start+value.length);});};
+ const insertEmoji=(value:string)=>{const el=textarea.current;const start=el?.selectionStart??body.length,end=el?.selectionEnd??start;const next=body.slice(0,start)+value+body.slice(end);const delta=value.length-(end-start);setMentions(old=>old.flatMap(m=>{const mentionEnd=m.start+m.label.length+1;if(start<mentionEnd&&end>m.start)return [];const offset=m.start>=end?m.start+delta:m.start;return next.slice(offset,offset+m.label.length+1)==='@'+m.label?[{...m,start:offset}]:[];}));setBody(next);requestAnimationFrame(()=>{el?.focus();el?.setSelectionRange(start+value.length,start+value.length);});};
  const hasPhotoOrVideo=!!file&&(imageTypes.has(file.type)||videoTypes.has(file.type));
  if(!actors.length)return null;
 
@@ -55,6 +52,7 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
    const form=event.currentTarget;
    const data=new FormData(form);
    const media=file;
+   data.set('mentions',JSON.stringify(mentions));
    if(media)data.set('media',media);
 
    // Text-only posts and reposts continue through the existing server action.
@@ -78,78 +76,63 @@ export function PostComposer({actors,returnTo='/feed',repostOf,communityId,missi
 
    const body=String(data.get('body')??'').trim();
    const actorId=String(data.get('actor_id')??'');
-   const visibility=data.get('visibility')==='followers'?'followers':'public';
+   let postCommunityId=communityId||null,postMissionId=missionId||null;
+   let visibility=submittedPostAudience(data.get('visibility'),contextual);
+   if(repostOf){
+     const {data:target}=await client.from('posts').select('visibility,community_id,mission_id').eq('id',repostOf).maybeSingle();
+     if(!target||target.visibility==='followers'){
+       setUploadError('This post cannot be shared to a broader audience.');setSubmitting(false);return;
+     }
+     if(target.visibility==='members'){
+       visibility='members';postCommunityId=target.community_id;postMissionId=target.mission_id;
+     }
+   }
    if((!body&&mediaType!=='image'&&mediaType!=='video')||body.length>5000||!actorId){
      setUploadError('Add post text or choose a photo or video.');
      setSubmitting(false);
      return;
    }
 
-   const client=createClient();
    const {data:{user}}=await client.auth.getUser();
    if(!user){
      router.push('/login');
      return;
    }
 
-   if(!body){
-     // Do not expose a placeholder post in the feed before its file is uploaded.
-     const postId=crypto.randomUUID();
-     const path=`${user.id}/${postId}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
-     const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
-     if(storageError){
-       setUploadError('Could not upload the attachment. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-     const {error:postError}=await client.from('posts').insert({
-       id:postId,actor_id:actorId,body:'',
-       visibility:communityId||missionId?'public':visibility,
-       repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
-       media_path:path,media_type:mediaType,
-     });
-     if(postError){
-       setUploadError('Could not create the post. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-   }else{
-     // Preserve existing text + attachment behavior.
-     const {data:post,error:postError}=await client.from('posts').insert({
-       actor_id:actorId,body,visibility:communityId||missionId?'public':visibility,
-       repost_of_id:repostOf||null,community_id:communityId||null,mission_id:missionId||null,
-     }).select('id').single();
-     if(postError||!post){
-       setUploadError('Could not create the post. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-     const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
-     const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
-     if(storageError){
-       await client.from('posts').delete().eq('id',post.id);
-       setUploadError('Could not upload the attachment. Please try again.');
-       setSubmitting(false);
-       return;
-     }
-     const {error:updateError}=await client.from('posts').update({media_path:path,media_type:mediaType}).eq('id',post.id);
-     if(updateError){
-       await client.from('posts').delete().eq('id',post.id);
-       setUploadError('Could not attach the file to the post.');
-       setSubmitting(false);
-       return;
-     }
+   // Stage the attachment before publishing. The post (and therefore any
+   // mention notification) is only created once the upload has succeeded.
+   const postId=crypto.randomUUID();
+   const path=`${user.id}/${postId}/${crypto.randomUUID()}-${uploadMedia.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
+   const {error:storageError}=await client.storage.from('post-media').upload(path,uploadMedia,{contentType:uploadMedia.type,upsert:false});
+   if(storageError){
+     setUploadError('Could not upload the attachment. Please try again.');
+     setSubmitting(false);
+     return;
+   }
+   const mentionRefs=toDatabaseMentions(String(data.get('body')??''),JSON.stringify(mentions),true);
+   const {error:postError}=await client.from('posts').insert({
+     id:postId,actor_id:actorId,body,
+     visibility,
+     repost_of_id:repostOf||null,community_id:postCommunityId,mission_id:postMissionId,
+     media_path:path,media_type:mediaType,
+     ...(mentionRefs.length?{mention_refs:mentionRefs}:{}),
+   });
+   if(postError){
+     await client.storage.from('post-media').remove([path]);
+     setUploadError('Could not create the post. Please try again.');
+     setSubmitting(false);
+     return;
    }
 
-   form.reset();setFile(null);setBody('');
+   form.reset();setFile(null);setBody('');setMentions([]);
    // Followers-only posts do not appear in the public Global Feed.
-   if(returnTo==='/feed'&&visibility==='followers'&&!communityId&&!missionId)router.push('/following');
+   if(returnTo==='/feed'&&visibility==='followers'&&!contextual)router.push('/following');
    else router.refresh();
    setSubmitting(false);
  }
 
  return <form action={createPost} onSubmit={handleSubmit} encType="multipart/form-data" className="glass space-y-4 rounded-2xl p-5"><h2 className="text-lg">{repostOf?'Share this post':'Create a post'}</h2><input type="hidden" name="return_to" value={returnTo}/>{repostOf&&<input type="hidden" name="repost_of_id" value={repostOf}/>} {communityId&&<input type="hidden" name="community_id" value={communityId}/>} {missionId&&<input type="hidden" name="mission_id" value={missionId}/>}
- <div className="rounded-xl border border-line bg-panel-raised p-2"><textarea ref={textarea} name="body" value={body} onChange={e=>setBody(e.target.value)} required={!hasPhotoOrVideo} maxLength={5000} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…" className="w-full resize-y border-0 bg-transparent p-2 text-ink"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={(!body.trim()&&!hasPhotoOrVideo)||submitting} submitting={submitting} scheduler={<PostScheduler actors={actors} actorId={actorId} body={body} file={file} visibility={visibility} communityId={communityId} missionId={missionId} onSuccess={()=>{setBody('');setFile(null);router.refresh();}}/>}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
+ <input type="hidden" name="mentions" value={JSON.stringify(mentions)}/><div className="rounded-xl border border-line bg-panel-raised p-2"><MentionTextarea textareaRef={textarea} value={body} onChange={(text,selected)=>{setBody(text);setMentions(selected);}} selections={mentions} required={!hasPhotoOrVideo} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={(!body.trim()&&!hasPhotoOrVideo)||submitting} submitting={submitting} scheduler={<PostScheduler actors={actors} actorId={actorId} body={body} mentions={mentions} file={file} visibility={visibility} communityId={communityId} missionId={missionId} onSuccess={()=>{setBody('');setMentions([]);setFile(null);router.refresh();}}/>}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
  {uploadError&&<p role="alert" className="text-sm text-amber-300">{uploadError}</p>}
- <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" value={actorId} onChange={e=>setActorId(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{!communityId&&!missionId&&<label className="text-sm text-muted">Audience <select name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}</div></form>;
+ <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" value={actorId} onChange={e=>setActorId(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{repostVisibility==='members'?<input type="hidden" name="visibility" value="members"/>:contextual?<label className="text-sm text-muted">Audience <select aria-label="Audience" name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value as PostAudience)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="members">Members only</option><option value="public">Everyone</option></select></label>:!repostOf&&<label className="text-sm text-muted">Audience <select aria-label="Audience" name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value as PostAudience)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}</div></form>;
 }

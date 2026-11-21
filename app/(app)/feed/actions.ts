@@ -2,33 +2,47 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { toDatabaseMentions } from '@/lib/post-annotations';
+import { submittedPostAudience } from '@/lib/post-audience';
 
 function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;if(/^\/(?:profile|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})(?:\?tab=(?:about|posts|connections|followers|following))?$/i.test(path))return path;return /^\/(feed|following|posts\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
 function withError(path:string,error:string){return `${path}${path.includes('?')?'&':'?'}error=${error}`;}
 async function current() {const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');return client;}
 function bodyText(form:FormData,key:string,max:number){const value=String(form.get(key)??'').trim();return value.length>=1&&value.length<=max?value:null;}
 const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);const documentTypes=new Set(['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
-function ext(file:File){return file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g,'')||(file.type.startsWith('image/')?'jpg':'mp4');}
-
 export async function createPost(form:FormData) {
- const client=await current(),returnTo=destination(form);const body=bodyText(form,'body',5000);if(!body)redirect(withError(returnTo,'post'));
- const actor_id=String(form.get('actor_id')??'');const visibility=form.get('visibility')==='followers'?'followers':'public';
+ const client=await current(),returnTo=destination(form);const body=String(form.get('body')??'').trim();if(body.length>5000)redirect(withError(returnTo,'post'));
+ const actor_id=String(form.get('actor_id')??'');
+ const mentionRefs=toDatabaseMentions(String(form.get('body')??''),String(form.get('mentions')??''),true);
  const repost_of_id=String(form.get('repost_of_id')??'')||null;
- const community_id=String(form.get('community_id')??'')||null;
- const mission_id=String(form.get('mission_id')??'')||null;
+ let community_id=String(form.get('community_id')??'')||null;
+ let mission_id=String(form.get('mission_id')??'')||null;
+ let visibility=submittedPostAudience(form.get('visibility'),!!(community_id||mission_id));
+ if(repost_of_id){
+   const {data:target}=await client.from('posts').select('visibility,community_id,mission_id').eq('id',repost_of_id).maybeSingle();
+   if(!target||target.visibility==='followers')redirect(withError(returnTo,'post'));
+   if(target.visibility==='members'){
+     visibility='members';community_id=target.community_id;mission_id=target.mission_id;
+   }
+ }
  const raw=form.get('media');const media=raw instanceof File&&raw.size>0?raw:null;
  const media_type=media?(imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':documentTypes.has(media.type)?'document':null):null;
  if(media&&(!media_type||media.size>50*1024*1024))redirect(withError(returnTo,'media'));
- if(media&&media_type==='image'&&returnTo==='/feed')redirect(withError(returnTo,'media'));
- const {data:post,error}=await client.from('posts').insert({actor_id,body,visibility:community_id||mission_id?'public':visibility,repost_of_id,community_id,mission_id}).select('id').single();if(error||!post)redirect(withError(returnTo,'post'));
- if(media&&media_type){
-   const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
-   const path=`${user.id}/${post.id}/${crypto.randomUUID()}-${media.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`;
-   const {error:uploadError}=await client.storage.from('post-media').upload(path,media,{contentType:media.type});
-   if(uploadError){await client.from('posts').delete().eq('id',post.id);redirect(withError(returnTo,'media'));}
-   const {error:updateError}=await client.from('posts').update({media_path:path,media_type}).eq('id',post.id);
-   if(updateError){await client.from('posts').delete().eq('id',post.id);redirect(withError(returnTo,'media'));}
+ if(!body&&!(media&&['image','video'].includes(media_type??'')))redirect(withError(returnTo,'post'));
+ const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');
+ const postId=media&&media_type?crypto.randomUUID():undefined;
+ const path=postId&&media?`${user.id}/${postId}/${crypto.randomUUID()}-${media.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)}`:null;
+ if(path&&media){
+   const {error:uploadError}=await client.storage.from('post-media').upload(path,media,{contentType:media.type,upsert:false});
+   if(uploadError)redirect(withError(returnTo,'media'));
  }
+ const {data:post,error}=await client.from('posts').insert({
+   ...(postId?{id:postId}:{}),actor_id,body,
+   visibility,repost_of_id,community_id,mission_id,
+   ...(path&&media_type?{media_path:path,media_type}:{}),
+   ...(mentionRefs.length?{mention_refs:mentionRefs}:{}),
+ }).select('id').single();
+ if(error||!post){if(path)await client.storage.from('post-media').remove([path]);redirect(withError(returnTo,'post'));}
  revalidatePath('/feed');revalidatePath('/following');revalidatePath('/profile');
  const publishedDestination=returnTo==='/feed'&&visibility==='followers'&&!community_id&&!mission_id?'/following':returnTo;
  redirect(publishedDestination);
@@ -90,7 +104,10 @@ export async function editPost(form:FormData) {
  const {data:post}=await client.from('posts').select('media_path,media_type').eq('id',id).maybeSingle();
  const hasMedia=!!post?.media_path&&(post.media_type==='image'||post.media_type==='video');
  if(!post||body.length>5000||(!body&&!hasMedia))redirect(`/posts/${id}/edit?error=validation`);
- const {error}=await client.from('posts').update({body,updated_at:new Date().toISOString()}).eq('id',id);
+ const annotationUpdate=form.get('annotations_enabled')==='1'
+  ?{mention_refs:toDatabaseMentions(String(form.get('body')??''),String(form.get('mentions')??''),true)}
+  :{};
+ const {error}=await client.from('posts').update({body,updated_at:new Date().toISOString(),...annotationUpdate}).eq('id',id);
  if(error)redirect(`/posts/${id}/edit?error=save`);
  revalidatePath(`/posts/${id}`);revalidatePath('/feed');redirect(`/posts/${id}`);
 }
