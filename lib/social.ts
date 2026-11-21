@@ -53,7 +53,7 @@ export async function attachVoteCounts(posts:FeedPost[],actors:Actor[]=[]) {
 export async function attachPostMedia(posts:FeedPost[]) {
  if(!posts.length)return posts;
  const client=await createClient();
- const paths=[...new Set(posts.map(p=>p.media_path).filter((p):p is string=>!!p))];
+ const paths=[...new Set(posts.filter(post=>post.visibility!=='members').map(p=>p.media_path).filter((p):p is string=>!!p))];
  const ids=posts.map(p=>p.id);
  const [signed,mentionResult]=await Promise.all([
   paths.length?client.storage.from('post-media').createSignedUrls(paths,3600):Promise.resolve({data:[]}),
@@ -73,7 +73,7 @@ export async function attachPostMedia(posts:FeedPost[]) {
   byPost.set(row.post_id,list);
  }
  return posts.map(post=>({...post,
-  media_url:post.media_path?urls.get(post.media_path)??null:null,
+  media_url:post.media_path?(post.visibility==='members'?`/api/posts/${post.id}/media`:urls.get(post.media_path)??null):null,
   mentions:byPost.get(post.id)??[],
  }));
 }

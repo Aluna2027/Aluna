@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { toDatabaseMentions } from '@/lib/post-annotations';
+import { submittedPostAudience } from '@/lib/post-audience';
 
 function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;if(/^\/(?:profile|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})(?:\?tab=(?:about|posts|connections|followers|following))?$/i.test(path))return path;return /^\/(feed|following|posts\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
 function withError(path:string,error:string){return `${path}${path.includes('?')?'&':'?'}error=${error}`;}
@@ -11,11 +12,19 @@ function bodyText(form:FormData,key:string,max:number){const value=String(form.g
 const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);const documentTypes=new Set(['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
 export async function createPost(form:FormData) {
  const client=await current(),returnTo=destination(form);const body=String(form.get('body')??'').trim();if(body.length>5000)redirect(withError(returnTo,'post'));
- const actor_id=String(form.get('actor_id')??'');const visibility=form.get('visibility')==='followers'?'followers':'public';
+ const actor_id=String(form.get('actor_id')??'');
  const mentionRefs=toDatabaseMentions(String(form.get('body')??''),String(form.get('mentions')??''),true);
  const repost_of_id=String(form.get('repost_of_id')??'')||null;
- const community_id=String(form.get('community_id')??'')||null;
- const mission_id=String(form.get('mission_id')??'')||null;
+ let community_id=String(form.get('community_id')??'')||null;
+ let mission_id=String(form.get('mission_id')??'')||null;
+ let visibility=submittedPostAudience(form.get('visibility'),!!(community_id||mission_id));
+ if(repost_of_id){
+   const {data:target}=await client.from('posts').select('visibility,community_id,mission_id').eq('id',repost_of_id).maybeSingle();
+   if(!target||target.visibility==='followers')redirect(withError(returnTo,'post'));
+   if(target.visibility==='members'){
+     visibility='members';community_id=target.community_id;mission_id=target.mission_id;
+   }
+ }
  const raw=form.get('media');const media=raw instanceof File&&raw.size>0?raw:null;
  const media_type=media?(imageTypes.has(media.type)?'image':videoTypes.has(media.type)?'video':documentTypes.has(media.type)?'document':null):null;
  if(media&&(!media_type||media.size>50*1024*1024))redirect(withError(returnTo,'media'));
@@ -29,7 +38,7 @@ export async function createPost(form:FormData) {
  }
  const {data:post,error}=await client.from('posts').insert({
    ...(postId?{id:postId}:{}),actor_id,body,
-   visibility:community_id||mission_id?'public':visibility,repost_of_id,community_id,mission_id,
+   visibility,repost_of_id,community_id,mission_id,
    ...(path&&media_type?{media_path:path,media_type}:{}),
    ...(mentionRefs.length?{mention_refs:mentionRefs}:{}),
  }).select('id').single();

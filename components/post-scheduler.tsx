@@ -7,7 +7,7 @@ import type {Actor} from '@/lib/social';
 import {fromDatabaseMentions, toDatabaseMentions} from '@/lib/post-annotations';
 import {MentionTextarea, type SelectedMention} from '@/components/mention-textarea';
 
-type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null;mention_refs:unknown};
+type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null;mention_refs:unknown;community_id:string|null;mission_id:string|null};
 type Props={actors:Actor[];actorId:string;body:string;mentions:SelectedMention[];file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
 const pad=(n:number)=>String(n).padStart(2,'0');
 function localValues(when:Date){return {day:when.getFullYear()+'-'+pad(when.getMonth()+1)+'-'+pad(when.getDate()),time:pad(when.getHours())+':'+pad(when.getMinutes())};}
@@ -24,9 +24,9 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
  async function load(){
   setError('');setPanel('list');
   const client=createClient();
-  let {data,error}=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,mention_refs').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+  let {data,error}=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,mention_refs,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
   if(error&&error.message.includes('mention_refs')){
-   const fallback=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+   const fallback=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
    data=(fallback.data??[]).map(row=>({...row,mention_refs:[]}));error=fallback.error;
   }
   if(error)setError('Unable to load scheduled posts.');setRows((data??[]) as Item[]);
@@ -39,7 +39,7 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
   setWorking(true);let id:string|null=null;let mediaPath:string|null=null;const client=createClient();
   try{
    const {data:{user}}=await client.auth.getUser();if(!user)throw Error('Please log in.');
-   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility:communityId||missionId?'public':visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body,JSON.stringify(mentions),true)}:{})}).select('id').single();
+   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body,JSON.stringify(mentions),true)}:{})}).select('id').single();
    if(error||!data)throw Error('Could not create scheduled post.');id=data.id;
    if(file){
     const type=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'document';
@@ -96,7 +96,7 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
        <MentionTextarea textareaRef={editTextarea} value={draft} onChange={(text,selected)=>{setDraft(text);setDraftMentions(selected);}} selections={draftMentions} rows={3} placeholder="Edit scheduled post…"/>
        <input aria-label="Edit date" type="date" value={editDay} onChange={e=>setEditDay(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
        <input aria-label="Edit time" type="time" value={editTime} onChange={e=>setEditTime(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
-       <select aria-label="Audience" value={editVisibility} onChange={e=>setEditVisibility(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select>
+       <select aria-label="Audience" value={editVisibility} onChange={e=>setEditVisibility(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink">{item.community_id||item.mission_id?<><option value="members">Members only</option><option value="public">Everyone</option></>:<><option value="public">Everyone</option><option value="followers">Followers</option></>}</select>
        <div className="flex gap-3"><button type="button" disabled={working} onClick={save} className="text-gold">Save changes</button><button type="button" onClick={()=>setEditing(null)}>Back</button></div>
       </div>:<>
        <p className="line-clamp-3 whitespace-pre-wrap">{item.body|| (item.media_type==="image"?"Photo":item.media_type==="video"?"Video":"")}</p>
