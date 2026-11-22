@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { safeAuthDestination } from '@/lib/auth-next';
 import { siteOrigin } from '@/lib/payments';
 import { isOnboardingComplete, readOnboardingProfile } from '@/lib/onboarding';
+import { clearRecoveryProofCookie, hasRecoveryProof, passwordRecoveryRedirectOrigin } from '@/lib/auth/password-recovery';
+import { isTechnicalRecoveryRequestFailure, validateRecoveryPassword } from '@/lib/auth/recovery-proof';
 
 export async function signIn(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
@@ -60,20 +62,35 @@ export async function signUp(form: FormData) {
 
 export async function requestPasswordReset(form:FormData){
  const email=String(form.get('email')??'').trim();
- if(!email)redirect('/forgot-password?error=validation');
- const client=await createClient();
- await client.auth.resetPasswordForEmail(email,{redirectTo:`${siteOrigin()}/auth/callback?flow=recovery`});
- // Do not disclose whether an account exists for this email.
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)redirect('/forgot-password?error=request');
+ let result;
+ try {
+  const client=await createClient();
+  result=await client.auth.resetPasswordForEmail(email,{redirectTo:`${passwordRecoveryRedirectOrigin()}/auth/callback?flow=recovery`});
+ } catch {
+  redirect('/forgot-password?error=request');
+ }
+ // Supabase can return 429 for address- or IP-based email throttling; keep those
+ // indistinguishable from accepted requests to avoid account enumeration.
+ // Other HTTP errors indicate technical/configuration failures; transport/server
+ // failures use the same generic technical message.
+ if(isTechnicalRecoveryRequestFailure(result.error))redirect('/forgot-password?error=request');
  redirect('/forgot-password?status=sent');
 }
 
 export async function resetPassword(form:FormData){
  const password=String(form.get('password')??'');
- if(password.length<12||password.length>128)redirect('/reset-password?error=validation');
- const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/forgot-password');
+ const confirmPassword=String(form.get('confirm_password')??'');
+ const validation=validateRecoveryPassword(password,confirmPassword);
+ if(validation==='mismatch')redirect('/reset-password?error=mismatch');
+ if(validation==='invalid-length')redirect('/reset-password?error=validation');
+ const client=await createClient();
+ const {data:{user}}=await client.auth.getUser();
+ if(!user||!(await hasRecoveryProof(user.id))){await clearRecoveryProofCookie();redirect('/reset-password?error=invalid');}
  const {error}=await client.auth.updateUser({password});
  if(error)redirect('/reset-password?error=save');
- await client.auth.signOut();
+ await client.auth.signOut({scope:'local'});
+ await clearRecoveryProofCookie();
  redirect('/login?status=password-updated');
 }
 
