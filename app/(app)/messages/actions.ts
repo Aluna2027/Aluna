@@ -3,6 +3,12 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
+export async function conversationControl(conversationId:string,actorId:string,action:'block'|'unblock'|'hide'){
+ const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)return {ok:false};
+ const {error}=await client.rpc('set_conversation_control',{p_conversation:conversationId,p_actor:actorId,p_action:action});
+ if(error)return {ok:false};revalidatePath('/messages');return {ok:true};
+}
+
 const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);
 const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);
 const documentTypes=new Set(['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
