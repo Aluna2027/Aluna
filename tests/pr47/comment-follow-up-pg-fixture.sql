@@ -6,6 +6,7 @@ create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('test.auth_user',true),'')::uuid
 $$;
 create role authenticated;
+create role anon;
 create table public.actors(id uuid primary key,owner_id uuid not null references auth.users(id));
 create table public.posts(id uuid primary key,actor_id uuid not null references public.actors(id),visibility text not null);
 create table public.comments(
