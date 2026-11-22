@@ -49,7 +49,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <span className="mt-1 block">If your email has been confirmed, sign in below to continue. If the link expired or was already used, request a new confirmation email.</span>
       </div>}
 
-      {params.status === 'password-updated' && <p role="status" className="mt-5 rounded-xl bg-panel-raised p-3 text-sm">Password updated. Please sign in again.</p>}
+      {params.status === 'password-updated' && <p role="status" className="mt-5 rounded-xl bg-panel-raised p-3 text-sm">Your password has been updated. Please sign in again.</p>}
 
       {params.error === 'suspended' && <p role="alert" className="mt-5 rounded-xl border border-red-700 p-3 text-sm text-red-300">This account is suspended. Contact Aluna support if you believe this is an error.</p>}
 
