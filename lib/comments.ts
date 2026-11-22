@@ -28,7 +28,7 @@ export async function attachCommentVoteSummary<T extends {id:string}>(comments:T
  const client=await createClient();
  const {data,error}=await client.rpc('pr47_comment_vote_summary',{p_comment_ids:comments.map(c=>c.id)});
  if(error)throw new Error('Could not retrieve comment votes');
- const byId=new Map((data??[]).map((row:{comment_id:string;upvotes:number;downvotes:number;my_vote:number})=>
+ const byId=new Map<string,CommentVoteSummary>((data??[]).map((row:{comment_id:string;upvotes:number;downvotes:number;my_vote:number}):[string,CommentVoteSummary]=>
    [row.comment_id,{upvotes:Number(row.upvotes),downvotes:Number(row.downvotes),myVote:Number(row.my_vote) as 0|1|-1}]));
  return comments.map(c=>({...c,votes:byId.get(c.id)??{upvotes:0,downvotes:0,myVote:0 as const}}));
 }
