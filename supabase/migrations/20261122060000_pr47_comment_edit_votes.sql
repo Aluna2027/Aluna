@@ -37,8 +37,10 @@ begin
   insert into public.comment_mentions(comment_id,actor_id,start_offset,label)
     select p_comment_id,(item->>'actorId')::uuid,(item->>'start')::integer,item->>'label'
     from jsonb_array_elements(p_mentions) item;
-  -- Remove prior mention notifications on edit, preventing stale targets.
-  delete from public.notifications where kind='comment_mention' and target_id=p_comment_id;
+  -- Retain notifications for unchanged mentions, drop only obsolete recipients; never issue new ones.
+  delete from public.notifications n where n.kind='comment_mention' and n.target_id=p_comment_id
+    and not exists (select 1 from public.comment_mentions cm
+      where cm.comment_id=p_comment_id and cm.actor_id=n.recipient_actor_id);
   return true;
 end $$;
 revoke all on function public.pr47_edit_comment(uuid,text,jsonb) from public,anon,authenticated;
