@@ -10,12 +10,12 @@ import { MobileShellLayout } from '@/components/mobile-shell-layout';
 
 export function Shell({ children, name, isAlunaSuperAdmin = false }: { children:React.ReactNode; name:string; isAlunaSuperAdmin?:boolean }) {
   return <NotificationCountProvider><div className="min-h-screen bg-navy">
-    <header className="glass sticky top-0 z-10 px-3 py-3 sm:px-8 sm:py-4"><div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0 sm:gap-5 lg:flex">
+    <header className="glass sticky top-0 z-10 px-5 py-4 sm:px-8"><div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-0 sm:gap-5 lg:flex">
       <div className="flex min-w-0 items-center gap-0 sm:gap-1">
         <MobileSidebarMenu isAlunaSuperAdmin={isAlunaSuperAdmin}/>
         <MobileHeaderSearch/>
       </div>
-      <Link href="/dashboard" className="justify-self-center shrink-0 lg:justify-self-auto" aria-label="Aluna dashboard"><img src="/aluna-logo-auth.svg" alt="ALUNA" className="block h-6 w-auto sm:h-7"/></Link>
+      <Link href="/dashboard" className="justify-self-center shrink-0 lg:justify-self-auto" aria-label="Aluna dashboard"><img src="/aluna-logo-auth.svg" alt="ALUNA" className="block h-7 w-auto"/></Link>
       <div className="hidden text-xs tracking-[.15em] text-muted lg:block">GLOBAL NETWORK</div>
       <div className="ml-auto flex min-w-0 items-center justify-end gap-0 sm:gap-1 lg:gap-2"><Link href="/messages" aria-label="Messages" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-panel-raised lg:h-auto lg:w-auto lg:p-2"><Mail size={20}/></Link><Link href="/notifications" aria-label="Notifications" className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-panel-raised lg:h-auto lg:w-auto lg:p-2"><Bell size={20}/><NotificationBadge placement="topnav"/></Link><details className="relative"><summary aria-label="Profile menu" className="grid h-9 w-9 shrink-0 cursor-pointer list-none place-items-center rounded-xl hover:bg-panel-raised lg:h-auto lg:w-auto lg:p-2"><CircleUserRound size={20}/></summary><div className="absolute right-0 z-30 mt-2 w-52 max-w-[calc(100vw-2.5rem)] rounded-xl border border-line bg-panel p-2 text-sm break-words [overflow-wrap:anywhere] shadow-xl"><Link href="/profile" className="block rounded-lg px-3 py-2 hover:bg-panel-raised">Profile</Link><Link href="/profile/edit" className="block rounded-lg px-3 py-2 hover:bg-panel-raised">Edit profile</Link><Link href="/settings#email" className="block rounded-lg px-3 py-2 hover:bg-panel-raised">Change email</Link><Link href="/settings#password" className="block rounded-lg px-3 py-2 hover:bg-panel-raised">Change password</Link></div></details></div>
     </div></header>

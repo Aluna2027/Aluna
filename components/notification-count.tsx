@@ -25,7 +25,7 @@ export function NotificationBadge({placement='inline'}:{placement?:'inline'|'top
  const label=unreadLabel(count);
  if(!label)return null;
  const placementClass=placement==='topnav'
-  ?'absolute -right-1 -top-1 z-10 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-navy bg-gold px-1 text-[10px] font-bold leading-none text-navy shadow-sm'
+  ?'absolute -right-1 -top-1 z-10 inline-flex min-w-5 items-center justify-center rounded-full bg-gold px-1 text-xs font-bold text-navy'
   :'inline-flex min-w-5 items-center justify-center rounded-full bg-gold px-1 text-xs font-bold text-navy';
  return <span aria-label={`${count} unread notifications`} className={placementClass}>{label}</span>;
 }
