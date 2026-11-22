@@ -55,13 +55,13 @@ end $$;
 do $$
 declare v record;
 begin
- select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',1);
+ select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',1::smallint);
  if v.upvotes<>1 or v.downvotes<>0 or v.my_vote<>1 then raise exception 'Upvote failed';end if;
- select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',1);
+ select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',1::smallint);
  if v.upvotes<>0 or v.downvotes<>0 or v.my_vote<>0 then raise exception 'Vote toggle failed';end if;
- select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',-1);
+ select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',-1::smallint);
  if v.upvotes<>0 or v.downvotes<>1 or v.my_vote<>-1 then raise exception 'Downvote failed';end if;
- select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',1);
+ select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',1::smallint);
  if v.upvotes<>1 or v.downvotes<>0 or v.my_vote<>1 then raise exception 'Vote switch failed';end if;
 end $$;
 
@@ -69,10 +69,10 @@ select set_config('test.auth_user','22222222-2222-4222-8222-222222222222',false)
 do $$
 declare v record; rejected boolean:=false;
 begin
- select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',-1);
+ select * into v from public.pr47_vote_comment('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',-1::smallint);
  if v.upvotes<>1 or v.downvotes<>1 or v.my_vote<>-1 then raise exception 'Separate voter failed';end if;
  begin
-  perform * from public.pr47_vote_comment('ffffffff-ffff-4fff-8fff-ffffffffffff',1);
+  perform * from public.pr47_vote_comment('ffffffff-ffff-4fff-8fff-ffffffffffff',1::smallint);
  exception when others then rejected:=true;
  end;
  if not rejected then raise exception 'Private comment vote permitted';end if;
@@ -84,7 +84,7 @@ end $$;
 -- The owning user can vote on a restricted comment.
 select set_config('test.auth_user','11111111-1111-4111-8111-111111111111',false);
 do $$ declare v record;begin
- select * into v from public.pr47_vote_comment('ffffffff-ffff-4fff-8fff-ffffffffffff',1);
+ select * into v from public.pr47_vote_comment('ffffffff-ffff-4fff-8fff-ffffffffffff',1::smallint);
  if v.upvotes<>1 then raise exception 'Owner restricted vote failed';end if;
 end $$;
 
