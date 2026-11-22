@@ -49,8 +49,10 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f tests/pr47/comment-follow-up-pg-fixture.sql
+          psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f tests/pr47/comment-follow-up-real-schema.sql
           psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f supabase/migrations/20261122060000_pr47_comment_edit_votes.sql
           psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f tests/pr47/comment-follow-up-pg-assertions.sql
+          psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f tests/pr47/comment-follow-up-real-schema-assertions.sql
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
