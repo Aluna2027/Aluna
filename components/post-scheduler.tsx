@@ -1,25 +1,34 @@
 'use client';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {CalendarDays, Clock3, X} from 'lucide-react';
 import {createClient} from '@/lib/supabase/client';
 import {allowedDocuments} from '@/components/composer-tools';
 import type {Actor} from '@/lib/social';
+import {fromDatabaseMentions, toDatabaseMentions} from '@/lib/post-annotations';
+import {MentionTextarea, type SelectedMention} from '@/components/mention-textarea';
 
-type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null};
-type Props={actors:Actor[];actorId:string;body:string;file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
+type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null;mention_refs:unknown;community_id:string|null;mission_id:string|null};
+type Props={actors:Actor[];actorId:string;body:string;mentions:SelectedMention[];file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
 const pad=(n:number)=>String(n).padStart(2,'0');
 function localValues(when:Date){return {day:when.getFullYear()+'-'+pad(when.getMonth()+1)+'-'+pad(when.getDate()),time:pad(when.getHours())+':'+pad(when.getMinutes())};}
 function futureDate(day:string,time:string){const date=new Date(day+'T'+time+':00');return Number.isFinite(date.getTime())&&date.getTime()>Date.now()+30000&&date.getTime()<Date.now()+365*86400000?date:null;}
-export function PostScheduler({actors,actorId,body,file,visibility,communityId,missionId,onSuccess}:Props){
+export function PostScheduler({actors,actorId,body,mentions,file,visibility,communityId,missionId,onSuccess}:Props){
  const initial=localValues(new Date(Date.now()+3600000));
  const [panel,setPanel]=useState<'none'|'schedule'|'list'>('none');
  const [day,setDay]=useState(initial.day),[time,setTime]=useState(initial.time);
  const [rows,setRows]=useState<Item[]>([]),[editing,setEditing]=useState<string|null>(null);
  const [draft,setDraft]=useState(''),[editDay,setEditDay]=useState(''),[editTime,setEditTime]=useState(''),[editVisibility,setEditVisibility]=useState('public');
+ const [draftMentions,setDraftMentions]=useState<SelectedMention[]>([]);
+ const editTextarea=useRef<HTMLTextAreaElement>(null);
  const [working,setWorking]=useState(false),[error,setError]=useState('');
  async function load(){
   setError('');setPanel('list');
-  const {data,error}=await createClient().from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+  const client=createClient();
+  let {data,error}=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,mention_refs,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+  if(error&&error.message.includes('mention_refs')){
+   const fallback=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+   data=(fallback.data??[]).map(row=>({...row,mention_refs:[]}));error=fallback.error;
+  }
   if(error)setError('Unable to load scheduled posts.');setRows((data??[]) as Item[]);
  }
  async function schedule(){
@@ -27,15 +36,15 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
   if(!when){setError('Select a future date (at least 30 seconds away, within one year).');return;}
   if((!body.trim()&&(!file||!['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'].includes(file.type)))||body.trim().length>5000||!actors.some(a=>a.id===actorId)){setError('Enter post text or attach a photo or video, and choose your posting profile.');return;}
   if(file&&(file.size>50*1024*1024||!(['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'].includes(file.type)||allowedDocuments.has(file.type)))){setError('Unsupported attachment or file larger than 50 MB.');return;}
-  setWorking(true);let id:string|null=null;
+  setWorking(true);let id:string|null=null;let mediaPath:string|null=null;const client=createClient();
   try{
-   const client=createClient();const {data:{user}}=await client.auth.getUser();if(!user)throw Error('Please log in.');
-   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility:communityId||missionId?'public':visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString()}).select('id').single();
+   const {data:{user}}=await client.auth.getUser();if(!user)throw Error('Please log in.');
+   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body,JSON.stringify(mentions),true)}:{})}).select('id').single();
    if(error||!data)throw Error('Could not create scheduled post.');id=data.id;
    if(file){
     const type=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'document';
     const name=file.name.replace(/[^a-z0-9._-]/gi,'_').slice(-96)||'attachment';
-    const path=user.id+'/'+id+'/'+crypto.randomUUID()+'-'+name;
+    const path=user.id+'/'+id+'/'+crypto.randomUUID()+'-'+name;mediaPath=path;
     const uploaded=await client.storage.from('post-media').upload(path,file,{contentType:file.type,upsert:false});
     if(uploaded.error)throw Error('Could not upload attachment.');
     const linked=await client.from('scheduled_posts').update({media_path:path,media_type:type}).eq('id',id).eq('status','draft');
@@ -44,16 +53,22 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
    const activated=await client.rpc('activate_scheduled_post',{p_id:id});
    if(activated.error)throw Error('Could not activate post.');
    onSuccess();setPanel('none');
-  }catch(e){setError(e instanceof Error?e.message:'Scheduling failed.');}
+  }catch(e){
+   const canceled=id?await client.rpc('cancel_scheduled_post',{p_id:id}):null;
+   if(mediaPath&&(!id||!canceled?.error))await client.storage.from('post-media').remove([mediaPath]);
+   setError(e instanceof Error?e.message:'Scheduling failed.');
+  }
   finally{setWorking(false);}
  }
- function edit(row:Item){const v=localValues(new Date(row.scheduled_for));setEditing(row.id);setDraft(row.body);setEditDay(v.day);setEditTime(v.time);setEditVisibility(row.visibility);setError('');}
+ function edit(row:Item){const v=localValues(new Date(row.scheduled_for));setEditing(row.id);setDraft(row.body);setDraftMentions(fromDatabaseMentions(row.body,row.mention_refs));setEditDay(v.day);setEditTime(v.time);setEditVisibility(row.visibility);setError('');}
  async function save(){
   const when=futureDate(editDay,editTime);
   const item=rows.find(row=>row.id===editing);
   if(!when||(!draft.trim()&&!['image','video'].includes(item?.media_type??''))||draft.length>5000){setError('Enter text or keep an attached photo or video, and choose a valid future date.');return;}
   setWorking(true);
-  const r=await createClient().rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility});
+  const client=createClient();const mentionRefs=toDatabaseMentions(draft,JSON.stringify(draftMentions),true);
+  let r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility,p_mention_refs:mentionRefs});
+  if(r.error?.code==='PGRST202'&&!mentionRefs.length)r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility});
   setWorking(false);
   if(r.error){setError('Could not edit. This post may have published.');return;}
   setEditing(null);await load();
@@ -78,10 +93,10 @@ export function PostScheduler({actors,actorId,body,file,visibility,communityId,m
     {!rows.length&&<p className="text-sm text-muted">No upcoming posts.</p>}
     <div className="space-y-3">{rows.map(item=><div key={item.id} className="rounded-lg border border-line bg-panel-raised p-3 text-sm">
       {editing===item.id?<div className="space-y-2">
-       <textarea aria-label="Edit scheduled text" value={draft} onChange={e=>setDraft(e.target.value)} maxLength={5000} rows={3} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
+       <MentionTextarea textareaRef={editTextarea} value={draft} onChange={(text,selected)=>{setDraft(text);setDraftMentions(selected);}} selections={draftMentions} rows={3} placeholder="Edit scheduled post…"/>
        <input aria-label="Edit date" type="date" value={editDay} onChange={e=>setEditDay(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
        <input aria-label="Edit time" type="time" value={editTime} onChange={e=>setEditTime(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
-       <select aria-label="Audience" value={editVisibility} onChange={e=>setEditVisibility(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select>
+       <select aria-label="Audience" value={editVisibility} onChange={e=>setEditVisibility(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink">{item.community_id||item.mission_id?<><option value="members">Members only</option><option value="public">Everyone</option></>:<><option value="public">Everyone</option><option value="followers">Followers</option></>}</select>
        <div className="flex gap-3"><button type="button" disabled={working} onClick={save} className="text-gold">Save changes</button><button type="button" onClick={()=>setEditing(null)}>Back</button></div>
       </div>:<>
        <p className="line-clamp-3 whitespace-pre-wrap">{item.body|| (item.media_type==="image"?"Photo":item.media_type==="video"?"Video":"")}</p>
