@@ -14,7 +14,8 @@ test('comment editing preserves immutable creation date and validates owner and 
  assert.match(sql,/public\.can_view_post\(existing\.post_id\)/);
  assert.match(sql,/update public\.comments set body=clean_body/);
  assert.match(sql,/delete from public\.comment_mentions/);
- assert.match(sql,/delete from public\.notifications where kind='comment_mention'/);
+ assert.match(sql,/delete from public\.notifications n where n\.kind='comment_mention'/);
+ assert.match(sql,/not exists \(select 1 from public\.comment_mentions cm/);
  assert.doesNotMatch(sql,/insert into public\.notifications/i);
 });
 test('votes are unique per user and cannot bypass parent visibility',()=>{
