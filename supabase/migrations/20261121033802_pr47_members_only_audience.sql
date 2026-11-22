@@ -22,7 +22,8 @@ declare p public.posts%rowtype;
 begin
  select * into p from public.posts where id=p_post;
  if not found then return false; end if;
- if p.repost_of_id is not null and not public.can_view_post(p.repost_of_id) then return false; end if;
+ -- Repost audience/context is immutable and validated on creation. Do not
+ -- recurse or change effective visibility of historical public/follower rows.
  if p.visibility='public' then return true; end if;
  if p.visibility<>'members' and public.can_act_as(p.actor_id) then return true; end if;
  if p.visibility='followers' then
@@ -57,7 +58,13 @@ begin
    if new.community_id is not null and not public.is_mesh_member(new.community_id,new.actor_id) then raise exception 'Community membership required'; end if;
    if new.mission_id is not null and not public.is_mission_participant(new.mission_id,new.actor_id) then raise exception 'Mission participation required'; end if;
  end if;
- if new.repost_of_id is not null then
+ if tg_op='INSERT' and new.repost_of_id is not null then
+   if new.repost_of_id=new.id then raise exception 'Cyclic repost'; end if;
+   if exists (with recursive chain as (
+     select id,repost_of_id,array[id] as visited,false as cycle from public.posts where id=new.repost_of_id
+     union all select p.id,p.repost_of_id,c.visited||p.id,p.id=any(c.visited)
+     from public.posts p join chain c on p.id=c.repost_of_id where not c.cycle
+   ) select 1 from chain where cycle or id=new.id) then raise exception 'Cyclic repost'; end if;
    select * into target from public.posts where id=new.repost_of_id;
    if not found or target.visibility='followers' then raise exception 'This post cannot be reshared'; end if;
    if target.visibility='members' and (new.visibility<>'members' or new.community_id is distinct from target.community_id or new.mission_id is distinct from target.mission_id) then
@@ -68,6 +75,7 @@ begin
 end
 $fn$;
 drop trigger if exists pr47_guard_post_audience on public.posts;
+revoke all on function public.pr47_guard_post_audience() from public,anon,authenticated;
 create trigger pr47_guard_post_audience before insert or update on public.posts
 for each row execute function public.pr47_guard_post_audience();
 
@@ -195,5 +203,36 @@ revoke all on function public.edit_scheduled_post(uuid,text,timestamptz,text) fr
 revoke all on function public.edit_scheduled_post(uuid,text,timestamptz,text,jsonb) from public,anon,authenticated;
 grant execute on function public.edit_scheduled_post(uuid,text,timestamptz,text) to authenticated;
 grant execute on function public.edit_scheduled_post(uuid,text,timestamptz,text,jsonb) to authenticated;
+
+-- Every existing notification generator passes this recipient gate.
+create function public.pr47_guard_member_notification() returns trigger
+language plpgsql security definer set search_path='' as $fn$
+declare parent_id uuid; audience text;
+begin
+ if new.kind in ('mention','comment','reaction') then parent_id:=new.target_id;
+ elsif new.kind='comment_mention' then select post_id into parent_id from public.comments where id=new.target_id;
+ else return new; end if;
+ select visibility into audience from public.posts where id=parent_id;
+ if audience='members' and (public.can_act_as(new.recipient_actor_id)
+   or not public.pr47_comment_recipient_can_view(parent_id,new.recipient_actor_id)) then return null; end if;
+ return new;
+end
+$fn$;
+revoke all on function public.pr47_guard_member_notification() from public,anon,authenticated;
+create trigger pr47_guard_member_notification before insert on public.notifications
+for each row execute function public.pr47_guard_member_notification();
+
+-- Replace the permissive owner exception; adding another policy would OR it.
+drop policy "Read own scheduled post media" on storage.objects;
+create policy "Read own scheduled post media" on storage.objects for select to authenticated using (
+ bucket_id='post-media' and exists (
+  select 1 from public.scheduled_posts s where s.id::text=split_part(name,'/',2)
+   and s.media_path=name and s.status in ('draft','pending','failed')
+   and public.can_act_as(s.actor_id)
+   and (s.visibility<>'members' or (
+     (s.community_id is not null and public.is_mesh_member(s.community_id,s.actor_id))
+     or (s.mission_id is not null and public.is_mission_participant(s.mission_id,s.actor_id))))
+   and not exists(select 1 from public.posts p where p.id=s.id)
+ ));
 
 commit;
