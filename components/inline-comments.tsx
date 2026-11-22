@@ -61,7 +61,7 @@ function CommentCard({comment,canEdit,canVote,onEdited,onDeleted}:{
 
  function beginEdit(){
   setBody(comment.body);
-  setSelectedMentions((comment.mentions??[]).map(m=>({actorId:m.actorId,start:m.start,label:m.label})));
+  setSelectedMentions((comment.mentions??[]).map(m=>({actorId:m.actorId,start:Array.from(comment.body).slice(0,m.start).join('').length,label:m.label})));
   setError('');setEditing(true);setMenuOpen(false);
  }
  async function save(){
