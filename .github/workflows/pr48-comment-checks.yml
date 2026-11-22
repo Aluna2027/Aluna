@@ -16,6 +16,20 @@ jobs:
     if: github.ref_name == 'feature/pr47-comment-menu-edit-timestamp-20261122' || github.head_ref == 'feature/pr47-comment-menu-edit-timestamp-20261122'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pr48test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd 'pg_isready -U postgres -d pr48test'
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Checkout exact workflow commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -30,6 +44,13 @@ jobs:
         run: npm ci
       - name: PR48 comment contract and relevant PR47 regression tests
         run: node --experimental-strip-types --test tests/pr47/*.test.mjs
+      - name: Execute PR48 SQL against disposable Actions PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f tests/pr47/comment-follow-up-pg-fixture.sql
+          psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f supabase/migrations/20261122060000_pr47_comment_edit_votes.sql
+          psql -h localhost -U postgres -d pr48test -v ON_ERROR_STOP=1 -f tests/pr47/comment-follow-up-pg-assertions.sql
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
