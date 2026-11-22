@@ -5,6 +5,7 @@ import { safeAuthDestination } from '@/lib/auth-next';
 import { siteOrigin } from '@/lib/payments';
 import { isOnboardingComplete, readOnboardingProfile } from '@/lib/onboarding';
 import { clearRecoveryProofCookie, hasRecoveryProof, passwordRecoveryRedirectOrigin } from '@/lib/auth/password-recovery';
+import { isTechnicalRecoveryRequestFailure, validateRecoveryPassword } from '@/lib/auth/recovery-proof';
 
 export async function signIn(form: FormData) {
   const email = String(form.get('email') ?? '').trim();
@@ -73,16 +74,16 @@ export async function requestPasswordReset(form:FormData){
  // indistinguishable from accepted requests to avoid account enumeration.
  // Other HTTP errors indicate technical/configuration failures; transport/server
  // failures use the same generic technical message.
- const status=Number(result.error?.status);
- if(result.error&&(status===0||!Number.isFinite(status)||status>=500||(status>=400&&status!==429)))redirect('/forgot-password?error=request');
+ if(isTechnicalRecoveryRequestFailure(result.error))redirect('/forgot-password?error=request');
  redirect('/forgot-password?status=sent');
 }
 
 export async function resetPassword(form:FormData){
  const password=String(form.get('password')??'');
  const confirmPassword=String(form.get('confirm_password')??'');
- if(password!==confirmPassword)redirect('/reset-password?error=mismatch');
- if(password.length<12||password.length>128)redirect('/reset-password?error=validation');
+ const validation=validateRecoveryPassword(password,confirmPassword);
+ if(validation==='mismatch')redirect('/reset-password?error=mismatch');
+ if(validation==='invalid-length')redirect('/reset-password?error=validation');
  const client=await createClient();
  const {data:{user}}=await client.auth.getUser();
  if(!user||!(await hasRecoveryProof(user.id))){await clearRecoveryProofCookie();redirect('/reset-password?error=invalid');}

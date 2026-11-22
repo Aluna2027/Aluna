@@ -34,6 +34,23 @@ test('recovery proof rejects tampering, other users, malformed tokens and expire
   assert.equal(verifyRecoveryProof('not-a-proof','authorized-user',secret,now+1),false);
 });
 
+test('password confirmation and policy validation are enforced', async () => {
+  const { validateRecoveryPassword } = await import('../../lib/auth/recovery-proof.ts');
+  assert.equal(validateRecoveryPassword('long-enough-password','different-password'),'mismatch');
+  assert.equal(validateRecoveryPassword('short','short'),'invalid-length');
+  assert.equal(validateRecoveryPassword('x'.repeat(129),'x'.repeat(129)),'invalid-length');
+  assert.equal(validateRecoveryPassword('correct horse battery','correct horse battery'),'valid');
+});
+
+test('technical Auth request failures are generic while 429 remains account-safe', async () => {
+  const { isTechnicalRecoveryRequestFailure } = await import('../../lib/auth/recovery-proof.ts');
+  assert.equal(isTechnicalRecoveryRequestFailure(null),false);
+  assert.equal(isTechnicalRecoveryRequestFailure({status:429}),false);
+  assert.equal(isTechnicalRecoveryRequestFailure({status:400}),true);
+  assert.equal(isTechnicalRecoveryRequestFailure({status:500}),true);
+  assert.equal(isTechnicalRecoveryRequestFailure({}),true);
+});
+
 test('normal authenticated sessions cannot update passwords without a valid recovery proof', () => {
   assert.match(actions, /client\.auth\.getUser\(\)/);
   assert.match(actions, /hasRecoveryProof\(user\.id\)/);
@@ -51,8 +68,7 @@ test('callback creates a recovery proof only after successful Auth verification'
 });
 
 test('request result does not reveal account existence and distinguishes infrastructure failures', () => {
-  assert.match(actions, /status>=500/);
-  assert.match(actions, /!Number\.isFinite\(status\)/);
+  assert.match(actions, /isTechnicalRecoveryRequestFailure\(result\.error\)/);
   assert.match(forgotPage, /If an account exists for this email address, you will receive instructions to reset your password\./);
   assert.match(forgotPage, /We couldn&apos;t process your request right now\. Please try again later\./);
   assert.doesNotMatch(actions, /console\.(log|error).*email|redirectTo.*searchParams/);
@@ -67,8 +83,7 @@ test('Preview recovery redirect uses its deployment host without changing the ca
 });
 
 test('password policy, matching confirmation, sign out and success text are preserved', () => {
-  assert.match(actions, /password!==confirmPassword/);
-  assert.match(actions, /password\.length<12\|\|password\.length>128/);
+  assert.match(actions, /validateRecoveryPassword\(password,confirmPassword\)/);
   assert.match(actions, /signOut\(\{scope:'local'\}\)/);
   assert.match(loginPage, /Your password has been updated\. Please sign in again\./);
 });

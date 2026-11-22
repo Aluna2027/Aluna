@@ -5,6 +5,18 @@ const PROOF_CONTEXT = 'aluna:password-recovery-proof:v1';
 
 type RecoveryProof = { sub: string; iat: number; exp: number; jti: string };
 
+export function validateRecoveryPassword(password: string, confirmation: string) {
+  if (password !== confirmation) return 'mismatch' as const;
+  if (password.length < 12 || password.length > 128) return 'invalid-length' as const;
+  return 'valid' as const;
+}
+
+export function isTechnicalRecoveryRequestFailure(error: { status?: number } | null) {
+  if (!error) return false;
+  const status=Number(error.status);
+  return status===0 || !Number.isFinite(status) || status>=500 || (status>=400 && status!==429);
+}
+
 function signingKey(secret: string) {
   return createHmac('sha256', secret).update(PROOF_CONTEXT).digest();
 }
