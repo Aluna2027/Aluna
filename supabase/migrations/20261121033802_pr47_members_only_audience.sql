@@ -235,4 +235,25 @@ create policy "Read own scheduled post media" on storage.objects for select to a
    and not exists(select 1 from public.posts p where p.id=s.id)
  ));
 
+-- A restrictive policy ANDs with every permissive Storage SELECT policy.
+-- SECURITY DEFINER sees member references hidden from the caller by post RLS.
+create function public.pr47_storage_client_readable(p_path text) returns boolean
+language sql stable security definer set search_path='' as $fn$
+ select not exists(select 1 from public.posts p where p.visibility='members'
+   and (p.media_path=p_path or p.id::text=split_part(p_path,'/',2)))
+ and not exists(select 1 from public.scheduled_posts s where s.visibility='members'
+   and (s.media_path=p_path or s.id::text=split_part(p_path,'/',2)))
+$fn$;
+revoke all on function public.pr47_storage_client_readable(text) from public,anon,authenticated;
+grant execute on function public.pr47_storage_client_readable(text) to anon,authenticated;
+create policy "PR47 member media server boundary" on storage.objects as restrictive
+ for select to anon,authenticated using (
+ bucket_id<>'post-media' or public.pr47_storage_client_readable(name));
+
+-- Fail closed if this deployment's bucket configuration could bypass SELECT RLS.
+do $fn$ begin
+ if not exists(select 1 from storage.buckets where id='post-media' and not public)
+ then raise exception 'post-media must already be a private bucket'; end if;
+end $fn$;
+
 commit;

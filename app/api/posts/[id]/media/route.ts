@@ -14,13 +14,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // member attachment to a caller who cannot read its parent post.
   const { data: post } = await client.from('posts').select('media_path,media_type,visibility').eq('id', id).maybeSingle();
   if (!post?.media_path || post.visibility !== 'members') return new NextResponse('Not found', { status: 404 });
+  const parts = post.media_path.split('/');
+  if (parts.length !== 3 || parts[1] !== id || parts.some((part: string) => !part || part === '.' || part === '..')) return new NextResponse('Not found', { status: 404 });
 
-  const { url, key } = supabaseConfig();
+  // Privileged access occurs only AFTER the authenticated, RLS-filtered lookup.
+  // Never return a bearer URL or credential to the caller.
+  const { url } = supabaseConfig();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) return new NextResponse('Media unavailable', { status: 503 });
   const objectUrl = `${url}/storage/v1/object/post-media/${post.media_path.split('/').map(encodeURIComponent).join('/')}`;
-  const headers = new Headers({ apikey: key, authorization: `Bearer ${session.access_token}` });
+  const headers = new Headers({ apikey: key, authorization: `Bearer ${key}` });
   const range = request.headers.get('range');
-  if (range && /^bytes=\d*-\d*(,\d*-\d*)?$/.test(range)) headers.set('range', range);
-  const upstream = await fetch(objectUrl, { headers, cache: 'no-store' });
+  if (range && !/^bytes=(?:\d+-\d*|-\d+)$/.test(range)) return new NextResponse('Invalid range', { status: 416 });
+  if (range) headers.set('range', range);
+  const upstream = await fetch(objectUrl, { headers, cache: 'no-store', redirect: 'error', signal: request.signal });
   if (!upstream.ok || !upstream.body) return new NextResponse('Media unavailable', { status: upstream.status || 404 });
 
   const responseHeaders = new Headers({

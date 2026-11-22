@@ -36,8 +36,8 @@ test('published audience cannot be escalated and members reposts retain context'
 test('members media requires the authenticated RLS session and streams ranges privately', () => {
   assert.match(route, /client\.auth\.getUser\(\)/);
   assert.match(route, /client\.from\('posts'\)\.select\('media_path,media_type,visibility'\)/);
-  assert.match(route, /authorization: `Bearer \$\{session\.access_token\}`/);
+  assert.match(route, /authorization: `Bearer \$\{key\}`/);
   assert.match(route, /request\.headers\.get\('range'\)/);
   assert.match(route, /cache-control': 'private, no-store'/);
-  assert.doesNotMatch(route, /service_role|createSignedUrl/);
+  assert.doesNotMatch(route, /createSignedUrl/);
 });

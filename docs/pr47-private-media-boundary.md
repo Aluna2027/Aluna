@@ -1,0 +1,13 @@
+# PR47 private media boundary
+
+Prepared migration only; no execution. Supersedes the unresolved-boundary section in pr47-member-security-corrections.md.
+
+The live post-media bucket is private (read-only inspection). A restrictive Storage SELECT policy denies client reads and signing whenever an object path or its post-id folder is referenced by a Members-only post or schedule. A SECURITY DEFINER helper sees references even when RLS hides them. The policy ANDs with all existing permissive read policies. Other buckets and public/follower attachments retain existing policies. INSERT-only uploads with upsert=false do not require SELECT and retain the existing flows; member schedules cannot sign their staged attachments. No bucket settings or credentials are changed.
+
+The route first validates the user and reads the Members-only post using their RLS client, which checks current membership without an author exception. It validates the stored path belongs to that post, then fetches the private object with the existing server-only SUPABASE_SERVICE_ROLE_KEY. It never returns a signed URL or secret. Missing credentials fail closed (503). Single byte ranges stream with private/no-store, cancellation, no redirects, and no video preload. Each new HTTP request repeats authorization. A stream already authorized before revocation can finish; downloaded bytes cannot be recalled.
+
+New signed URLs: denied to clients for member attachments, including authorized members. New media requests after revocation: denied by post RLS before privileged fetch. Previously issued signed URLs: remain usable until expiry; this policy cannot revoke bearer tokens already issued. In particular a public scheduled attachment changed to Members only may already have a URL. No immediate revocation is claimed. Before live acceptance use fresh member fixtures with no prior signatures; inventory any converted schedules and wait for known signatures to expire, or separately authorize relocation to a fresh object path. No relocation/deletion/rotation was executed.
+
+Runtime acceptance after separate Demo migration approval must prove member success, nonmember/revoked author denial, organization permissions, direct single/batch signing denial, scheduled signing denial, cross-path references, Range/416 and public/follower regression. Local SQL contract tests and CI do not establish executed RLS acceptance. Server credential availability must be verified by an authorized lightweight request; no media downloads were performed here.
+
+Recommendation: GO for separate Demo migration approval with the documented prior-signature limitation; NO-GO for release until live acceptance passes. Issue #44 remains closed; only the pending migration changes, no replay/repair.
