@@ -67,6 +67,18 @@ test('callback creates a recovery proof only after successful Auth verification'
   assert.match(callback, /RECOVERY_COOKIE_NAME/);
 });
 
+
+test('successful recovery verification cannot redirect to the landing page', () => {
+  // Both supported Supabase callback forms must issue the signed proof and use
+  // the same recovery destination. Keep the assertion tied to the response
+  // construction so a future generic `/` redirect cannot silently regress it.
+  assert.match(callback, /const validRecovery = \(userId:string\) => \{[\s\S]*?new URL\('\/reset-password',request\.url\)/);
+  assert.match(callback, /if\(isRecoveryFlow\)return user\?validRecovery\(user\.id\):invalidRecovery\(\)/);
+  assert.match(callback, /if\(isRecoveryFlow\)return validRecovery\(user\.id\)/);
+  assert.doesNotMatch(callback, /validRecovery[\s\S]{0,220}new URL\('\/',request\.url\)/);
+  assert.match(callback, /if\(isRecoveryFlow\)return invalidRecovery\(\)/);
+});
+
 test('request result does not reveal account existence and distinguishes infrastructure failures', () => {
   assert.match(actions, /isTechnicalRecoveryRequestFailure\(result\.error\)/);
   assert.match(forgotPage, /If an account exists for this email address, you will receive instructions to reset your password\./);
