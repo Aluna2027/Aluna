@@ -14,8 +14,9 @@ export function formatPopulation(population:number) { return `${(population/1_00
 export function getCity(id:string) { return cities.find(c=>c.id===id); }
 export const cityTabs = [
   { slug: 'overview', title: 'Overview' },
+  { slug: 'posts', title: 'Posts' },
   { slug: 'wifi-mesh-communities', title: 'Wi-Fi Mesh Communities' },
-  { slug: 'missions', title: 'Missions' },
-  { slug: 'fundraising', title: 'Fundraising' },
+  { slug: 'missions', title: 'SDG Missions' },
+  { slug: 'fundraising', title: 'SDG Fundraising' },
   { slug: 'impact', title: 'Impact' },
 ] as const;

@@ -10,6 +10,9 @@ import { useRouter } from 'next/navigation';
 import { createPost } from '@/app/(app)/feed/actions';
 import { createClient } from '@/lib/supabase/client';
 import type { Actor } from '@/lib/social';
+import { CityHashtagPicker } from '@/components/city-hashtag-picker';
+import { extractCityHashtags } from '@/lib/city-hashtags';
+import type { CityHashtagRefs } from '@/lib/city-hashtags';
 
 const imageTypes=new Set(['image/jpeg','image/png','image/webp','image/gif']);
 const videoTypes=new Set(['video/mp4','video/webm','video/quicktime']);
@@ -32,7 +35,7 @@ async function normalizeGlobalFeedImage(file:File){
  } finally {URL.revokeObjectURL(url);}
 }
 
-export function PostComposer({actors,returnTo='/feed',repostOf,repostVisibility,communityId,missionId}:{actors:Actor[];returnTo?:string;repostOf?:string;repostVisibility?:string;communityId?:string;missionId?:string}) {
+export function PostComposer({actors,returnTo='/feed',repostOf,repostVisibility,communityId,missionId,cityId,cityName}:{actors:Actor[];returnTo?:string;repostOf?:string;repostVisibility?:string;communityId?:string;missionId?:string;cityId?:string;cityName?:string}) {
  const contextual=!!(communityId||missionId);
  const router=useRouter();
  const [submitting,setSubmitting]=useState(false);
@@ -40,10 +43,16 @@ export function PostComposer({actors,returnTo='/feed',repostOf,repostVisibility,
  const [file,setFile]=useState<File|null>(null);
  const [body,setBody]=useState('');
  const [mentions,setMentions]=useState<SelectedMention[]>([]);
+ const [cityRefs,setCityRefs]=useState<CityHashtagRefs>({});
  const [actorId,setActorId]=useState(actors[0]?.id??'');
  const [visibility,setVisibility]=useState<PostAudience>(repostVisibility==='members'?'members':defaultPostAudience(contextual));
  const client=createClient();
  const textarea=useRef<HTMLTextAreaElement>(null);
+ const updateBody=(text:string,selected:SelectedMention[])=>{
+  setBody(text);setMentions(selected);
+  const live=new Set(extractCityHashtags(text));
+  setCityRefs(current=>Object.fromEntries(Object.entries(current).filter(([tag])=>live.has(tag))));
+ };
  const insertEmoji=(value:string)=>{const el=textarea.current;const start=el?.selectionStart??body.length,end=el?.selectionEnd??start;const next=body.slice(0,start)+value+body.slice(end);const delta=value.length-(end-start);setMentions(old=>old.flatMap(m=>{const mentionEnd=m.start+m.label.length+1;if(start<mentionEnd&&end>m.start)return [];const offset=m.start>=end?m.start+delta:m.start;return next.slice(offset,offset+m.label.length+1)==='@'+m.label?[{...m,start:offset}]:[];}));setBody(next);requestAnimationFrame(()=>{el?.focus();el?.setSelectionRange(start+value.length,start+value.length);});};
  const hasPhotoOrVideo=!!file&&(imageTypes.has(file.type)||videoTypes.has(file.type));
  if(!actors.length)return null;
@@ -115,6 +124,8 @@ export function PostComposer({actors,returnTo='/feed',repostOf,repostVisibility,
      visibility,
      repost_of_id:repostOf||null,community_id:postCommunityId,mission_id:postMissionId,
      media_path:path,media_type:mediaType,
+     city_id:cityId||null,
+     city_hashtag_refs:Object.entries(cityRefs).filter(([tag,selectedCity])=>selectedCity!=='__first_name__'&&extractCityHashtags(body).includes(tag)).map(([tag,selectedCity])=>({tag,cityId:selectedCity})),
      ...(mentionRefs.length?{mention_refs:mentionRefs}:{}),
    });
    if(postError){
@@ -131,8 +142,8 @@ export function PostComposer({actors,returnTo='/feed',repostOf,repostVisibility,
    setSubmitting(false);
  }
 
- return <form action={createPost} onSubmit={handleSubmit} encType="multipart/form-data" className="glass space-y-4 rounded-2xl p-5"><h2 className="text-lg">{repostOf?'Share this post':'Create a post'}</h2><input type="hidden" name="return_to" value={returnTo}/>{repostOf&&<input type="hidden" name="repost_of_id" value={repostOf}/>} {communityId&&<input type="hidden" name="community_id" value={communityId}/>} {missionId&&<input type="hidden" name="mission_id" value={missionId}/>}
- <input type="hidden" name="mentions" value={JSON.stringify(mentions)}/><div className="rounded-xl border border-line bg-panel-raised p-2"><MentionTextarea textareaRef={textarea} value={body} onChange={(text,selected)=>{setBody(text);setMentions(selected);}} selections={mentions} required={!hasPhotoOrVideo} rows={repostOf?2:4} placeholder="Share an update with the Aluna network…"/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={(!body.trim()&&!hasPhotoOrVideo)||submitting} submitting={submitting} scheduler={<PostScheduler actors={actors} actorId={actorId} body={body} mentions={mentions} file={file} visibility={visibility} communityId={communityId} missionId={missionId} onSuccess={()=>{setBody('');setMentions([]);setFile(null);router.refresh();}}/>}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting} submitting={submitting}/>}</div>
+ return <form action={createPost} onSubmit={handleSubmit} encType="multipart/form-data" className="glass space-y-4 rounded-2xl p-5"><h2 className="text-lg">{repostOf?'Share this post':cityName?`Share something about ${cityName}`:'Create a post'}</h2><input type="hidden" name="return_to" value={returnTo}/>{repostOf&&<input type="hidden" name="repost_of_id" value={repostOf}/>} {communityId&&<input type="hidden" name="community_id" value={communityId}/>} {missionId&&<input type="hidden" name="mission_id" value={missionId}/>} {cityId&&<input type="hidden" name="city_id" value={cityId}/>}
+ <input type="hidden" name="mentions" value={JSON.stringify(mentions)}/><input type="hidden" name="city_hashtag_refs" value={JSON.stringify(Object.entries(cityRefs).filter(([tag,selectedCity])=>selectedCity!=='__first_name__'&&extractCityHashtags(body).includes(tag)).map(([tag,selectedCity])=>({tag,cityId:selectedCity})))}/><div className="rounded-xl border border-line bg-panel-raised p-2"><MentionTextarea textareaRef={textarea} value={body} onChange={updateBody} selections={mentions} required={!hasPhotoOrVideo} rows={repostOf?2:4} placeholder={cityName?`Share an update with ${cityName}…`:'Share an update with the Aluna network…'}/><CityHashtagPicker body={body} value={cityRefs} onChange={setCityRefs}/>{!repostOf&&<ComposerTools selectedFile={file} onFile={setFile} onEmoji={insertEmoji} variant="post" submitDisabled={(!body.trim()&&!hasPhotoOrVideo)||submitting} submitting={submitting} scheduler={<PostScheduler actors={actors} actorId={actorId} body={body} mentions={mentions} file={file} visibility={visibility} communityId={communityId} missionId={missionId} cityId={cityId} cityRefs={cityRefs} onSuccess={()=>{setBody('');setMentions([]);setCityRefs({});setFile(null);router.refresh();}}/>}/>}{repostOf&&<ComposerTools selectedFile={null} onFile={()=>{}} onEmoji={insertEmoji} variant="post" submitDisabled={!body.trim()||submitting}/>}</div>
  {uploadError&&<p role="alert" className="text-sm text-amber-300">{uploadError}</p>}
  <div className="flex flex-wrap items-center gap-3"><label className="text-sm text-muted">Post as <select name="actor_id" value={actorId} onChange={e=>setActorId(e.target.value)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink">{actors.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>{repostVisibility==='members'?<input type="hidden" name="visibility" value="members"/>:contextual?<label className="text-sm text-muted">Audience <select aria-label="Audience" name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value as PostAudience)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="members">Members only</option><option value="public">Everyone</option></select></label>:!repostOf&&<label className="text-sm text-muted">Audience <select aria-label="Audience" name="visibility" value={visibility} onChange={e=>setVisibility(e.target.value as PostAudience)} className="ml-2 rounded-lg border border-line bg-panel-raised p-2 text-ink"><option value="public">Everyone</option><option value="followers">Followers</option></select></label>}</div></form>;
 }
