@@ -13,7 +13,7 @@ export function MobileSidebarMenu({isAlunaSuperAdmin = false}:{isAlunaSuperAdmin
  },[open]);
 
  return <>
-  <button type="button" aria-label="Open navigation" aria-expanded={open} onClick={()=>setOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-panel-raised lg:hidden">
+  <button type="button" aria-label="Open navigation" aria-expanded={open} onClick={()=>setOpen(true)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-panel-raised lg:hidden">
    <Menu size={24}/>
   </button>
   <div className={`fixed inset-0 z-50 transition-opacity duration-300 lg:hidden ${open?'pointer-events-auto opacity-100':'pointer-events-none opacity-0'}`} role="dialog" aria-modal="true" aria-label="Main navigation" aria-hidden={!open}>

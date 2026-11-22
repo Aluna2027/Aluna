@@ -61,8 +61,8 @@ export function ProfileSocialActionBar({targetActorId,profilePath,options}:{targ
   finally{setBusy(false);}
  };
  return <section aria-label="Profile actions" className="space-y-2 rounded-2xl border border-line bg-panel p-4 text-sm">
-  <div className="flex flex-wrap items-center gap-3">
-   {options.length>1&&<label className="flex items-center gap-2 text-muted">Act as<select aria-label="Act as" value={selected.id} onChange={e=>{setActorId(e.target.value);setError('');}} className="max-w-56 rounded-lg border border-line bg-panel-raised px-3 py-2 text-ink">{options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
+  <div className="flex min-w-0 flex-wrap items-center gap-3">
+   {options.length>1&&<label className="flex w-full min-w-0 flex-col items-start gap-1 text-muted sm:w-auto sm:flex-row sm:items-center sm:gap-2">Act as<select aria-label="Act as" value={selected.id} onChange={e=>{setActorId(e.target.value);setError('');}} className="w-full min-w-0 max-w-full rounded-lg border border-line bg-panel-raised px-3 py-2 text-ink sm:w-56 sm:max-w-56">{options.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>}
    {connection?.status==='accepted'
     ?<details ref={menu} className="relative">
       <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-lg border border-line bg-panel-raised px-4 py-2 font-medium text-ink hover:bg-nav-active [&::-webkit-details-marker]:hidden"><CheckCircle2 size={17} style={{color:"#26E7D4"}}/> Connected <ChevronDown size={15}/></summary>
