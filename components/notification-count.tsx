@@ -20,4 +20,12 @@ export function NotificationCountProvider({children}:{children:React.ReactNode})
  },[pathname]);
  return <Count.Provider value={count}>{children}</Count.Provider>;
 }
-export function NotificationBadge(){const count=useContext(Count);return count>0?<span aria-label={`${count} unread notifications`} className="inline-flex min-w-5 items-center justify-center rounded-full bg-gold px-1 text-xs font-bold text-navy">{unreadLabel(count)}</span>:null;}
+export function NotificationBadge({placement='inline'}:{placement?:'inline'|'topnav'}){
+ const count=useContext(Count);
+ const label=unreadLabel(count);
+ if(!label)return null;
+ const placementClass=placement==='topnav'
+  ?'absolute -right-1 -top-1 z-10 inline-flex min-w-5 items-center justify-center rounded-full bg-gold px-1 text-xs font-bold text-navy'
+  :'inline-flex min-w-5 items-center justify-center rounded-full bg-gold px-1 text-xs font-bold text-navy';
+ return <span aria-label={`${count} unread notifications`} className={placementClass}>{label}</span>;
+}
