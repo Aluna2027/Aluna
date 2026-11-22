@@ -53,7 +53,7 @@ function CommentCard({comment,canEdit,canVote,onEdited,onDeleted}:{
    if(!menuRef.current?.contains(event.target as Node)&&!buttonRef.current?.contains(event.target as Node))setMenuOpen(false);
   }
   function key(event:KeyboardEvent){if(event.key==='Escape'){setMenuOpen(false);buttonRef.current?.focus();}}
-  reposition();document.addEventListener('pointerdown',outside);document.addEventListener('keydown',key);
+  reposition();menuRef.current?.querySelector('button')?.focus();document.addEventListener('pointerdown',outside);document.addEventListener('keydown',key);
   window.addEventListener('resize',reposition);
   window.addEventListener('scroll',reposition,true);
   return ()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',key);window.removeEventListener('resize',reposition);window.removeEventListener('scroll',reposition,true);};
@@ -100,7 +100,7 @@ function CommentCard({comment,canEdit,canVote,onEdited,onDeleted}:{
    </div>
    {canEdit&&<button ref={buttonRef} type="button" aria-label="Comment options" title="Comment options" aria-haspopup="menu" aria-expanded={menuOpen} aria-controls={menuOpen?menuId:undefined} disabled={busy} className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-muted hover:bg-panel hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold" onClick={()=>setMenuOpen(s=>!s)}>⋯</button>}
   </div>
-  {menuOpen&&canEdit&&typeof document!=='undefined'&&createPortal(<div id={menuId} ref={menuRef} role="menu" aria-label="Comment options" style={{position:'fixed',top:position.top,left:position.left,zIndex:1000}} className="w-[180px] rounded-xl border border-line bg-panel p-1 shadow-xl">
+  {menuOpen&&canEdit&&typeof document!=='undefined'&&createPortal(<div id={menuId} ref={menuRef} role="menu" aria-label="Comment options" onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const buttons=Array.from(event.currentTarget.querySelectorAll('button'));const i=buttons.indexOf(document.activeElement as HTMLButtonElement);buttons[(i+(event.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus();}}} style={{position:'fixed',top:position.top,left:position.left,zIndex:1000}} className="w-[180px] rounded-xl border border-line bg-panel p-1 shadow-xl">
     <button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-panel-raised focus:bg-panel-raised" onClick={beginEdit}>✎ Edit comment</button>
     <button type="button" role="menuitem" className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-panel-raised focus:bg-panel-raised" onClick={()=>void remove()}>Delete comment</button>
    </div>,document.body)}
