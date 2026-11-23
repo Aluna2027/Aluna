@@ -118,13 +118,13 @@ end $$;
 set role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',false);
 do $$
-declare n integer; id uuid;
+declare n integer; v_new_id uuid;
 begin
   select count(*) into n from public.first340_applications;
   if n<>1 then raise exception 'Applicant RLS exposed another dossier'; end if;
-  id:=public.reapply_first340_application();
+  v_new_id:=public.reapply_first340_application();
   if (select count(*) from public.first340_applications where profile_id=auth.uid())<>2 then raise exception 'Reapply did not create a second version'; end if;
-  if not exists(select 1 from public.first340_applications a where a.id=id and a.application_version=2 and a.motivation='Historical motivation') then raise exception 'Reapply did not copy answers'; end if;
+  if not exists(select 1 from public.first340_applications a where a.id=v_new_id and a.application_version=2 and a.motivation='Historical motivation') then raise exception 'Reapply did not copy answers'; end if;
   if (select count(*) from public.first340_audit where application_id=(select a.id from public.first340_applications a where a.profile_id=auth.uid() and a.application_version=1))<>1 then raise exception 'Prior audit history changed'; end if;
   begin
     perform public.reapply_first340_application();
@@ -180,11 +180,11 @@ reset role;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000004',false);
 set role authenticated;
 do $$
-declare id uuid;
+declare v_new_id uuid;
 begin
-  id:=public.start_first340_application();
+  v_new_id:=public.start_first340_application();
   begin
-    perform public.submit_first340_application(id);
+    perform public.submit_first340_application(v_new_id);
     raise exception 'Expected incomplete application rejection';
   exception when others then
     if sqlerrm='Expected incomplete application rejection' then raise; end if;
@@ -197,17 +197,17 @@ begin
     availability='Weekends',preferred_role='Coordinator',travel_availability='Domestic',
     additional_information='Available for the next cohort.',contact_email=' FOUR@EXAMPLE.TEST ',
     phone_e164='+12025550123',phone_country_code='ZZ'
-  where first340_applications.id=id;
+  where first340_applications.id=v_new_id;
   begin
-    perform public.submit_first340_application(id);
+    perform public.submit_first340_application(v_new_id);
     raise exception 'Expected unsupported phone country rejection';
   exception when others then
     if sqlerrm='Expected unsupported phone country rejection' then raise; end if;
     if sqlerrm not like '%Complete all required application fields%' then raise; end if;
   end;
-  update public.first340_applications set phone_country_code='US' where first340_applications.id=id;
-  perform public.submit_first340_application(id);
-  if not exists(select 1 from public.first340_applications where first340_applications.id=id and status='submitted' and contact_email='four@example.test') then raise exception 'Valid submission did not normalize contact email'; end if;
+  update public.first340_applications set phone_country_code='US' where first340_applications.id=v_new_id;
+  perform public.submit_first340_application(v_new_id);
+  if not exists(select 1 from public.first340_applications a where a.id=v_new_id and a.status='submitted' and a.contact_email='four@example.test') then raise exception 'Valid submission did not normalize contact email'; end if;
 end $$;
 reset role;
 
