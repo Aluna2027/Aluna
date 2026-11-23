@@ -27,7 +27,7 @@ create policy "Read city hashtag references of visible posts"
 
 create function public.pr50_city_key(p_value text) returns text
 language sql immutable strict set search_path = '' as $fn$
-  select regexp_replace(lower(normalize(p_value,NFKD)) collate "C",'[^a-z0-9]','','g')
+  select regexp_replace(lower(normalize(p_value,NFKD) collate "C"),'[^a-z0-9]','','g')
 $fn$;
 
 create function public.pr50_validate_city_associations() returns trigger

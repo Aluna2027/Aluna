@@ -42,7 +42,7 @@ test('city hashtag normalization agrees with the migration for Latin accents and
  const expected=new Map([['Paris','paris'],['SanJose','sanjose'],['SãoPaulo','saopaulo'],['SaoPaulo','saopaulo'],['İstanbul','istanbul'],['Århus','arhus']]);
  for(const [input,key] of expected)assert.equal(normalizeCityHashtag(input),key,input);
  assert.equal(normalizeCityHashtag('東京'),'');
- assert.match(migration,/regexp_replace\(lower\(normalize\(p_value,NFKD\)\) collate "C",'\[\^a-z0-9\]','','g'\)/);
+ assert.match(migration,/regexp_replace\(lower\(normalize\(p_value,NFKD\) collate "C"\),'\[\^a-z0-9\]','','g'\)/);
  assert.match(read('app/api/city-hashtag-options/route.ts'),/return key!==''&&wanted\.has\(key\)/);
 });
 
