@@ -6,28 +6,31 @@ import {allowedDocuments} from '@/components/composer-tools';
 import type {Actor} from '@/lib/social';
 import {fromDatabaseMentions, toDatabaseMentions} from '@/lib/post-annotations';
 import {MentionTextarea, type SelectedMention} from '@/components/mention-textarea';
+import {CityHashtagPicker} from '@/components/city-hashtag-picker';
+import {extractCityHashtags,type CityHashtagRefs} from '@/lib/city-hashtags';
 
-type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null;mention_refs:unknown;community_id:string|null;mission_id:string|null};
-type Props={actors:Actor[];actorId:string;body:string;mentions:SelectedMention[];file:File|null;visibility:string;communityId?:string;missionId?:string;onSuccess:()=>void};
+type Item={id:string;actor_id:string;body:string;scheduled_for:string;visibility:string;status:string;media_type:string|null;mention_refs:unknown;city_hashtag_refs:unknown;community_id:string|null;mission_id:string|null};
+type Props={actors:Actor[];actorId:string;body:string;mentions:SelectedMention[];file:File|null;visibility:string;communityId?:string;missionId?:string;cityId?:string;cityRefs:CityHashtagRefs;onSuccess:()=>void};
 const pad=(n:number)=>String(n).padStart(2,'0');
 function localValues(when:Date){return {day:when.getFullYear()+'-'+pad(when.getMonth()+1)+'-'+pad(when.getDate()),time:pad(when.getHours())+':'+pad(when.getMinutes())};}
 function futureDate(day:string,time:string){const date=new Date(day+'T'+time+':00');return Number.isFinite(date.getTime())&&date.getTime()>Date.now()+30000&&date.getTime()<Date.now()+365*86400000?date:null;}
-export function PostScheduler({actors,actorId,body,mentions,file,visibility,communityId,missionId,onSuccess}:Props){
+export function PostScheduler({actors,actorId,body,mentions,file,visibility,communityId,missionId,cityId,cityRefs,onSuccess}:Props){
  const initial=localValues(new Date(Date.now()+3600000));
  const [panel,setPanel]=useState<'none'|'schedule'|'list'>('none');
  const [day,setDay]=useState(initial.day),[time,setTime]=useState(initial.time);
  const [rows,setRows]=useState<Item[]>([]),[editing,setEditing]=useState<string|null>(null);
  const [draft,setDraft]=useState(''),[editDay,setEditDay]=useState(''),[editTime,setEditTime]=useState(''),[editVisibility,setEditVisibility]=useState('public');
  const [draftMentions,setDraftMentions]=useState<SelectedMention[]>([]);
+ const [draftCityRefs,setDraftCityRefs]=useState<CityHashtagRefs>({});
  const editTextarea=useRef<HTMLTextAreaElement>(null);
  const [working,setWorking]=useState(false),[error,setError]=useState('');
  async function load(){
   setError('');setPanel('list');
   const client=createClient();
-  let {data,error}=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,mention_refs,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
+  let {data,error}=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,mention_refs,city_hashtag_refs,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
   if(error&&error.message.includes('mention_refs')){
    const fallback=await client.from('scheduled_posts').select('id,actor_id,body,scheduled_for,visibility,status,media_type,community_id,mission_id').in('actor_id',actors.map(x=>x.id)).in('status',['pending','failed']).order('scheduled_for',{ascending:true}).limit(100);
-   data=(fallback.data??[]).map(row=>({...row,mention_refs:[]}));error=fallback.error;
+   data=(fallback.data??[]).map(row=>({...row,mention_refs:[],city_hashtag_refs:[]}));error=fallback.error;
   }
   if(error)setError('Unable to load scheduled posts.');setRows((data??[]) as Item[]);
  }
@@ -39,7 +42,8 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
   setWorking(true);let id:string|null=null;let mediaPath:string|null=null;const client=createClient();
   try{
    const {data:{user}}=await client.auth.getUser();if(!user)throw Error('Please log in.');
-   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility,community_id:communityId||null,mission_id:missionId||null,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body,JSON.stringify(mentions),true)}:{})}).select('id').single();
+   const refs=Object.entries(cityRefs).filter(([tag,selectedCity])=>selectedCity!=='__first_name__'&&extractCityHashtags(body).includes(tag)).map(([tag,selectedCity])=>({tag,cityId:selectedCity}));
+   const {data,error}=await client.from('scheduled_posts').insert({actor_id:actorId,body:body.trim(),visibility,community_id:communityId||null,mission_id:missionId||null,city_id:cityId||null,city_hashtag_refs:refs,scheduled_for:when.toISOString(),...(mentions.length?{mention_refs:toDatabaseMentions(body,JSON.stringify(mentions),true)}:{})}).select('id').single();
    if(error||!data)throw Error('Could not create scheduled post.');id=data.id;
    if(file){
     const type=file.type.startsWith('image/')?'image':file.type.startsWith('video/')?'video':'document';
@@ -60,14 +64,15 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
   }
   finally{setWorking(false);}
  }
- function edit(row:Item){const v=localValues(new Date(row.scheduled_for));setEditing(row.id);setDraft(row.body);setDraftMentions(fromDatabaseMentions(row.body,row.mention_refs));setEditDay(v.day);setEditTime(v.time);setEditVisibility(row.visibility);setError('');}
+ function edit(row:Item){const v=localValues(new Date(row.scheduled_for));setEditing(row.id);setDraft(row.body);setDraftMentions(fromDatabaseMentions(row.body,row.mention_refs));const refs=Array.isArray(row.city_hashtag_refs)?row.city_hashtag_refs:[];setDraftCityRefs(Object.fromEntries(refs.filter((x):x is {tag:string;cityId:string}=>!!x&&typeof x==='object'&&'tag' in x&&'cityId' in x).map(x=>[x.tag,x.cityId])));setEditDay(v.day);setEditTime(v.time);setEditVisibility(row.visibility);setError('');}
  async function save(){
   const when=futureDate(editDay,editTime);
   const item=rows.find(row=>row.id===editing);
   if(!when||(!draft.trim()&&!['image','video'].includes(item?.media_type??''))||draft.length>5000){setError('Enter text or keep an attached photo or video, and choose a valid future date.');return;}
   setWorking(true);
   const client=createClient();const mentionRefs=toDatabaseMentions(draft,JSON.stringify(draftMentions),true);
-  let r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility,p_mention_refs:mentionRefs});
+  const cityRefsPayload=Object.entries(draftCityRefs).filter(([tag,cityId])=>cityId!=='__first_name__'&&extractCityHashtags(draft).includes(tag)).map(([tag,cityId])=>({tag,cityId}));
+  let r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility,p_mention_refs:mentionRefs,p_city_hashtag_refs:cityRefsPayload});
   if(r.error?.code==='PGRST202'&&!mentionRefs.length)r=await client.rpc('edit_scheduled_post',{p_id:editing,p_body:draft,p_scheduled_for:when.toISOString(),p_visibility:editVisibility});
   setWorking(false);
   if(r.error){setError('Could not edit. This post may have published.');return;}
@@ -93,7 +98,7 @@ export function PostScheduler({actors,actorId,body,mentions,file,visibility,comm
     {!rows.length&&<p className="text-sm text-muted">No upcoming posts.</p>}
     <div className="space-y-3">{rows.map(item=><div key={item.id} className="rounded-lg border border-line bg-panel-raised p-3 text-sm">
       {editing===item.id?<div className="space-y-2">
-       <MentionTextarea textareaRef={editTextarea} value={draft} onChange={(text,selected)=>{setDraft(text);setDraftMentions(selected);}} selections={draftMentions} rows={3} placeholder="Edit scheduled post…"/>
+       <MentionTextarea textareaRef={editTextarea} value={draft} onChange={(text,selected)=>{setDraft(text);setDraftMentions(selected);setDraftCityRefs(current=>Object.fromEntries(Object.entries(current).filter(([tag])=>extractCityHashtags(text).includes(tag))));}} selections={draftMentions} rows={3} placeholder="Edit scheduled post…"/><CityHashtagPicker body={draft} value={draftCityRefs} onChange={setDraftCityRefs}/>
        <input aria-label="Edit date" type="date" value={editDay} onChange={e=>setEditDay(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
        <input aria-label="Edit time" type="time" value={editTime} onChange={e=>setEditTime(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink"/>
        <select aria-label="Audience" value={editVisibility} onChange={e=>setEditVisibility(e.target.value)} className="w-full rounded-md border border-line bg-panel p-2 text-ink">{item.community_id||item.mission_id?<><option value="members">Members only</option><option value="public">Everyone</option></>:<><option value="public">Everyone</option><option value="followers">Followers</option></>}</select>

@@ -1,0 +1,63 @@
+name: PR50 City Hub checks
+
+on:
+  push:
+    branches:
+      - feature/pr50-city-hub-posts-service-names
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-pr50:
+    if: github.ref_name == 'feature/pr50-city-hub-posts-service-names' || github.head_ref == 'feature/pr50-city-hub-posts-service-names'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: First 340 migration and authorization integration (isolated PostgreSQL)
+        run: psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/pr50/first340-migration.integration.sql
+        env:
+          PGPASSWORD: postgres
+      - name: First 340 concurrent capacity and team-switch integration (two PostgreSQL sessions)
+        run: bash tests/pr50/first340-concurrency.integration.sh
+        env:
+          PGPASSWORD: postgres
+      - name: City Hub and relevant privacy regression tests
+        run: node --experimental-strip-types --test tests/pr50/*.test.mjs tests/pr47/post-annotations.test.mjs tests/pr47/members-only-audience.test.mjs tests/pr47/post-text.test.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder

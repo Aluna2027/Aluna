@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { toDatabaseMentions } from '@/lib/post-annotations';
 import { submittedPostAudience } from '@/lib/post-audience';
 
-function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;if(/^\/(?:profile|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})(?:\?tab=(?:about|posts|connections|followers|following))?$/i.test(path))return path;return /^\/(feed|following|posts\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
+function destination(form:FormData) {const path=String(form.get('return_to')??'/feed');if(/^\/(communities|missions)\/[0-9a-f-]{36}$/i.test(path))return `${path}?tab=${path.startsWith('/missions/')?'posts':'feed'}`;if(/^\/cities\/[a-z0-9-]+\?tab=posts$/i.test(path))return path;if(/^\/(?:profile|people\/[0-9a-f-]{36}|organizations\/[0-9a-f-]{36})(?:\?tab=(?:about|posts|connections|followers|following))?$/i.test(path))return path;return /^\/(feed|following|posts\/[0-9a-f-]{36})$/i.test(path)?path:'/feed';}
 function withError(path:string,error:string){return `${path}${path.includes('?')?'&':'?'}error=${error}`;}
 async function current() {const client=await createClient();const {data:{user}}=await client.auth.getUser();if(!user)redirect('/login');return client;}
 function bodyText(form:FormData,key:string,max:number){const value=String(form.get(key)??'').trim();return value.length>=1&&value.length<=max?value:null;}
@@ -15,6 +15,10 @@ export async function createPost(form:FormData) {
  const actor_id=String(form.get('actor_id')??'');
  const mentionRefs=toDatabaseMentions(String(form.get('body')??''),String(form.get('mentions')??''),true);
  const repost_of_id=String(form.get('repost_of_id')??'')||null;
+ const city_id=String(form.get('city_id')??'')||null;
+ if(city_id&&!/^[0-9a-f-]{36}$/i.test(city_id))redirect(withError(returnTo,'post'));
+ let city_hashtag_refs:unknown[]=[];
+ try {const parsed=JSON.parse(String(form.get('city_hashtag_refs')??'[]'));if(!Array.isArray(parsed)||parsed.length>10)throw new Error();city_hashtag_refs=parsed;} catch {redirect(withError(returnTo,'post'));}
  let community_id=String(form.get('community_id')??'')||null;
  let mission_id=String(form.get('mission_id')??'')||null;
  let visibility=submittedPostAudience(form.get('visibility'),!!(community_id||mission_id));
@@ -40,6 +44,7 @@ export async function createPost(form:FormData) {
    ...(postId?{id:postId}:{}),actor_id,body,
    visibility,repost_of_id,community_id,mission_id,
    ...(path&&media_type?{media_path:path,media_type}:{}),
+   city_id,city_hashtag_refs,
    ...(mentionRefs.length?{mention_refs:mentionRefs}:{}),
  }).select('id').single();
  if(error||!post){if(path)await client.storage.from('post-media').remove([path]);redirect(withError(returnTo,'post'));}
@@ -107,7 +112,9 @@ export async function editPost(form:FormData) {
  const annotationUpdate=form.get('annotations_enabled')==='1'
   ?{mention_refs:toDatabaseMentions(String(form.get('body')??''),String(form.get('mentions')??''),true)}
   :{};
- const {error}=await client.from('posts').update({body,updated_at:new Date().toISOString(),...annotationUpdate}).eq('id',id);
+ let cityRefs:unknown[]=[];
+ try {const parsed=JSON.parse(String(form.get('city_hashtag_refs')??'[]'));if(!Array.isArray(parsed)||parsed.length>10)throw new Error();cityRefs=parsed;} catch {redirect(`/posts/${id}/edit?error=validation`);}
+ const {error}=await client.from('posts').update({body,city_hashtag_refs:cityRefs,updated_at:new Date().toISOString(),...annotationUpdate}).eq('id',id);
  if(error)redirect(`/posts/${id}/edit?error=save`);
  revalidatePath(`/posts/${id}`);revalidatePath('/feed');redirect(`/posts/${id}`);
 }
