@@ -36,7 +36,10 @@ export default async function First340({ searchParams }: { searchParams: Promise
           <Link href="/first-340/apply" className="rounded-xl bg-gold px-4 py-2 font-semibold text-navy">Continue application</Link>
         </div>}
         {active.status !== 'draft' && !['selected','withdrawn'].includes(active.status) &&
-          <div className="mt-4"><First340WithdrawConfirmation action={withdrawFirst340}/></div>}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="rounded-full border border-line px-3 py-1 text-sm text-ink" aria-label="Application review status">Review status: {first340StatusLabel(active.status)}</span>
+            <First340WithdrawConfirmation action={withdrawFirst340}/>
+          </div>}
         {active.status !== 'draft' && <p className="mt-3 text-sm">Selection is reviewed by authorized Aluna Super Admins. Fundraising activity informs review but never selects automatically.</p>}
       </> : latest?.status === 'withdrawn' ? <>
         <p>Your previous application remains available in your history. Reapplying creates a separate draft with your earlier answers copied for review.</p>

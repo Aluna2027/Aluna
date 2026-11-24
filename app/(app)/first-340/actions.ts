@@ -87,5 +87,6 @@ export async function decideFirst340(form: FormData) {
   if (error) redirect('/aluna-admin/first-340?error=decision');
   revalidatePath('/aluna-admin/first-340');
   revalidatePath('/first-340/admin');
+  revalidatePath('/aluna-admin/first-340/teams');
   redirect('/aluna-admin/first-340?status=saved');
 }

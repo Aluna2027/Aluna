@@ -3,6 +3,10 @@ import { BookUser, BriefcaseBusiness, Building2, ChartNoAxesColumnIncreasing, Fi
 import { iconColors } from '@/lib/icon-colors';
 function cardIcon(title:string):{Icon:LucideIcon;color:string}|null{
  const label=title.toLowerCase();
+ if(label.includes('340 applications'))return {Icon:FileCheck2,color:iconColors.profile};
+ if(label.includes('audit'))return {Icon:History,color:iconColors.profile};
+ if(label.includes('aluna-managed'))return {Icon:Building2,color:iconColors.organization};
+ if(label.includes('official wba score management'))return {Icon:ChartNoAxesColumnIncreasing,color:iconColors.organization};
  if(label.includes('people connected'))return {Icon:UsersRound,color:iconColors.members};
  if(label.includes('wi-fi nodes'))return {Icon:Wifi,color:iconColors.wifi};
  if(label.includes('local owners'))return {Icon:UserRoundCheck,color:iconColors.members};

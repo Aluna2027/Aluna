@@ -106,6 +106,7 @@ insert into public.first340_audit(application_id,actor_profile_id,previous_statu
   where profile_id='10000000-0000-4000-8000-000000000001';
 
 \i supabase/migrations/20261123090000_pr50_first340_application_lifecycle.sql
+\i supabase/migrations/20261124130000_pr50_first340_fixed_team_roster.sql
 
 do $$
 begin
@@ -209,6 +210,100 @@ begin
   perform public.submit_first340_application(v_new_id);
   if not exists(select 1 from public.first340_applications a where a.id=v_new_id and a.status='submitted' and a.contact_email='four@example.test') then raise exception 'Valid submission did not normalize contact email'; end if;
 end $$;
+reset role;
+
+
+-- The fixed roster is exactly 20 teams of 17, and schema constraints reject drift.
+do $
+begin
+  if (select count(*) from public.first340_teams)<>20 then raise exception 'Expected exactly 20 First 340 teams'; end if;
+  if (select sum(capacity) from public.first340_teams)<>340 then raise exception 'Expected 340 total team places'; end if;
+  if exists(select 1 from public.first340_teams where capacity<>17) then raise exception 'A team has a noncanonical capacity'; end if;
+  begin
+    insert into public.first340_teams(name,capacity) values('Team 21',17);
+    raise exception 'Expected fixed team-name constraint';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.first340_teams set capacity=18 where name='Team 1';
+    raise exception 'Expected fixed capacity constraint';
+  exception when check_violation then null;
+  end;
+end $;
+
+-- Seed and assignment behavior: only Super Admin can assign, and team capacity is enforced.
+insert into public.profiles(id,display_name)
+select gen_random_uuid(),'Capacity Applicant '||n from generate_series(1,18) n;
+insert into public.first340_applications(profile_id,status,submitted_at)
+select id,'submitted',now() from public.profiles where display_name like 'Capacity Applicant %';
+
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',false);
+set role authenticated;
+do $
+declare
+  v_team uuid;
+  v_application uuid;
+  v_index integer:=0;
+  rec record;
+begin
+  select id into v_team from public.first340_teams where name='Team 1';
+  for rec in
+    select a.id from public.first340_applications a
+    join public.profiles p on p.id=a.profile_id
+    where p.display_name like 'Capacity Applicant %'
+    order by p.display_name
+  loop
+    v_index:=v_index+1;
+    if v_index<=17 then
+      perform public.admin_first340_decision(rec.id,'selected',v_team,'Capacity integration test');
+    else
+      begin
+        perform public.admin_first340_decision(rec.id,'selected',v_team,'Capacity integration test');
+        raise exception 'Expected full-team assignment rejection';
+      exception when others then
+        if sqlerrm='Expected full-team assignment rejection' then raise; end if;
+        if sqlerrm not like '%Team is full%' then raise; end if;
+      end;
+      if (select status from public.first340_applications where id=rec.id)<>'submitted'
+        or exists(select 1 from public.first340_team_members where application_id=rec.id)
+      then raise exception 'Failed full-team assignment changed application state'; end if;
+    end if;
+  end loop;
+  if v_index<>18 then raise exception 'Capacity fixtures were not created'; end if;
+  if (select count(*) from public.first340_team_members where team_id=v_team)<>17 then
+    raise exception 'Team assignment exceeded or missed its capacity';
+  end if;
+
+  select a.id into v_application from public.first340_applications a
+    join public.profiles p on p.id=a.profile_id
+    where p.display_name like 'Capacity Applicant %' order by p.display_name limit 1;
+  begin
+    perform public.admin_first340_decision(v_application,'candidate',v_team,'Invalid status/team combination');
+    raise exception 'Expected non-selected assignment rejection';
+  exception when others then
+    if sqlerrm='Expected non-selected assignment rejection' then raise; end if;
+    if sqlerrm not like '%Only selected applicants may join a team%' then raise; end if;
+  end;
+  if not exists(select 1 from public.first340_team_members where application_id=v_application and team_id=v_team) then
+    raise exception 'Rejected status/team combination changed the assignment';
+  end if;
+  perform public.admin_first340_decision(v_application,'candidate',null,'Release team place');
+  if exists(select 1 from public.first340_team_members where application_id=v_application) then
+    raise exception 'Changing status away from Selected did not release the team place';
+  end if;
+  if not exists(select 1 from public.first340_audit where application_id=v_application and previous_team_id=v_team and new_team_id is null) then
+    raise exception 'Team removal was not recorded in audit history';
+  end if;
+
+  select id into v_application from public.first340_applications where profile_id='10000000-0000-4000-8000-000000000002';
+  begin
+    perform public.admin_first340_decision(v_application,'selected',gen_random_uuid(),'Unavailable team');
+    raise exception 'Expected unavailable team rejection';
+  exception when others then
+    if sqlerrm='Expected unavailable team rejection' then raise; end if;
+    if sqlerrm not like '%Team unavailable%' then raise; end if;
+  end;
+end $;
 reset role;
 
 -- Anonymous users cannot execute applicant or Super Admin APIs.
