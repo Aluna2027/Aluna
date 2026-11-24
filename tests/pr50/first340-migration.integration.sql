@@ -245,7 +245,8 @@ end $$;
 
 -- Seed and assignment behavior: only Super Admin can assign, and team capacity is enforced.
 insert into public.profiles(id,display_name)
-select gen_random_uuid(),'Capacity Applicant '||n from generate_series(1,18) as numbers(n);
+select ('20000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'Capacity Applicant '||n
+from generate_series(1,18) as numbers(n);
 insert into public.first340_applications(profile_id,status,submitted_at)
 select id,'submitted',now() from public.profiles where display_name like 'Capacity Applicant %';
 
@@ -261,9 +262,9 @@ begin
   select id into v_team from public.first340_teams where name='Team 1';
   for rec in
     select a.id from public.first340_applications a
-    join public.profiles p on p.id=a.profile_id
-    where p.display_name like 'Capacity Applicant %'
-    order by p.display_name
+    where a.profile_id between '20000000-0000-4000-8000-000000000001'::uuid
+      and '20000000-0000-4000-8000-000000000018'::uuid
+    order by a.profile_id
   loop
     v_index:=v_index+1;
     if v_index<=17 then
@@ -287,8 +288,9 @@ begin
   end if;
 
   select a.id into v_application from public.first340_applications a
-    join public.profiles p on p.id=a.profile_id
-    where p.display_name like 'Capacity Applicant %' order by p.display_name limit 1;
+    where a.profile_id between '20000000-0000-4000-8000-000000000001'::uuid
+      and '20000000-0000-4000-8000-000000000018'::uuid
+    order by a.profile_id limit 1;
   begin
     perform public.admin_first340_decision(v_application,'candidate',v_team,'Invalid status/team combination');
     raise exception 'Expected non-selected assignment rejection';
