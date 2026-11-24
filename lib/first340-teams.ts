@@ -4,6 +4,11 @@ export const FIRST340_TOTAL_CAPACITY = FIRST340_TEAM_COUNT * FIRST340_TEAM_CAPAC
 
 export type First340Team = { id: string; name: string; capacity: number };
 
+export function formatFirst340TeamTransition(previousTeamId: string | null, nextTeamId: string | null, teamNames: ReadonlyMap<string, string>): string {
+  const label = (teamId: string | null) => teamId === null ? 'No team' : teamNames.get(teamId) ?? 'Unavailable team';
+  return `Team: ${label(previousTeamId)} → ${label(nextTeamId)}`;
+}
+
 export function sortFirst340Teams<T extends Pick<First340Team, 'name'>>(teams: readonly T[]): T[] {
   return [...teams].sort((a, b) => {
     const left = /^Team (\d+)$/.exec(a.name);

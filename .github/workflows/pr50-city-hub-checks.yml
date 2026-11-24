@@ -46,6 +46,10 @@ jobs:
         run: psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/pr50/first340-migration.integration.sql
         env:
           PGPASSWORD: postgres
+      - name: First 340 concurrent capacity and team-switch integration (two PostgreSQL sessions)
+        run: bash tests/pr50/first340-concurrency.integration.sh
+        env:
+          PGPASSWORD: postgres
       - name: City Hub and relevant privacy regression tests
         run: node --experimental-strip-types --test tests/pr50/*.test.mjs tests/pr47/post-annotations.test.mjs tests/pr47/members-only-audience.test.mjs tests/pr47/post-text.test.mjs
       - name: Typecheck

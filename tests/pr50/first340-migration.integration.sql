@@ -223,12 +223,14 @@ begin
     or not has_table_privilege('authenticated','public.first340_team_members','SELECT') then
     raise exception 'Authenticated roster reads were not preserved';
   end if;
-  if has_table_privilege('anon','public.first340_teams','TRUNCATE')
-    or has_table_privilege('authenticated','public.first340_teams','TRUNCATE')
-    or has_table_privilege('anon','public.first340_team_members','TRUNCATE')
-    or has_table_privilege('authenticated','public.first340_team_members','TRUNCATE')
-    or has_table_privilege('authenticated','public.first340_teams','INSERT')
-    or has_table_privilege('authenticated','public.first340_team_members','INSERT') then
+  if exists (
+    select 1 from (values
+      ('anon'::text,'public.first340_teams'::text),('authenticated'::text,'public.first340_teams'::text),
+      ('anon'::text,'public.first340_team_members'::text),('authenticated'::text,'public.first340_team_members'::text)
+    ) as client_tables(role_name, table_name)
+    cross join (values ('INSERT'::text),('UPDATE'::text),('DELETE'::text),('TRUNCATE'::text),('REFERENCES'::text),('TRIGGER'::text)) as client_mutations(privilege_name)
+    where has_table_privilege(client_tables.role_name,client_tables.table_name,client_mutations.privilege_name)
+  ) then
     raise exception 'Client roles retain direct team mutation privileges';
   end if;
   begin
@@ -257,6 +259,8 @@ declare
   v_team uuid;
   v_application uuid;
   v_index integer:=0;
+  v_status_before text;
+  v_audit_count_before integer;
   rec record;
 begin
   select id into v_team from public.first340_teams where name='Team 1';
@@ -310,6 +314,8 @@ begin
   end if;
 
   select id into v_application from public.first340_applications where profile_id='10000000-0000-4000-8000-000000000002';
+  select status into v_status_before from public.first340_applications where id=v_application;
+  select count(*) into v_audit_count_before from public.first340_audit where application_id=v_application;
   begin
     perform public.admin_first340_decision(v_application,'selected',gen_random_uuid(),'Unavailable team');
     raise exception 'Expected unavailable team rejection';
@@ -317,6 +323,10 @@ begin
     if sqlerrm='Expected unavailable team rejection' then raise; end if;
     if sqlerrm not like '%Team unavailable%' then raise; end if;
   end;
+  if (select status from public.first340_applications where id=v_application) is distinct from v_status_before
+    or (select count(*) from public.first340_audit where application_id=v_application)<>v_audit_count_before
+    or exists(select 1 from public.first340_team_members where application_id=v_application)
+  then raise exception 'Unavailable-team rejection left partial state'; end if;
 end $$;
 reset role;
 

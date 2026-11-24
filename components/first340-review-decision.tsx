@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { UsersRound } from 'lucide-react';
+import { iconColors } from '@/lib/icon-colors';
 
 type TeamOption = { id: string; name: string; capacity: number; occupied: number; available: number; full: boolean };
 type ReviewAction = (formData: FormData) => Promise<void>;
@@ -48,7 +50,7 @@ export function First340ReviewDecision({
     </section>
 
     {showTeamAssignment && <section aria-labelledby="first340-team-heading" className="rounded-xl border border-line p-4">
-      <h3 id="first340-team-heading" className="font-semibold text-ink">Team Assignment &amp; Availability</h3>
+      <h3 id="first340-team-heading" className="flex items-center gap-3 font-semibold text-ink"><UsersRound aria-hidden="true" size={24} color={iconColors.profile} className="shrink-0" />Team Assignment &amp; Availability</h3>
       {!rosterInitialized ? <p className="mt-2 text-sm text-muted">The fixed team roster is not initialized yet. Team assignment becomes available after its approved database migration is applied.</p> : <>
         <p className="mt-2 text-sm text-muted">{assigned} assigned of {totalCapacity} places · {available} places available across 20 teams.</p>
         <label className="mt-3 block text-sm">Team

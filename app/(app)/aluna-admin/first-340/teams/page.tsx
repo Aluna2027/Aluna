@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui';
+import { ChartNoAxesColumnIncreasing, UsersRound } from 'lucide-react';
+import { First340CardTitle } from '@/components/first340-card-title';
 import { requireAlunaSuperAdmin } from '@/lib/aluna-admin';
 import { summarizeFirst340Roster, type First340Team } from '@/lib/first340-teams';
 
@@ -39,10 +41,10 @@ export default async function First340TeamsPage() {
     </header>
     <Link href="/aluna-admin/first-340" className="text-sm text-gold">← Applications</Link>
     {errors && <p role="alert" className="rounded-xl border border-red-700 p-3 text-sm text-red-300">Team roster details could not be loaded.</p>}
-    {!summary.initialized ? <Card title="Team roster not initialized">
+    {!summary.initialized ? <Card title={<First340CardTitle icon={UsersRound}>Team roster not initialized</First340CardTitle>}>
       <p>The fixed 20-team roster is not available yet. It will appear after the separately approved roster migration is applied.</p>
     </Card> : <>
-      <Card title="Team availability">
+      <Card title={<First340CardTitle icon={ChartNoAxesColumnIncreasing}>Team availability</First340CardTitle>}>
         <p className="text-ink">{summary.assigned} assigned · {summary.available} available · {summary.capacity} total places</p>
         {summary.overCapacity && <p role="alert" className="mt-2 text-red-300">An existing team exceeds its configured capacity. Review assignments before making changes.</p>}
       </Card>
@@ -56,7 +58,7 @@ export default async function First340TeamsPage() {
               const name = profile?.display_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Selected applicant';
               return [{ application, profileId: application.profile_id, name }];
             });
-          return <Card key={team.id} title={team.name}>
+          return <Card key={team.id} title={<First340CardTitle icon={UsersRound}>{team.name}</First340CardTitle>}>
             <p className="mb-3 text-sm text-ink">{team.occupied}/{team.capacity} assigned · {team.available} available</p>
             <ul className="space-y-2">
               {members.map((member) => <li key={member.application.id} className="border-b border-line pb-2 text-sm">

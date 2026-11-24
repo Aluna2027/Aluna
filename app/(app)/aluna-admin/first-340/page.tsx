@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui';
+import { Search, UsersRound } from 'lucide-react';
+import { First340CardTitle } from '@/components/first340-card-title';
 import { requireAlunaSuperAdmin } from '@/lib/aluna-admin';
 import { first340Statuses, first340StatusLabel } from '@/lib/first340';
 
@@ -40,7 +42,7 @@ export default async function First340AdminOverview({ searchParams }:{searchPara
       <Link href="/aluna-admin/first-340/teams" className="rounded-xl border border-line px-4 py-2 text-sm text-gold">View Teams →</Link>
     </div>
     {error && <p role="alert" className="rounded-xl border border-red-700 p-3 text-red-300">Applications could not be loaded.</p>}
-    <Card title="Search and filter">
+    <Card title={<First340CardTitle icon={Search}>Search and filter</First340CardTitle>}>
       <form method="get" className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm lg:col-span-2">Name, username, email or profile ID<input name="q" defaultValue={params.q} className="mt-2 w-full rounded-xl border border-line bg-panel-raised p-3"/></label>
@@ -54,7 +56,7 @@ export default async function First340AdminOverview({ searchParams }:{searchPara
         </div>
       </form>
     </Card>
-    <Card title={`Applicants · ${total}`}>
+    <Card title={<First340CardTitle icon={UsersRound}>{`Applicants · ${total}`}</First340CardTitle>}>
       <div className="space-y-3">{rows.map((row) => <article key={row.profile_id} className="rounded-xl border border-line p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0"><h2 className="font-semibold text-ink">{row.display_name || row.username || 'Applicant'}</h2>
