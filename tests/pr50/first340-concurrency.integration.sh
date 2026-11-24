@@ -12,12 +12,10 @@ insert into public.profiles(id,display_name) values
 insert into public.first340_applications(profile_id,status,submitted_at) values
  ('30000000-0000-4000-8000-000000000001','submitted',now()),
  ('30000000-0000-4000-8000-000000000002','submitted',now());
-create function public.pr50_test_delay_team_insert() returns trigger language plpgsql as $
-begin
- if new.team_id=(select id from public.first340_teams where name='Team 1') then perform pg_sleep(2); end if;
+create function public.pr50_test_delay_team_insert() returns trigger language plpgsql as 'begin
+ if new.team_id=(select id from public.first340_teams where name=''Team 1'') then perform pg_sleep(2); end if;
  return new;
-end
-$;
+end';
 create trigger pr50_test_delay_team_insert before insert on public.first340_team_members for each row execute function public.pr50_test_delay_team_insert();
 do $
 begin
