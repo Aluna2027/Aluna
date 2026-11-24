@@ -17,13 +17,13 @@ create function public.pr50_test_delay_team_insert() returns trigger language pl
  return new;
 end';
 create trigger pr50_test_delay_team_insert before insert on public.first340_team_members for each row execute function public.pr50_test_delay_team_insert();
-do $
+do $pr50$
 begin
  if (select count(*) from public.first340_team_members where team_id=(select id from public.first340_teams where name='Team 1'))<>16 then
   raise exception 'Concurrency fixture requires exactly one Team 1 place available';
  end if;
 end
-$$;
+$pr50$;
 SQL
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -49,14 +49,14 @@ if wait "$pid_b"; then status_b=0; else status_b=$?; fi
 if [[ "$status_a" -ne 0 ]]; then cat "$tmp_dir/session-a.log"; echo 'First assignment failed'; exit 1; fi
 if [[ "$status_b" -eq 0 ]] || ! grep -qi 'Team is full' "$tmp_dir/session-b.log"; then cat "$tmp_dir/session-b.log"; echo 'Second assignment was not rejected for capacity'; exit 1; fi
 psql "${psql_args[@]}" <<SQL
-do \$\$
+do \$pr50\$
 begin
  if (select count(*) from public.first340_team_members where team_id=(select id from public.first340_teams where name='Team 1'))<>17 then raise exception 'Concurrent capacity did not stop at 17'; end if;
  if (select status from public.first340_applications where profile_id='${app_a}')<>'selected' or not exists(select 1 from public.first340_team_members where application_id=(select id from public.first340_applications where profile_id='${app_a}') and team_id=(select id from public.first340_teams where name='Team 1')) then raise exception 'Winning assignment inconsistent'; end if;
  if (select status from public.first340_applications where profile_id='${app_b}')<>'submitted' or exists(select 1 from public.first340_team_members where application_id=(select id from public.first340_applications where profile_id='${app_b}')) or exists(select 1 from public.first340_audit where application_id=(select id from public.first340_applications where profile_id='${app_b}')) then raise exception 'Rejected assignment left partial state'; end if;
  if (select count(*) from public.first340_team_members where application_id in (select id from public.first340_applications where profile_id in ('${app_a}','${app_b}')))<>1 then raise exception 'Duplicate concurrent assignment'; end if;
 end
-\$\$;
+\$pr50\$;
 SQL
 psql "${psql_args[@]}" -c 'drop trigger pr50_test_delay_team_insert on public.first340_team_members; drop function public.pr50_test_delay_team_insert();'
 psql "${psql_args[@]}" <<SQL
@@ -67,7 +67,7 @@ select public.admin_first340_decision((select id from public.first340_applicatio
 commit;
 SQL
 psql "${psql_args[@]}" <<SQL
-do \$\$
+do \$pr50\$
 declare v_team_one uuid; v_team_two uuid; v_total integer;
 begin
  select id into v_team_one from public.first340_teams where name='Team 1';
@@ -75,6 +75,6 @@ begin
  select count(*) into v_total from public.first340_team_members;
  if v_total<>17 or (select count(*) from public.first340_team_members where team_id=v_team_one)<>16 or (select count(*) from public.first340_team_members where team_id=v_team_two)<>1 or (select count(*) from public.first340_team_members where application_id=(select id from public.first340_applications where profile_id='${app_a}'))<>1 or not exists(select 1 from public.first340_audit where application_id=(select id from public.first340_applications where profile_id='${app_a}') and previous_team_id=v_team_one and new_team_id=v_team_two) then raise exception 'Team switch failed capacity, single-assignment, or audit checks'; end if;
 end
-\$\$;
+\$pr50\$;
 SQL
 echo 'PASS: two-session capacity race and audited team switch'
