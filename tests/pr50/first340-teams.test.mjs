@@ -32,6 +32,9 @@ test('roster migration is transactional, guarded, fixed at 20 x 17 and does not 
   assert.match(rosterMigration, /generate_series\(1, 20\)/);
   assert.match(rosterMigration, /on conflict \(name\) do nothing/i);
   assert.match(rosterMigration, /group by team_id having count\(\*\) > 17/i);
+  assert.ok(rosterMigration.toLowerCase().includes('revoke insert, update, delete, truncate, references, trigger'));
+  assert.doesNotMatch(rosterMigration, /from (service_role|postgres)/i);
+  assert.doesNotMatch(rosterMigration, /from (service_role|postgres)/i);
   assert.doesNotMatch(rosterMigration, /delete from public\.first340_(teams|team_members|applications)/i);
 });
 

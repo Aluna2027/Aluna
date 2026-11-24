@@ -54,7 +54,7 @@ select
   'Team ' || team_number,
   'First 340 cohort team ' || team_number,
   17
-from generate_series(1, 20) as team_number
+from generate_series(1, 20) as team_numbers(team_number)
 on conflict (name) do nothing;
 
 do $$
@@ -73,5 +73,13 @@ begin
   end if;
 end
 $$;
+
+-- Team membership changes must go through the existing Super Admin SECURITY DEFINER RPC.
+-- Preserve SELECT for the application and roster views; remove unused direct mutation
+-- and object-management grants from client roles. service_role and postgres are unchanged.
+revoke insert, update, delete, truncate, references, trigger
+  on table public.first340_teams from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger
+  on table public.first340_team_members from anon, authenticated;
 
 commit;

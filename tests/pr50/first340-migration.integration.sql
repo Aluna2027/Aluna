@@ -214,11 +214,23 @@ reset role;
 
 
 -- The fixed roster is exactly 20 teams of 17, and schema constraints reject drift.
-do $
+do $$
 begin
   if (select count(*) from public.first340_teams)<>20 then raise exception 'Expected exactly 20 First 340 teams'; end if;
   if (select sum(capacity) from public.first340_teams)<>340 then raise exception 'Expected 340 total team places'; end if;
   if exists(select 1 from public.first340_teams where capacity<>17) then raise exception 'A team has a noncanonical capacity'; end if;
+  if not has_table_privilege('authenticated','public.first340_teams','SELECT')
+    or not has_table_privilege('authenticated','public.first340_team_members','SELECT') then
+    raise exception 'Authenticated roster reads were not preserved';
+  end if;
+  if has_table_privilege('anon','public.first340_teams','TRUNCATE')
+    or has_table_privilege('authenticated','public.first340_teams','TRUNCATE')
+    or has_table_privilege('anon','public.first340_team_members','TRUNCATE')
+    or has_table_privilege('authenticated','public.first340_team_members','TRUNCATE')
+    or has_table_privilege('authenticated','public.first340_teams','INSERT')
+    or has_table_privilege('authenticated','public.first340_team_members','INSERT') then
+    raise exception 'Client roles retain direct team mutation privileges';
+  end if;
   begin
     insert into public.first340_teams(name,capacity) values('Team 21',17);
     raise exception 'Expected fixed team-name constraint';
@@ -229,17 +241,17 @@ begin
     raise exception 'Expected fixed capacity constraint';
   exception when check_violation then null;
   end;
-end $;
+end $$;
 
 -- Seed and assignment behavior: only Super Admin can assign, and team capacity is enforced.
 insert into public.profiles(id,display_name)
-select gen_random_uuid(),'Capacity Applicant '||n from generate_series(1,18) n;
+select gen_random_uuid(),'Capacity Applicant '||n from generate_series(1,18) as numbers(n);
 insert into public.first340_applications(profile_id,status,submitted_at)
 select id,'submitted',now() from public.profiles where display_name like 'Capacity Applicant %';
 
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',false);
 set role authenticated;
-do $
+do $$
 declare
   v_team uuid;
   v_application uuid;
@@ -303,7 +315,7 @@ begin
     if sqlerrm='Expected unavailable team rejection' then raise; end if;
     if sqlerrm not like '%Team unavailable%' then raise; end if;
   end;
-end $;
+end $$;
 reset role;
 
 -- Anonymous users cannot execute applicant or Super Admin APIs.
